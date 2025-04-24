@@ -1,15 +1,9 @@
 
 import './App.css'
-import Inicio from './components/PantallaInicio'
+import PantallaInicio from "./components/PantallaInicio";
 
 function App() {
-
-  return (
-    <>
-    <h2>Hola</h2>
-    <PantallaInicio></PantallaInicio>
-    </>
-  )
+  return <PantallaInicio />;
 }
 
-export default App
+export default App;
