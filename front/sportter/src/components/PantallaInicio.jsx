@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import emailjs from '@emailjs/browser';
+import { useNavigate } from "react-router-dom";
 
 function PantallaInicio() {
   // Inicializar EmailJS
@@ -8,6 +9,7 @@ function PantallaInicio() {
     emailjs.init('xKNXufG7xDCs3-jUh');
   }, []);
 
+  const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     name: "",
@@ -399,7 +401,11 @@ function PantallaInicio() {
           }));
         }
       } else {
+        // Login exitoso - Redirigir a PantallaPrincipal
         console.log("Iniciando sesión...");
+        setTimeout(() => {
+          navigate('/principal', { state: { user: formData.email } });
+        }, 1000);
       }
     }
   };
@@ -767,14 +773,6 @@ function PantallaInicio() {
                               borderColor: errors.passwordConfirm ? errorColor : "#e2e8f0"
                             }}
                           />
-                          <motion.small 
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 0.7 }}
-                            className="d-block mt-1"
-                            style={{ color: "#4a5568" }}
-                          >
-                            Las contraseñas tienen que coincidir.
-                          </motion.small>
                           {errors.passwordConfirm && (
                             <motion.small 
                               initial={{ opacity: 0, y: -5 }}
@@ -947,10 +945,9 @@ function PantallaInicio() {
                               onClick={handleForgotPassword}
                               className="btn btn-link p-0"
                               style={{
-                                color: accentColor,
+                                color: "#5400ff",
                                 textDecoration: "none",
-                                fontSize: "0.8rem",
-                                fontWeight: "bold"
+                                fontSize: "0.8rem"
                               }}
                               whileHover={{ textDecoration: "underline" }}
                               whileTap={{ scale: 0.95 }}
