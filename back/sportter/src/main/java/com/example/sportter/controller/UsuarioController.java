@@ -31,4 +31,21 @@ public class UsuarioController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuario o contraseña incorrecta");
         }
     }
+    
+    
+    @PostMapping("/registro")
+    public ResponseEntity<?> registrarUsuario(@RequestBody Usuario usuario) {
+        try {
+            // Verificar si el correo ya existe
+            if (usuarioRepository.existsByCorreoElectronico(usuario.getCorreoElectronico())) {
+                return ResponseEntity.badRequest().body("El correo electrónico ya está en uso");
+            }
+            
+            // Guardar el usuario
+            Usuario nuevoUsuario = usuarioRepository.save(usuario);
+            return ResponseEntity.ok(nuevoUsuario);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Error al registrar el usuario");
+        }
+    }
 }
