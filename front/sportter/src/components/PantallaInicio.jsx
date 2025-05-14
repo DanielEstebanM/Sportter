@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import emailjs from '@emailjs/browser';
 import { useNavigate } from "react-router-dom";
+import { loginUser } from "../services/api";
 
 function PantallaInicio() {
   // Inicializar EmailJS
@@ -401,11 +402,48 @@ function PantallaInicio() {
           }));
         }
       } else {
-        // Login exitoso - Redirigir a PantallaPrincipal
-        console.log("Iniciando sesión...");
-        setTimeout(() => {
-          navigate('/principal', { state: { user: formData.email } });
-        }, 1000);
+        try {
+          // Llamada al servicio de login
+          const userData = await loginUser({
+              correoElectronico: formData.email,
+              contrasena: formData.password
+          });
+
+          console.log("Inicio de sesión exitoso:", userData);
+
+          // Guardar datos de usuario
+          localStorage.setItem('userData', JSON.stringify(userData));
+          
+          // Redirigir a la página principal
+          navigate('/principal', { 
+              state: { 
+                  user: userData,
+                  email: formData.email 
+              } 
+          });
+
+      } catch (error) {
+          console.error("Error en el login:", error);
+          
+          // Manejo específico de errores
+          if (error.response) {
+              // Error del servidor (4xx, 5xx)
+              setErrors({
+                  email: "Usuario o contraseña incorrectos",
+                  password: "Usuario o contraseña incorrectos"
+              });
+          } else if (error.request) {
+              // La solicitud fue hecha pero no hubo respuesta
+              setErrors({
+                  general: "Problema de conexión con el servidor"
+              });
+          } else {
+              // Error al configurar la solicitud
+              setErrors({
+                  general: "Error inesperado"
+              });
+          }
+        }
       }
     }
   };
