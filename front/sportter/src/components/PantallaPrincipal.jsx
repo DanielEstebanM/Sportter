@@ -19,6 +19,12 @@ function PantallaPrincipal() {
   const userEmail = userData?.correoElectronico;
   const userName = userData?.nombreUsuario;
 
+  useEffect(() => {
+    if (userData) {
+      localStorage.setItem('userDataMessages', JSON.stringify(userData));
+    }
+  }, [userData]);
+
   // Detectar si es móvil o tablet
   useEffect(() => {
     const handleResize = () => {
@@ -716,8 +722,8 @@ function PantallaPrincipal() {
             </svg>
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>{userName}</div>
-            <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>@{userEmail.split('@')[0]}</div>
+            <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>{userName.charAt(0).toUpperCase() + userName.slice(1)}</div>
+            <div style={{ color: lightTextColor, fontSize: "0.8rem", overflow: "hidden" }}>{userEmail}</div>
           </div>
           <motion.button
             whileHover={{ scale: 1.1 }}

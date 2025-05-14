@@ -1,18 +1,20 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
-import { filter } from "framer-motion/client";
 
 function PantallaMensajes() {
     const location = useLocation();
     const navigate = useNavigate();
-    const userEmail = location.state?.user || "usuario@ejemplo.com";
     const [activeTab, setActiveTab] = useState("mensajes");
     const [showLeftSidebar, setShowLeftSidebar] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
     const [newMessage, setNewMessage] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
+
+    const userData = JSON.parse(localStorage.getItem('userDataMessages'));
+    const userEmail = userData?.correoElectronico;
+    const userName = userData?.nombreUsuario;
 
     // Colores con tema anaranjado-rojizo
     const primaryColor = "#FF4500";
@@ -438,7 +440,7 @@ function PantallaMensajes() {
                         id: conv.messages.length + 1,
                         content: newMessage,
                         time: "Ahora",
-                        sender: "user",
+                        sender: "userName",
                         isUser: true
                     };
                     return {
@@ -541,7 +543,7 @@ function PantallaMensajes() {
                             document.body.style.overflow = "hidden"; // Bloquea el scroll durante la transición
                             setTimeout(() => {
                                 navigate('/principal', {
-                                    state: { user: userEmail },
+                                    state: { user: userData },
                                     replace: false
                                 });
                                 document.body.style.overflow = ""; // Restaura el scroll
@@ -761,8 +763,8 @@ function PantallaMensajes() {
                         </svg>
                     </div>
                     <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>{userEmail.split('@')[0]}</div>
-                        <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>@{userEmail.split('@')[0]}</div>
+                        <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>{userName?.charAt(0).toUpperCase() + userName?.slice(1)}</div>
+                        <div style={{ color: lightTextColor, fontSize: "0.8rem", overflow: "hidden" }}>{userEmail}</div>
                     </div>
                     <motion.button
                         whileHover={{ scale: 1.1 }}
@@ -1025,7 +1027,7 @@ function PantallaMensajes() {
                                                         fontSize: "0.8rem",
                                                         marginBottom: "0.25rem"
                                                     }}>
-                                                        {message.sender} · {message.time}
+                                                        {message.isUser ? userName : message.sender} · {message.time}
                                                     </div>
                                                 )}
                                                 <div style={{
