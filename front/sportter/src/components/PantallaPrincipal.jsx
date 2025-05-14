@@ -5,7 +5,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 function PantallaPrincipal() {
   const location = useLocation();
   const navigate = useNavigate();
-  const userEmail = location.state?.user || "usuario@ejemplo.com";
   const [activeTab, setActiveTab] = useState("inicio");
   const [showSportsMenu, setShowSportsMenu] = useState(false);
   const [selectedSport, setSelectedSport] = useState("general");
@@ -15,6 +14,10 @@ function PantallaPrincipal() {
   const [showLeftSidebar, setShowLeftSidebar] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [scrollY, setScrollY] = useState(0);
+
+  const userData = location.state?.user || JSON.parse(localStorage.getItem('userData'));
+  const userEmail = userData?.correoElectronico;
+  const userName = userData?.nombreUsuario;
 
   // Detectar si es móvil o tablet
   useEffect(() => {
@@ -214,7 +217,7 @@ function PantallaPrincipal() {
       const newPost = {
         id: posts.length + 1,
         user: userEmail.split('@')[0],
-        name: userEmail.split('@')[0],
+        name: userName,
         content: newPostContent,
         time: "ahora",
         likes: 0,
@@ -713,7 +716,7 @@ function PantallaPrincipal() {
             </svg>
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>{userEmail.split('@')[0]}</div>
+            <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>{userName}</div>
             <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>@{userEmail.split('@')[0]}</div>
           </div>
           <motion.button
