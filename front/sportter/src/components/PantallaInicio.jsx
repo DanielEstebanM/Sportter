@@ -2,9 +2,14 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import emailjs from '@emailjs/browser';
 import { useNavigate } from "react-router-dom";
+<<<<<<< Updated upstream
 import { loginUser } from "../services/api";
 import { linearGradient } from "framer-motion/client";
 import fondo from "../assets/jjj2.jpg";
+=======
+import { loginUser } from '../services/api';
+
+>>>>>>> Stashed changes
 
 function PantallaInicio() {
   // Inicializar EmailJS
@@ -404,6 +409,7 @@ function PantallaInicio() {
           }));
         }
       } else {
+<<<<<<< Updated upstream
         try {
           // Llamada al servicio de login
           const userData = await loginUser({
@@ -446,6 +452,22 @@ function PantallaInicio() {
               });
           }
         }
+=======
+        // Login exitoso - Redirigir a PantallaPrincipal
+        try {
+          const userData = await loginUser(formData.email, formData.password);
+          console.log("Inicio de sesión exitoso:", userData);
+      
+          // Si necesitas guardar info en localStorage o contexto, hazlo aquí
+          navigate('/principal', { state: { user: userData.email || formData.email } });
+        } catch (error) {
+          console.error("Error en el login:", error);
+          setErrors(prev => ({
+            ...prev,
+            email: "Usuario o contraseña incorrectos"
+          }));
+      }
+>>>>>>> Stashed changes
       }
     }
   };
