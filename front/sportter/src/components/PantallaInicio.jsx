@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 import { loginUser } from "../services/api";
 import { linearGradient } from "framer-motion/client";
 import fondo from "../assets/jjj2.jpg";
-import { loginUser } from '../services/api';
 
 
 function PantallaInicio() {
