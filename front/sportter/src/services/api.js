@@ -4,8 +4,8 @@ export const loginUser = async (credentials) => {
       const response = await axios.post(
         "http://localhost:8080/api/login",
         {
-            correoElectronico: credentials.email,  // ← Cambiado a guión bajo
-            contrasena: credentials.password
+            correoElectronico: credentials.correoElectronico,  // ← Cambiado a guión bajo
+            contrasena: credentials.contrasena
         },{
           headers: {
             "Content-Type": "application/json",

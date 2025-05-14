@@ -1,5 +1,6 @@
 package com.example.sportter.controller;
 
+import com.example.sportter.model.LoginRequest;
 import com.example.sportter.model.Usuario;
 import com.example.sportter.repository.UsuarioRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,14 +19,14 @@ public class UsuarioController {
     private UsuarioRepository usuarioRepository;
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Usuario loginRequest) {
-        Optional<Usuario> Usuario = usuarioRepository.findByCorreoElectronicoAndContrasena(
-            loginRequest.getCorreoElectronico(), 
+    public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
+        Optional<Usuario> usuario = usuarioRepository.findByCorreoElectronicoAndContrasena(
+            loginRequest.getCorreoElectronico(),
             loginRequest.getContrasena()
         );
 
-        if (Usuario.isPresent()) {
-            return ResponseEntity.ok(Usuario.get());
+        if (usuario.isPresent()) {
+            return ResponseEntity.ok(usuario.get());
         } else {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuario o contraseña incorrecta");
         }

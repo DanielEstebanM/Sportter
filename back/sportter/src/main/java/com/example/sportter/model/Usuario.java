@@ -12,12 +12,15 @@ public class Usuario {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
+    @JsonProperty("nombreUsuario")
     @Column(name = "nombre_usuario") // Cambiado de nombre.usuario a nombre_usuario
     private String nombreUsuario;
 
+    @JsonProperty("correoElectronico")
     @Column(name = "correo_electronico", unique = true)
     private String correoElectronico;
 
+    @JsonProperty("contrasena")
     @Column(name = "contrasena") // Añadida anotación @Column
     private String contrasena;
    
