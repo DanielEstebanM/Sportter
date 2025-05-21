@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback} from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
-import { filter } from "framer-motion/client";
+import { Tooltip as ReactTooltip } from 'react-tooltip';
+import 'react-tooltip/dist/react-tooltip.css';
 
 function PantallaMensajes() {
     const location = useLocation();
@@ -38,326 +39,6 @@ function PantallaMensajes() {
     const [conversations, setConversations] = useState([
         {
             id: 1,
-            user: "Frang2004",
-            username: "Franngf2004",
-            avatar: "",
-            lastMessage: "JSISISIS q estoy usando X como lienzo para el TFG",
-            time: "41s",
-            unread: true,
-            messages: [
-                {
-                    id: 1,
-                    content: "Sitgo pensando en ella",
-                    time: "17 sept. 2023 12:48 p. m.",
-                    sender: "Frang2004",
-                    isUser: false
-                },
-                {
-                    id: 2,
-                    content: "bus JAAJJAJA quien le diera a ese Fran cómo va a acabar",
-                    time: "23 sept. 2023 13:00 p. m.",
-                    sender: "user",
-                    isUser: true
-                },
-                {
-                    id: 3,
-                    content: "JSISISIS q estoy usando X como lienzo para el TFG",
-                    time: "11:04 a. m.",
-                    sender: "Frang2004",
-                    isUser: false
-                }
-            ]
-        },
-        {
-            id: 2,
-            user: "Frang2004",
-            username: "Franngf2004",
-            avatar: "",
-            lastMessage: "JSISISIS q estoy usando X como lienzo para el TFG",
-            time: "41s",
-            unread: true,
-            messages: [
-                {
-                    id: 1,
-                    content: "Sitgo pensando en ella",
-                    time: "17 sept. 2023 12:48 p. m.",
-                    sender: "Frang2004",
-                    isUser: false
-                },
-                {
-                    id: 2,
-                    content: "bus JAAJJAJA quien le diera a ese Fran cómo va a acabar",
-                    time: "23 sept. 2023 13:00 p. m.",
-                    sender: "user",
-                    isUser: true
-                },
-                {
-                    id: 3,
-                    content: "JSISISIS q estoy usando X como lienzo para el TFG",
-                    time: "11:04 a. m.",
-                    sender: "Frang2004",
-                    isUser: false
-                }
-            ]
-        },
-        {
-            id: 3,
-            user: "Frang2004",
-            username: "Franngf2004",
-            avatar: "",
-            lastMessage: "JSISISIS q estoy usando X como lienzo para el TFG",
-            time: "41s",
-            unread: true,
-            messages: [
-                {
-                    id: 1,
-                    content: "Sitgo pensando en ella",
-                    time: "17 sept. 2023 12:48 p. m.",
-                    sender: "Frang2004",
-                    isUser: false
-                },
-                {
-                    id: 2,
-                    content: "bus JAAJJAJA quien le diera a ese Fran cómo va a acabar",
-                    time: "23 sept. 2023 13:00 p. m.",
-                    sender: "user",
-                    isUser: true
-                },
-                {
-                    id: 3,
-                    content: "JSISISIS q estoy usando X como lienzo para el TFG",
-                    time: "11:04 a. m.",
-                    sender: "Frang2004",
-                    isUser: false
-                }
-            ]
-        },
-        {
-            id: 4,
-            user: "Frang2004",
-            username: "Franngf2004",
-            avatar: "",
-            lastMessage: "JSISISIS q estoy usando X como lienzo para el TFG",
-            time: "41s",
-            unread: true,
-            messages: [
-                {
-                    id: 1,
-                    content: "Sitgo pensando en ella",
-                    time: "17 sept. 2023 12:48 p. m.",
-                    sender: "Frang2004",
-                    isUser: false
-                },
-                {
-                    id: 2,
-                    content: "bus JAAJJAJA quien le diera a ese Fran cómo va a acabar",
-                    time: "23 sept. 2023 13:00 p. m.",
-                    sender: "user",
-                    isUser: true
-                },
-                {
-                    id: 3,
-                    content: "JSISISIS q estoy usando X como lienzo para el TFG",
-                    time: "11:04 a. m.",
-                    sender: "Frang2004",
-                    isUser: false
-                }
-            ]
-        },
-        {
-            id: 5,
-            user: "Frang2004",
-            username: "Franngf2004",
-            avatar: "",
-            lastMessage: "JSISISIS q estoy usando X como lienzo para el TFG",
-            time: "41s",
-            unread: true,
-            messages: [
-                {
-                    id: 1,
-                    content: "Sitgo pensando en ella",
-                    time: "17 sept. 2023 12:48 p. m.",
-                    sender: "Frang2004",
-                    isUser: false
-                },
-                {
-                    id: 2,
-                    content: "bus JAAJJAJA quien le diera a ese Fran cómo va a acabar",
-                    time: "23 sept. 2023 13:00 p. m.",
-                    sender: "user",
-                    isUser: true
-                },
-                {
-                    id: 3,
-                    content: "JSISISIS q estoy usando X como lienzo para el TFG",
-                    time: "11:04 a. m.",
-                    sender: "Frang2004",
-                    isUser: false
-                }
-            ]
-        },
-        {
-            id: 6,
-            user: "Frang2004",
-            username: "Franngf2004",
-            avatar: "",
-            lastMessage: "JSISISIS q estoy usando X como lienzo para el TFG",
-            time: "41s",
-            unread: true,
-            messages: [
-                {
-                    id: 1,
-                    content: "Sitgo pensando en ella",
-                    time: "17 sept. 2023 12:48 p. m.",
-                    sender: "Frang2004",
-                    isUser: false
-                },
-                {
-                    id: 2,
-                    content: "bus JAAJJAJA quien le diera a ese Fran cómo va a acabar",
-                    time: "23 sept. 2023 13:00 p. m.",
-                    sender: "user",
-                    isUser: true
-                },
-                {
-                    id: 3,
-                    content: "JSISISIS q estoy usando X como lienzo para el TFG",
-                    time: "11:04 a. m.",
-                    sender: "Frang2004",
-                    isUser: false
-                }
-            ]
-        },
-        {
-            id: 7,
-            user: "Frang2004",
-            username: "Franngf2004",
-            avatar: "",
-            lastMessage: "JSISISIS q estoy usando X como lienzo para el TFG",
-            time: "41s",
-            unread: true,
-            messages: [
-                {
-                    id: 1,
-                    content: "Sitgo pensando en ella",
-                    time: "17 sept. 2023 12:48 p. m.",
-                    sender: "Frang2004",
-                    isUser: false
-                },
-                {
-                    id: 2,
-                    content: "bus JAAJJAJA quien le diera a ese Fran cómo va a acabar",
-                    time: "23 sept. 2023 13:00 p. m.",
-                    sender: "user",
-                    isUser: true
-                },
-                {
-                    id: 3,
-                    content: "JSISISIS q estoy usando X como lienzo para el TFG",
-                    time: "11:04 a. m.",
-                    sender: "Frang2004",
-                    isUser: false
-                }
-            ]
-        },
-        {
-            id: 8,
-            user: "Frang2004",
-            username: "Franngf2004",
-            avatar: "",
-            lastMessage: "JSISISIS q estoy usando X como lienzo para el TFG",
-            time: "41s",
-            unread: true,
-            messages: [
-                {
-                    id: 1,
-                    content: "Sitgo pensando en ella",
-                    time: "17 sept. 2023 12:48 p. m.",
-                    sender: "Frang2004",
-                    isUser: false
-                },
-                {
-                    id: 2,
-                    content: "bus JAAJJAJA quien le diera a ese Fran cómo va a acabar",
-                    time: "23 sept. 2023 13:00 p. m.",
-                    sender: "user",
-                    isUser: true
-                },
-                {
-                    id: 3,
-                    content: "JSISISIS q estoy usando X como lienzo para el TFG",
-                    time: "11:04 a. m.",
-                    sender: "Frang2004",
-                    isUser: false
-                }
-            ]
-        },
-        {
-            id: 9,
-            user: "Frang2004",
-            username: "Franngf2004",
-            avatar: "",
-            lastMessage: "JSISISIS q estoy usando X como lienzo para el TFG",
-            time: "41s",
-            unread: true,
-            messages: [
-                {
-                    id: 1,
-                    content: "Sitgo pensando en ella",
-                    time: "17 sept. 2023 12:48 p. m.",
-                    sender: "Frang2004",
-                    isUser: false
-                },
-                {
-                    id: 2,
-                    content: "bus JAAJJAJA quien le diera a ese Fran cómo va a acabar",
-                    time: "23 sept. 2023 13:00 p. m.",
-                    sender: "user",
-                    isUser: true
-                },
-                {
-                    id: 3,
-                    content: "JSISISIS q estoy usando X como lienzo para el TFG",
-                    time: "11:04 a. m.",
-                    sender: "Frang2004",
-                    isUser: false
-                }
-            ]
-        },
-        {
-            id: 10,
-            user: "Frang2004",
-            username: "Franngf2004",
-            avatar: "",
-            lastMessage: "JSISISIS q estoy usando X como lienzo para el TFG",
-            time: "41s",
-            unread: true,
-            messages: [
-                {
-                    id: 1,
-                    content: "Sitgo pensando en ella",
-                    time: "17 sept. 2023 12:48 p. m.",
-                    sender: "Frang2004",
-                    isUser: false
-                },
-                {
-                    id: 2,
-                    content: "bus JAAJJAJA quien le diera a ese Fran cómo va a acabar",
-                    time: "23 sept. 2023 13:00 p. m.",
-                    sender: "user",
-                    isUser: true
-                },
-                {
-                    id: 3,
-                    content: "JSISISIS q estoy usando X como lienzo para el TFG",
-                    time: "11:04 a. m.",
-                    sender: "Frang2004",
-                    isUser: false
-                }
-            ]
-        },
-        {
-            id: 11,
             user: "Frang2004",
             username: "Franngf2004",
             avatar: "",
@@ -428,53 +109,19 @@ function PantallaMensajes() {
 
     // Detectar si es móvil o tablet
     useEffect(() => {
-        const fetchConversations = async () => {
-            ///const [conversations, setConversations] = useState([]);
-            try {
-                const response = await axios.get('/api/conversaciones');
-                setConversations(response.data);
-                setLoading(false);
-            } catch (error) {
-                console.error("Error fetching conversations:", error);
-                setLoading(false);
+        const handleResize = () => {
+            const mobile = window.innerWidth < 1024;
+            setIsMobile(mobile);
+            if (!mobile) {
+                setShowLeftSidebar(true);
             }
         };
-
-        fetchConversations();
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Manejar nuevos mensajes recibidos via WebSocket
-    const handleNewMessage = useCallback((newMessage) => {
-        setConversations(prev => prev.map(conv => {
-            if (conv.id === newMessage.conversacionId) {
-                return {
-                    ...conv,
-                    messages: [...conv.messages, newMessage],
-                    lastMessage: newMessage.content,
-                    time: new Date(newMessage.timestamp).toLocaleTimeString(), // <-- Corregido
-                    unread: true
-                };
-            }
-            return conv;
-        }));
-    }, []);
-
-    // Conexión WebSocket
-    const { sendMessage } = useWebSocket(handleNewMessage, selectedUser?.id);
-
-    // Manejar selección de conversación
-    const handleSelectConversation = (conversation) => {
-        setSelectedUser(conversation);
-        // Marcar como leída si es necesario
-        if (conversation.unread) {
-            setConversations(prev => prev.map(conv => 
-                conv.id === conversation.id ? { ...conv, unread: false } : conv
-            ));
-        }
-    };
-
-    // Enviar mensaje
-    const handleSendMessage = async (e) => {
+    const handleSendMessage = (e) => {
         e.preventDefault();
         if (newMessage.trim() && selectedUser) {
             const updatedConversations = conversations.map(conv => {
@@ -483,7 +130,7 @@ function PantallaMensajes() {
                         id: conv.messages.length + 1,
                         content: newMessage,
                         time: "Ahora",
-                        sender: "user",
+                        sender: userName || "user",
                         isUser: true
                     };
                     return {
@@ -499,19 +146,45 @@ function PantallaMensajes() {
             setNewMessage("");
         }
     };
-    
 
-    // Actualiza currentConversationId al seleccionar un chat
-    const handleSelectUser = (conversation) => {
-        setSelectedUser(conversation);
-        setCurrentConversationId(conversation.id);
+    const handleLogout = () => {
+        navigate('/');
     };
 
     const filteredConversations = searchQuery
-    ? conversations.filter(conv =>
-        conv.user.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        conv.username.toLowerCase().includes(searchQuery.toLowerCase()))
-    : conversations;
+        ? conversations.filter(conv =>
+            conv.user.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            conv.username.toLowerCase().includes(searchQuery.toLowerCase()))
+        : conversations;
+
+    // Filtrar usuarios disponibles (excluyendo los que ya están en conversaciones)
+    const filteredAvailableUsers = userSearchQuery
+        ? availableUsers.filter(user =>
+            !conversations.some(conv => conv.id === user.id) && (
+                user.user.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                user.username.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                user.email.toLowerCase().includes(userSearchQuery.toLowerCase())
+            )
+        )
+        : [];
+
+    const addNewConversation = (user) => {
+        const newConversation = {
+            id: user.id,
+            user: user.user,
+            username: user.username,
+            avatar: "",
+            lastMessage: "",
+            time: "Ahora",
+            unread: false,
+            messages: []
+        };
+
+        setConversations([newConversation, ...conversations]);
+        setSelectedUser(newConversation);
+        setShowAddUserPopup(false);
+        setUserSearchQuery("");
+    };
 
     return (
         <div style={{
