@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
+import { Tooltip as ReactTooltip } from 'react-tooltip';
+import 'react-tooltip/dist/react-tooltip.css';
 
 function PantallaPrincipal() {
   const location = useLocation();
@@ -428,7 +430,7 @@ function PantallaPrincipal() {
         </div>
       )}
 
-      {/* Barra lateral izquierda - ahora flotante */}
+      {/* Barra lateral izquierda */}
       <motion.div
         initial={{ x: isMobile ? -250 : 0 }}
         animate={{ x: showLeftSidebar ? 0 : (isMobile ? -250 : 0) }}
@@ -519,6 +521,16 @@ function PantallaPrincipal() {
             onClick={() => {
               setActiveTab("explorar");
               isMobile && setShowLeftSidebar(false);
+
+              // Efecto de transición
+              document.body.style.overflow = "hidden"; // Bloquea el scroll durante la transición
+              setTimeout(() => {
+                navigate('/equipos', {
+                  state: { user: userEmail },
+                  replace: false
+                });
+                document.body.style.overflow = ""; // Restaura el scroll
+              }, 300);
             }}
           >
             <motion.div
@@ -557,6 +569,16 @@ function PantallaPrincipal() {
             onClick={() => {
               setActiveTab("eventos");
               isMobile && setShowLeftSidebar(false);
+
+              // Efecto de transición
+              document.body.style.overflow = "hidden"; // Bloquea el scroll durante la transición
+              setTimeout(() => {
+                navigate('/eventos', {
+                  state: { user: userEmail },
+                  replace: false
+                });
+                document.body.style.overflow = ""; // Restaura el scroll
+              }, 300);
             }}
           >
             <motion.div
@@ -644,6 +666,16 @@ function PantallaPrincipal() {
             onClick={() => {
               setActiveTab("perfil");
               isMobile && setShowLeftSidebar(false);
+
+              // Efecto de transición
+              document.body.style.overflow = "hidden"; // Bloquea el scroll durante la transición
+              setTimeout(() => {
+                navigate('/perfil', {
+                  state: { user: userEmail },
+                  replace: false
+                });
+                document.body.style.overflow = ""; // Restaura el scroll
+              }, 300);
             }}
           >
             <motion.div
@@ -723,7 +755,22 @@ function PantallaPrincipal() {
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>{userName.charAt(0).toUpperCase() + userName.slice(1)}</div>
-            <div style={{ color: lightTextColor, fontSize: "0.8rem", overflow: "hidden" }}>{userEmail}</div>
+            <div
+              data-tooltip-id="tooltip-email"
+              data-tooltip-content={userEmail}
+              style={{
+                maxWidth: "100px",
+                overflow: "hidden",
+                whiteSpace: "nowrap",
+                textOverflow: "ellipsis",
+                cursor: "pointer"
+              }}
+            >
+              {userEmail}
+            </div>
+            <ReactTooltip id="tooltip-email" place="bottom" style={{
+              backgroundColor: "rgba(204, 112, 0, 0.27)", maxWidth: "244px", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
+            }} />
           </div>
           <motion.button
             whileHover={{ scale: 1.1 }}

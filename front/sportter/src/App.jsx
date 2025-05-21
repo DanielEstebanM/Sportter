@@ -4,6 +4,9 @@ import AnimatedRoutes from './AnimatedRoutes';
 import PantallaInicio from "./components/PantallaInicio";
 import PantallaPrincipal from "./components/PantallaPrincipal";
 import PantallaMensajes from './components/PantallaMensajes';
+import PantallaEquipos from './components/PantallaEquipos';
+import PantallaEventos from './components/PantallaEventos';
+import PantallaPerfil from './components/PantallaPerfil';
 
 function App() {
   return (
@@ -13,6 +16,9 @@ function App() {
           <Route path="/" element={<PantallaInicio />} />
           <Route path="/principal" element={<PantallaPrincipal />} />
           <Route path="/mensajes" element={<PantallaMensajes />} />
+          <Route path="/equipos" element={<PantallaEquipos />} />
+          <Route path="/eventos" element={<PantallaEventos />} />
+          <Route path="/perfil" element={<PantallaPerfil />} />
         </Routes>
       </AnimatedRoutes>
     </Router>
