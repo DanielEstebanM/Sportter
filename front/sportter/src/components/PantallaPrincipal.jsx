@@ -233,7 +233,11 @@ function PantallaPrincipal() {
   };
 
   const handleLogout = () => {
-    navigate('/');
+    // 1. Limpiar datos de autenticación
+    localStorage.removeItem("userData");
+    
+    // 2. Redirigir al login (con replace para evitar volver atrás)
+    navigate("/", { replace: true });
   };
 
   const handleSportSelect = (sport) => {

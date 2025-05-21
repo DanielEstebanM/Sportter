@@ -7,7 +7,7 @@ import { linearGradient } from "framer-motion/client";
 import fondo from "../assets/jjj2.jpg";
 import { registerUser } from "../services/api";
 
-function PantallaInicio() {
+function PantallaInicio() { 
   // Inicializar EmailJS
   useEffect(() => {
     emailjs.init("xKNXufG7xDCs3-jUh");
@@ -102,6 +102,14 @@ function PantallaInicio() {
     visible: { opacity: 1, y: 0 },
   };
 
+   // Verificar si el usuario ya está logueado
+  useEffect(() => {
+    const userData = JSON.parse(localStorage.getItem("userData") || 'null');
+    if (userData) {
+      navigate('/principal', { replace: true });
+    }
+  }, [navigate]);
+  
   const isFormValid = () => {
     if (forgotPassword) {
       if (passwordResetStep === 1) {
@@ -442,16 +450,23 @@ function PantallaInicio() {
 
           console.log("Inicio de sesión exitoso:", userData);
 
-          // Guardar datos de usuario
-          localStorage.setItem("userData", JSON.stringify(userData));
+          // 1. Guardar datos de usuario en localStorage
+        localStorage.setItem("userData", JSON.stringify({
+          ...userData,
+          // Asegurar que los datos críticos estén presentes
+          correoElectronico: formData.email,
+          timestamp: new Date().getTime() // Para manejar expiración
+        }));
 
-          // Redirigir a la página principal
-          navigate("/principal", {
-            state: {
-              user: userData,
-              email: formData.email,
-            },
-          });
+        // 2. Redirigir a la ruta solicitada originalmente o a /principal por defecto
+        const redirectTo = location.state?.from?.pathname || "/principal";
+        
+        navigate(redirectTo, {
+          state: {
+            user: userData // Envía todos los datos del usuario
+          },
+          replace: true // Evita que el usuario vuelva al login con el botón "atrás"
+        });
         } catch (error) {
           console.error("Error en el login:", error);
 
