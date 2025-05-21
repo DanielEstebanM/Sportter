@@ -446,6 +446,7 @@ function PantallaInicio() {
           const userData = await loginUser({
             correoElectronico: formData.email,
             contrasena: formData.password,
+            nombreUsuario: formData.name
           });
 
           console.log("Inicio de sesión exitoso:", userData);
