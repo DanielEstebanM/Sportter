@@ -9,7 +9,7 @@ function PantallaPrincipal() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("inicio");
   const [showSportsMenu, setShowSportsMenu] = useState(false);
-  const [selectedSport, setSelectedSport] = useState("general");
+  const [selectedSport, setSelectedSport] = useState("General");
   const [showPostModal, setShowPostModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showRightSidebar, setShowRightSidebar] = useState(false);
@@ -20,6 +20,22 @@ function PantallaPrincipal() {
   const userData = location.state?.user || JSON.parse(localStorage.getItem('userData'));
   const userEmail = userData?.correoElectronico;
   const userName = userData?.nombreUsuario;
+
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareSearchQuery, setShareSearchQuery] = useState("");
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [currentSharedPost, setCurrentSharedPost] = useState(null);
+  const [modalSelectedSport, setModalSelectedSport] = useState("General");
+  const [showModalSportsMenu, setShowModalSportsMenu] = useState(false);
+
+  // Datos de ejemplo para usuarios
+  const [users, setUsers] = useState([
+    { id: 1, name: "Usuario1", email: "usuario1@example.com" },
+    { id: 2, name: "Usuario2", email: "usuario2@example.com" },
+    { id: 3, name: "Usuario3", email: "usuario3@example.com" },
+    { id: 4, name: "Usuario4", email: "usuario4@example.com" },
+    { id: 5, name: "Usuario5", email: "usuario5@example.com" },
+  ]);
 
   useEffect(() => {
     if (userData) {
@@ -76,6 +92,47 @@ function PantallaPrincipal() {
   const lightTextColor = "#a0a0a0";
   const borderColor = "#2d2d2d";
 
+  // Función para manejar el compartir publicación
+  const handleShare = (postId) => {
+    setCurrentSharedPost(posts.find(post => post.id === postId));
+    setShowShareModal(true);
+    setSelectedUsers([]);
+  };
+
+  // Función para enviar la publicación compartida
+  const handleSendShare = () => {
+    if (selectedUsers.length === 0 || !currentSharedPost) return;
+
+    // Aquí iría la lógica para enviar la publicación a los usuarios seleccionados
+    console.log(`Compartiendo publicación ${currentSharedPost.id} con usuarios:`, selectedUsers);
+
+    // Actualizar el contador de shares
+    setPosts(posts.map(post => {
+      if (post.id === currentSharedPost.id) {
+        return {
+          ...post,
+          shares: post.shares + selectedUsers.length
+        };
+      }
+      return post;
+    }));
+
+    setShowShareModal(false);
+    setCurrentSharedPost(null);
+    setSelectedUsers([]);
+  };
+
+  // Función para alternar la selección de usuarios
+  const toggleUserSelection = (user) => {
+    setSelectedUsers(prev => {
+      if (prev.some(u => u.id === user.id)) {
+        return prev.filter(u => u.id !== user.id);
+      } else {
+        return [...prev, user];
+      }
+    });
+  };
+
   // Datos de ejemplo para los posts
   const [posts, setPosts] = useState([
     {
@@ -88,7 +145,7 @@ function PantallaPrincipal() {
       comments: 5,
       shares: 3,
       isLiked: false,
-      sport: "general"
+      sport: "General"
     },
     {
       id: 2,
@@ -100,7 +157,7 @@ function PantallaPrincipal() {
       comments: 12,
       shares: 8,
       isLiked: true,
-      sport: "general"
+      sport: "General"
     },
     {
       id: 3,
@@ -112,31 +169,31 @@ function PantallaPrincipal() {
       comments: 15,
       shares: 20,
       isLiked: false,
-      sport: "general"
+      sport: "General"
     },
     {
       id: 4,
       user: "futbolista22",
       name: "Luis Fernández",
-      content: "Gran partido hoy con el equipo. ¡Goleada 4-0! ⚽ #fútbol #victoria",
+      content: "Gran partido hoy con el equipo. ¡Goleada 4-0! ⚽ #Fútbol #victoria",
       time: "3h",
       likes: 45,
       comments: 8,
       shares: 5,
       isLiked: false,
-      sport: "fútbol"
+      sport: "Fútbol"
     },
     {
       id: 5,
       user: "basquetbolista",
       name: "Ana Martínez",
-      content: "Entrenamiento de tiros libres hoy. ¡100/100! 🏀 #baloncesto #entrenamiento",
+      content: "Entrenamiento de tiros libres hoy. ¡100/100! 🏀 #Baloncesto #entrenamiento",
       time: "6h",
       likes: 78,
       comments: 14,
       shares: 9,
       isLiked: true,
-      sport: "baloncesto"
+      sport: "Baloncesto"
     },
     {
       id: 6,
@@ -148,16 +205,45 @@ function PantallaPrincipal() {
       comments: 6,
       shares: 4,
       isLiked: false,
-      sport: "volleyball"
+      sport: "Volleyball"
     }
   ]);
 
   const [newPostContent, setNewPostContent] = useState("");
 
+  const analyzeTrends = () => {
+    const hashtagCounts = {};
+
+    // Analizar todos los posts para contar hashtags por deporte
+    posts.forEach(post => {
+      const hashtags = post.content.match(/#\w+/g) || [];
+      hashtags.forEach(tag => {
+        const key = `${post.sport.toLowerCase()}_${tag.toLowerCase()}`;
+        hashtagCounts[key] = (hashtagCounts[key] || 0) + 1;
+      });
+    });
+
+    // Agrupar por deporte y seleccionar solo el hashtag más popular por deporte
+    const trendsBySport = {};
+    Object.keys(hashtagCounts).forEach(key => {
+      const [sport, tag] = key.split('_');
+      if (!trendsBySport[sport] || hashtagCounts[key] > trendsBySport[sport].count) {
+        trendsBySport[sport] = {
+          tag,
+          count: hashtagCounts[key]
+        };
+      }
+    });
+
+    return trendsBySport;
+  };
+
+  const trends = analyzeTrends();
+
   // Componentes para los iconos de deporte
   const SportIcon = ({ sport, ...props }) => {
     const icons = {
-      "general": (
+      "General": (
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" {...props}>
           <g
             fill="none"
@@ -173,38 +259,38 @@ function PantallaPrincipal() {
           </g>
         </svg>
       ),
-      "fútbol": (
+      "Fútbol": (
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" {...props}>
           <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2m1 3.3l1.35-.95a8 8 0 0 1 4.38 3.34l-.39 1.34l-1.35.46L13 6.7zm-3.35-.95L11 5.3v1.4L7.01 9.49l-1.35-.46l-.39-1.34a8.1 8.1 0 0 1 4.38-3.34M7.08 17.11l-1.14.1A7.94 7.94 0 0 1 4 12c0-.12.01-.23.02-.35l1-.73l1.38.48l1.46 4.34zm7.42 2.48c-.79.26-1.63.41-2.5.41s-1.71-.15-2.5-.41l-.69-1.49l.64-1.1h5.11l.64 1.11zM14.27 15H9.73l-1.35-4.02L12 8.44l3.63 2.54zm3.79 2.21l-1.14-.1l-.79-1.37l1.46-4.34l1.39-.47l1 .73c.01.11.02.22.02.34c0 1.99-.73 3.81-1.94 5.21" />
         </svg>
       ),
-      "baloncesto": (
+      "Baloncesto": (
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" {...props}>
           <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2M5.23 7.75C6.1 8.62 6.7 9.74 6.91 11H4.07a8.1 8.1 0 0 1 1.16-3.25M4.07 13h2.84a5.97 5.97 0 0 1-1.68 3.25A8.1 8.1 0 0 1 4.07 13M11 19.93c-1.73-.22-3.29-1-4.49-2.14A7.95 7.95 0 0 0 8.93 13H11zM11 11H8.93A8 8 0 0 0 6.5 6.2A8.04 8.04 0 0 1 11 4.07zm8.93 0h-2.84c.21-1.26.81-2.38 1.68-3.25c.6.97 1.01 2.07 1.16 3.25M13 4.07c1.73.22 3.29.99 4.5 2.13a8 8 0 0 0-2.43 4.8H13zm0 15.86V13h2.07a8 8 0 0 0 2.42 4.79A8 8 0 0 1 13 19.93m5.77-3.68A6 6 0 0 1 17.09 13h2.84a8.1 8.1 0 0 1-1.16 3.25" />
         </svg>
       ),
-      "volleyball": (
+      "Volleyball": (
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" {...props}>
           <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2m1 2.07c3.07.38 5.57 2.52 6.54 5.36L13 5.65zM8 5.08c1.18-.69 3.33-1.06 3-1.02v7.35l-3 1.73zM4.63 15.1c-.4-.96-.63-2-.63-3.1c0-2.02.76-3.86 2-5.27v7.58zm1.01 1.73L12 13.15l3 1.73l-6.98 4.03a7.8 7.8 0 0 1-2.38-2.08M12 20c-.54 0-1.07-.06-1.58-.16l6.58-3.8l1.36.78C16.9 18.75 14.6 20 12 20m1-8.58V7.96l7 4.05c0 1.1-.23 2.14-.63 3.09z" />
         </svg>
       ),
-      "tenis": (
+      "Tenis": (
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" {...props}>
           <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2M5.61 16.78C4.6 15.45 4 13.8 4 12s.6-3.45 1.61-4.78a5.975 5.975 0 0 1 0 9.56M12 20c-1.89 0-3.63-.66-5-1.76c1.83-1.47 3-3.71 3-6.24S8.83 7.23 7 5.76C8.37 4.66 10.11 4 12 4s3.63.66 5 1.76c-1.83 1.47-3 3.71-3 6.24s1.17 4.77 3 6.24A7.96 7.96 0 0 1 12 20m6.39-3.22a5.975 5.975 0 0 1 0-9.56C19.4 8.55 20 10.2 20 12s-.6 3.45-1.61 4.78" />
         </svg>
       ),
-      "ciclismo": (
+      "Ciclismo": (
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" {...props}>
           <path fill="currentColor" d="M15.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2s-2 .9-2 2s.9 2 2 2M5 12c-2.8 0-5 2.2-5 5s2.2 5 5 5s5-2.2 5-5s-2.2-5-5-5m0 8.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5s3.5 1.6 3.5 3.5s-1.6 3.5-3.5 3.5m5.8-10l2.4-2.4l.8.8c1.06 1.06 2.38 1.78 3.96 2.02c.6.09 1.14-.39 1.14-1c0-.49-.37-.91-.85-.99c-1.11-.18-2.02-.71-2.75-1.43l-1.9-1.9c-.5-.4-1-.6-1.6-.6s-1.1.2-1.4.6L7.8 8.4c-.4.4-.6.9-.6 1.4c0 .6.2 1.1.6 1.4L11 14v4c0 .55.45 1 1 1s1-.45 1-1v-4.4c0-.52-.2-1.01-.55-1.38zM19 12c-2.8 0-5 2.2-5 5s2.2 5 5 5s5-2.2 5-5s-2.2-5-5-5m0 8.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5s3.5 1.6 3.5 3.5s-1.6 3.5-3.5 3.5" />
         </svg>
       )
     };
 
-    return icons[sport] || icons.general;
+    return icons[sport] || icons.General;
   };
 
   // Deportes disponibles
-  const availableSports = ["general", "fútbol", "baloncesto", "volleyball", "tenis", "ciclismo"];
+  const availableSports = ["General", "Fútbol", "Baloncesto", "Volleyball", "Tenis", "Ciclismo"];
 
   const handleLike = (postId) => {
     setPosts(posts.map(post => {
@@ -221,7 +307,7 @@ function PantallaPrincipal() {
 
   const handlePostSubmit = (e) => {
     e.preventDefault();
-    if (newPostContent.trim()) {
+    if (newPostContent.trim() && modalSelectedSport) {
       const newPost = {
         id: posts.length + 1,
         user: userEmail.split('@')[0],
@@ -232,18 +318,19 @@ function PantallaPrincipal() {
         comments: 0,
         shares: 0,
         isLiked: false,
-        sport: selectedSport
+        sport: modalSelectedSport
       };
       setPosts([newPost, ...posts]);
       setNewPostContent("");
       setShowPostModal(false);
+      setModalSelectedSport("General"); // Resetear a General
     }
   };
 
   const handleLogout = () => {
     // 1. Limpiar datos de autenticación
     localStorage.removeItem("userData");
-    
+
     // 2. Redirigir al login (con replace para evitar volver atrás)
     navigate("/", { replace: true });
   };
@@ -253,9 +340,19 @@ function PantallaPrincipal() {
     setShowSportsMenu(false);
   };
 
-  const filteredPosts = selectedSport === "general"
-    ? posts
-    : posts.filter(post => post.sport === selectedSport);
+  const filteredPosts = selectedSport === "General"
+    ? posts.filter(post =>
+      post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      post.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      post.user.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    : posts.filter(post =>
+      post.sport === selectedSport && (
+        post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        post.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        post.user.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    );
 
   return (
     <div style={{
@@ -267,6 +364,181 @@ function PantallaPrincipal() {
       overflowX: "hidden",
       position: "relative"
     }}>
+      {/* Modal para compartir publicación */}
+      {showShareModal && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0,0,0,0.7)",
+          backdropFilter: "blur(5px)",
+          zIndex: 100,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center"
+        }}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            style={{
+              backgroundColor: cardColor,
+              borderRadius: "16px",
+              padding: "1.5rem",
+              width: "90%",
+              maxWidth: "500px",
+              border: `1px solid ${borderColor}`
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+              <h3 style={{ margin: 0 }}>Compartir publicación</h3>
+              <button
+                onClick={() => setShowShareModal(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: textColor,
+                  cursor: "pointer",
+                  fontSize: "1.5rem"
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ marginBottom: "1rem" }}>
+              <div style={{
+                position: "relative",
+                marginBottom: "1rem"
+              }}>
+                <input
+                  type="text"
+                  placeholder="Buscar usuarios..."
+                  value={shareSearchQuery}
+                  onChange={(e) => setShareSearchQuery(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem 1rem 0.75rem 2.5rem",
+                    borderRadius: "50px",
+                    border: `1px solid ${borderColor}`,
+                    backgroundColor: backgroundColor,
+                    color: textColor,
+                    outline: "none",
+                    fontSize: "0.9rem"
+                  }}
+                />
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  style={{
+                    position: "absolute",
+                    left: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: lightTextColor
+                  }}
+                >
+                  <path d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3C5.91 3 3 5.91 3 9.5C3 13.09 5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5C5 7.01 7.01 5 9.5 5C11.99 5 14 7.01 14 9.5C14 11.99 11.99 14 9.5 14Z" fill="currentColor" />
+                </svg>
+              </div>
+
+              <div style={{
+                maxHeight: "300px",
+                overflowY: "auto",
+                border: `1px solid ${borderColor}`,
+                borderRadius: "8px",
+                padding: "0.5rem",
+                scrollbarWidth: "thin",
+                scrollbarColor: `${lightTextColor} ${backgroundColor}`,
+                '&::-webkit-scrollbar': {
+                  width: "8px"
+                },
+                '&::-webkit-scrollbar-track': {
+                  background: backgroundColor
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  backgroundColor: lightTextColor,
+                  borderRadius: "10px",
+                  border: `2px solid ${backgroundColor}`
+                }
+              }}>
+                {users
+                  .filter(user =>
+                    user.name.toLowerCase().includes(shareSearchQuery.toLowerCase()) ||
+                    user.email.toLowerCase().includes(shareSearchQuery.toLowerCase())
+                  )
+                  .map(user => (
+                    <div key={user.id} style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "0.5rem",
+                      borderRadius: "4px",
+                      backgroundColor: selectedUsers.some(u => u.id === user.id) ? "rgba(255, 112, 67, 0.2)" : "transparent",
+                      marginBottom: "0.5rem",
+                      cursor: "pointer"
+                    }} onClick={() => toggleUserSelection(user)}>
+                      <div style={{ display: "flex", alignItems: "center" }}>
+                        <div style={{
+                          width: "40px",
+                          height: "40px",
+                          borderRadius: "50%",
+                          background: primaryColor,
+                          marginRight: "0.5rem",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "white"
+                        }}>
+                          {user.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: "bold" }}>{user.name}</div>
+                          <div style={{ fontSize: "0.8rem", color: lightTextColor }}>{user.email}</div>
+                        </div>
+                      </div>
+                      {selectedUsers.some(u => u.id === user.id) && (
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M9 16.17L4.83 12L3.41 13.41L9 19L21 7L19.59 5.59L9 16.17Z" fill={accentColor} />
+                        </svg>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            <div style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              paddingTop: "1rem"
+            }}>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleSendShare}
+                style={{
+                  background: selectedUsers.length > 0 ? primaryColor : "rgba(255, 69, 0, 0.5)",
+                  color: "white",
+                  borderRadius: "30px",
+                  border: "none",
+                  padding: "8px 24px",
+                  cursor: selectedUsers.length > 0 ? "pointer" : "not-allowed",
+                  fontWeight: "bold",
+                  fontSize: "1rem"
+                }}
+                disabled={selectedUsers.length === 0}
+              >
+                Enviar ({selectedUsers.length})
+              </motion.button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {/* Efecto de desenfoque cuando el modal está abierto */}
       {showPostModal && (
         <div style={{
@@ -294,16 +566,108 @@ function PantallaPrincipal() {
               border: `1px solid ${borderColor}`
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-              <h3 style={{ margin: 0 }}>Crear publicación</h3>
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "1rem",
+              position: "relative"
+            }}>
+
+              <h3 style={{ margin: 0, marginLeft: "1rem", flex: 1, textAlign: "left" }}>Crear publicación</h3>
+
+              {/* Selector de deportes en el modal */}
+              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  style={{
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "50%",
+                    background: primaryColor,
+                    border: "none",
+                    cursor: "pointer",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    padding: 0,
+                    marginRight: "0.5rem"
+                  }}
+                  onClick={() => setShowModalSportsMenu(!showModalSportsMenu)}
+                >
+                  <SportIcon sport={modalSelectedSport} style={{ width: "24px", height: "24px", color: "white" }} />
+                </motion.button>
+
+                {/* Menú desplegable de deportes - solo iconos */}
+                {showModalSportsMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    style={{
+                      position: "absolute",
+                      top: "50px",
+                      left: 0,
+                      backgroundColor: cardColor,
+                      borderRadius: "12px",
+                      padding: "0.5rem",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                      zIndex: 20,
+                      width: "auto",
+                      border: `1px solid ${borderColor}`,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "0.5rem"
+                    }}
+                  >
+                    {availableSports
+                      .filter(sport => sport !== modalSelectedSport)
+                      .map((sport) => (
+                        <motion.button
+                          key={sport}
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.95 }}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            cursor: "pointer",
+                            padding: "0.5rem",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: "40px",
+                            height: "40px"
+                          }}
+                          onClick={() => {
+                            setModalSelectedSport(sport);
+                            setShowModalSportsMenu(false);
+                          }}
+                          title={sport === "General" ? "General" : sport.charAt(0).toUpperCase() + sport.slice(1)}
+                        >
+                          <SportIcon sport={sport} style={{
+                            width: "24px",
+                            height: "24px",
+                            color: "white"
+                          }} />
+                        </motion.button>
+                      ))}
+                  </motion.div>
+                )}
+              </div>
+
               <button
-                onClick={() => setShowPostModal(false)}
+                onClick={() => {
+                  setShowPostModal(false);
+                  setModalSelectedSport("General"); // Resetear a General
+                }}
                 style={{
                   background: "transparent",
                   border: "none",
                   color: textColor,
                   cursor: "pointer",
-                  fontSize: "1.5rem"
+                  fontSize: "1.5rem",
+                  marginLeft: "1.5rem"
                 }}
               >
                 ×
@@ -338,6 +702,7 @@ function PantallaPrincipal() {
                       resize: "none",
                       backgroundColor: "transparent",
                       color: textColor,
+                      marginTop: "0.4rem",
                       border: "none",
                       outline: "none",
                       padding: 0
@@ -348,83 +713,30 @@ function PantallaPrincipal() {
                   ></textarea>
                 </div>
               </div>
+
               <div style={{
                 display: "flex",
-                justifyContent: "space-between",
+                justifyContent: "right",
                 alignItems: "center",
                 marginTop: "1.5rem",
                 borderTop: `1px solid ${borderColor}`,
                 paddingTop: "1rem"
               }}>
-                <div style={{ display: "flex" }}>
-                  <motion.button
-                    type="button"
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      color: accentColor,
-                      cursor: "pointer",
-                      padding: "0.5rem",
-                      marginRight: "0.5rem"
-                    }}
-                  >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M19 5V19H5V5H19ZM19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3Z" fill="currentColor" />
-                      <path d="M14 14H15.5V10.5H17.5V9H15.5V7H14V9H12V10.5H14V14Z" fill="currentColor" />
-                    </svg>
-                  </motion.button>
-                  <motion.button
-                    type="button"
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      color: accentColor,
-                      cursor: "pointer",
-                      padding: "0.5rem",
-                      marginRight: "0.5rem"
-                    }}
-                  >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M4 8H8V4H4V8ZM10 20H14V16H10V20ZM4 20H8V16H4V20ZM4 14H8V10H4V14ZM10 14H14V10H10V14ZM16 4V8H20V4H16ZM10 8H14V4H10V8ZM16 14H20V10H16V14ZM16 20H20V16H16V20Z" fill="currentColor" />
-                    </svg>
-                  </motion.button>
-                  <motion.button
-                    type="button"
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      color: accentColor,
-                      cursor: "pointer",
-                      padding: "0.5rem",
-                      marginRight: "0.5rem"
-                    }}
-                  >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M9.5 13.5H11.5V8.5H9.5V13.5ZM12 6.5C12.28 6.5 12.5 6.72 12.5 7V8C12.5 8.28 12.28 8.5 12 8.5C11.72 8.5 11.5 8.28 11.5 8V7C11.5 6.72 11.72 6.5 12 6.5ZM18 15.5V8.5H6V15.5H18ZM20 17.5H4V7.5H7V3.5H17V7.5H20V17.5ZM9 5.5H15V3.5H9V5.5Z" fill="currentColor" />
-                    </svg>
-                  </motion.button>
-                </div>
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   type="submit"
                   style={{
-                    background: newPostContent.trim() ? primaryColor : "rgba(255, 69, 0, 0.5)",
+                    background: newPostContent.trim() && selectedSport ? primaryColor : "rgba(255, 69, 0, 0.5)",
                     color: "white",
                     borderRadius: "30px",
                     border: "none",
                     padding: "8px 24px",
-                    cursor: newPostContent.trim() ? "pointer" : "not-allowed",
+                    cursor: newPostContent.trim() && selectedSport ? "pointer" : "not-allowed",
                     fontWeight: "bold",
                     fontSize: "1rem"
                   }}
-                  disabled={!newPostContent.trim()}
+                  disabled={!newPostContent.trim() || !selectedSport}
                 >
                   Publicar
                 </motion.button>
@@ -788,8 +1100,12 @@ function PantallaPrincipal() {
             }}
             onClick={handleLogout}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M17 7L15.59 8.41L18.17 11H8V13H18.17L15.59 15.58L17 17L22 12L17 7ZM4 5H12V3H4C2.9 3 2 3.9 2 5V19C2 20.1 2.9 21 4 21H12V19H4V5Z" fill={textColor} />
+            <svg width="25" height="25" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.5"
+                d="M13 4h3a2 2 0 0 1 2 2v14M2 20h3m8 0h9m-12-8v.01m3-7.448v16.157a1 1 0 0 1-1.242.97L5 20V5.562a2 2 0 0 1 1.515-1.94l4-1A2 2 0 0 1 13 4.561Z" fill="none" />
             </svg>
           </motion.button>
         </div>
@@ -926,7 +1242,7 @@ function PantallaPrincipal() {
                           height: "40px"
                         }}
                         onClick={() => handleSportSelect(sport)}
-                        title={sport === "general" ? "General" : sport.charAt(0).toUpperCase() + sport.slice(1)}
+                        title={sport === "General" ? "General" : sport.charAt(0).toUpperCase() + sport.slice(1)}
                       >
                         <SportIcon sport={sport} style={{
                           width: "24px",
@@ -1087,7 +1403,7 @@ function PantallaPrincipal() {
                       color: lightTextColor
                     }}>@{post.user}</span>
                     <span style={{ color: lightTextColor }}>· {post.time}</span>
-                    {post.sport !== "general" && (
+                    {post.sport !== "General" && (
                       <span style={{
                         marginLeft: "0.5rem",
                         color: primaryColor,
@@ -1139,24 +1455,6 @@ function PantallaPrincipal() {
                       style={{
                         background: "transparent",
                         border: "none",
-                        color: lightTextColor,
-                        cursor: "pointer",
-                        padding: "0.5rem",
-                        display: "flex",
-                        alignItems: "center"
-                      }}
-                    >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "0.25rem" }}>
-                        <path d="M18 16.08C17.24 16.08 16.56 16.38 16.04 16.85L8.91 12.7C8.96 12.47 9 12.24 9 12C9 11.76 8.96 11.53 8.91 11.3L15.96 7.19C16.5 7.69 17.21 8 18 8C19.66 8 21 6.66 21 5C21 3.34 19.66 2 18 2C16.34 2 15 3.34 15 5C15 5.24 15.04 5.47 15.09 5.7L8.04 9.81C7.5 9.31 6.79 9 6 9C4.34 9 3 10.34 3 12C3 13.66 4.34 15 6 15C6.79 15 7.5 14.69 8.04 14.19L15.16 18.35C15.11 18.56 15.08 18.78 15.08 19C15.08 20.61 16.39 21.92 18 21.92C19.61 21.92 20.92 20.61 20.92 19C20.92 17.39 19.61 16.08 18 16.08Z" fill="currentColor" />
-                      </svg>
-                      <span>{post.shares}</span>
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      style={{
-                        background: "transparent",
-                        border: "none",
                         color: post.isLiked ? accentColor : lightTextColor,
                         cursor: "pointer",
                         padding: "0.5rem",
@@ -1182,10 +1480,12 @@ function PantallaPrincipal() {
                         display: "flex",
                         alignItems: "center"
                       }}
+                      onClick={() => handleShare(post.id)}
                     >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "0.25rem" }}>
                         <path d="M18 16.08C17.24 16.08 16.56 16.38 16.04 16.85L8.91 12.7C8.96 12.47 9 12.24 9 12C9 11.76 8.96 11.53 8.91 11.3L15.96 7.19C16.5 7.69 17.21 8 18 8C19.66 8 21 6.66 21 5C21 3.34 19.66 2 18 2C16.34 2 15 3.34 15 5C15 5.24 15.04 5.47 15.09 5.7L8.04 9.81C7.5 9.31 6.79 9 6 9C4.34 9 3 10.34 3 12C3 13.66 4.34 15 6 15C6.79 15 7.5 14.69 8.04 14.19L15.16 18.35C15.11 18.56 15.08 18.78 15.08 19C15.08 20.61 16.39 21.92 18 21.92C19.61 21.92 20.92 20.61 20.92 19C20.92 17.39 19.61 16.08 18 16.08Z" fill="currentColor" />
                       </svg>
+                      <span>{post.shares}</span>
                     </motion.button>
                   </div>
                 </div>
@@ -1286,48 +1586,16 @@ function PantallaPrincipal() {
                 marginBottom: "1rem",
                 color: textColor
               }}>Tendencias para ti</h3>
-              <div style={{ marginBottom: "1rem" }}>
-                <div style={{
-                  color: lightTextColor,
-                  fontSize: "0.8rem"
-                }}>Tendencia en Deportes</div>
-                <div style={{
-                  fontWeight: "bold",
-                  color: textColor
-                }}>#Running</div>
-                <div style={{
-                  color: lightTextColor,
-                  fontSize: "0.8rem"
-                }}>2,450 posts</div>
-              </div>
-              <div style={{ marginBottom: "1rem" }}>
-                <div style={{
-                  color: lightTextColor,
-                  fontSize: "0.8rem"
-                }}>Tendencia en Fitness</div>
-                <div style={{
-                  fontWeight: "bold",
-                  color: textColor
-                }}>#EntrenamientoEnCasa</div>
-                <div style={{
-                  color: lightTextColor,
-                  fontSize: "0.8rem"
-                }}>1,890 posts</div>
-              </div>
-              <div style={{ marginBottom: "1rem" }}>
-                <div style={{
-                  color: lightTextColor,
-                  fontSize: "0.8rem"
-                }}>Tendencia en Nutrición</div>
-                <div style={{
-                  fontWeight: "bold",
-                  color: textColor
-                }}>#AlimentaciónSaludable</div>
-                <div style={{
-                  color: lightTextColor,
-                  fontSize: "0.8rem"
-                }}>3,210 posts</div>
-              </div>
+
+              {Object.entries(trends).map(([sport, trend]) => (
+                <div key={sport} style={{ marginBottom: "1rem" }}>
+                  <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>
+                    {`Tendencia en ${sport.charAt(0).toUpperCase() + sport.slice(1)}`}
+                  </div>
+                  <div style={{ fontWeight: "bold", color: textColor }}>{trend.tag}</div>
+                  <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>{trend.count} posts</div>
+                </div>
+              ))}
             </div>
 
             <div style={{
@@ -1339,138 +1607,54 @@ function PantallaPrincipal() {
                 fontWeight: "bold",
                 marginBottom: "1rem",
                 color: textColor
-              }}>A quién seguir</h3>
-              <div style={{
-                display: "flex",
-                alignItems: "center",
-                marginBottom: "1rem"
-              }}>
-                <div style={{
-                  width: "40px",
-                  height: "40px",
-                  borderRadius: "50%",
-                  background: primaryColor,
-                  marginRight: "0.5rem"
-                }}></div>
-                <div style={{ flex: 1 }}>
+              }}>Sugerencias</h3>
+              {users.slice(0, 3).map(user => (
+                <div key={user.id} style={{
+                  display: "flex",
+                  alignItems: "center",
+                  marginBottom: "1rem"
+                }}>
                   <div style={{
-                    fontWeight: "bold",
-                    color: textColor
-                  }}>Entrenador Profesional</div>
-                  <div style={{
-                    color: lightTextColor,
-                    fontSize: "0.8rem"
-                  }}>@entrenadorpro</div>
-                </div>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  style={{
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "50%",
                     background: primaryColor,
-                    color: "white",
-                    borderRadius: "30px",
-                    border: "none",
-                    padding: "5px 15px",
-                    fontWeight: "bold",
-                    cursor: "pointer"
-                  }}
-                >
-                  Seguir
-                </motion.button>
-              </div>
-
-              <div style={{
-                display: "flex",
-                alignItems: "center",
-                marginBottom: "1rem"
-              }}>
-                <div style={{
-                  width: "40px",
-                  height: "40px",
-                  borderRadius: "50%",
-                  background: primaryColor,
-                  marginRight: "0.5rem"
-                }}></div>
-                <div style={{ flex: 1 }}>
-                  <div style={{
-                    fontWeight: "bold",
-                    color: textColor
-                  }}>Nutricionista Deportivo</div>
-                  <div style={{
-                    color: lightTextColor,
-                    fontSize: "0.8rem"
-                  }}>@nutrideport</div>
+                    marginRight: "0.5rem",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "white"
+                  }}>
+                    {user.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{
+                      fontWeight: "bold",
+                      color: textColor
+                    }}>{user.name}</div>
+                    <div style={{
+                      color: lightTextColor,
+                      fontSize: "0.8rem"
+                    }}>@{user.email.split('@')[0]}</div>
+                  </div>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    style={{
+                      background: primaryColor,
+                      color: "white",
+                      borderRadius: "30px",
+                      border: "none",
+                      padding: "5px 15px",
+                      fontWeight: "bold",
+                      cursor: "pointer"
+                    }}
+                    onClick={() => navigate(`/perfil/${user.id}`, { state: { user: userData } })}
+                  >
+                    Visitar
+                  </motion.button>
                 </div>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  style={{
-                    background: primaryColor,
-                    color: "white",
-                    borderRadius: "30px",
-                    border: "none",
-                    padding: "5px 15px",
-                    fontWeight: "bold",
-                    cursor: "pointer"
-                  }}
-                >
-                  Seguir
-                </motion.button>
-              </div>
-
-              <div style={{
-                display: "flex",
-                alignItems: "center"
-              }}>
-                <div style={{
-                  width: "40px",
-                  height: "40px",
-                  borderRadius: "50%",
-                  background: primaryColor,
-                  marginRight: "0.5rem"
-                }}></div>
-                <div style={{ flex: 1 }}>
-                  <div style={{
-                    fontWeight: "bold",
-                    color: textColor
-                  }}>Comunidad Fitness</div>
-                  <div style={{
-                    color: lightTextColor,
-                    fontSize: "0.8rem"
-                  }}>@fitnesscomunidad</div>
-                </div>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  style={{
-                    background: primaryColor,
-                    color: "white",
-                    borderRadius: "30px",
-                    border: "none",
-                    padding: "5px 15px",
-                    fontWeight: "bold",
-                    cursor: "pointer"
-                  }}
-                >
-                  Seguir
-                </motion.button>
-              </div>
-
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: accentColor,
-                  cursor: "pointer",
-                  padding: 0,
-                  marginTop: "1rem",
-                  textAlign: "left"
-                }}
-              >
-                Mostrar más
-              </motion.button>
+              ))}
             </div>
 
             <div style={{
@@ -1668,48 +1852,15 @@ function PantallaPrincipal() {
               marginBottom: "1rem",
               color: textColor
             }}>Tendencias para ti</h3>
-            <div style={{ marginBottom: "1rem" }}>
-              <div style={{
-                color: lightTextColor,
-                fontSize: "0.8rem"
-              }}>Tendencia en Deportes</div>
-              <div style={{
-                fontWeight: "bold",
-                color: textColor
-              }}>#Running</div>
-              <div style={{
-                color: lightTextColor,
-                fontSize: "0.8rem"
-              }}>2,450 posts</div>
-            </div>
-            <div style={{ marginBottom: "1rem" }}>
-              <div style={{
-                color: lightTextColor,
-                fontSize: "0.8rem"
-              }}>Tendencia en Fitness</div>
-              <div style={{
-                fontWeight: "bold",
-                color: textColor
-              }}>#EntrenamientoEnCasa</div>
-              <div style={{
-                color: lightTextColor,
-                fontSize: "0.8rem"
-              }}>1,890 posts</div>
-            </div>
-            <div style={{ marginBottom: "1rem" }}>
-              <div style={{
-                color: lightTextColor,
-                fontSize: "0.8rem"
-              }}>Tendencia en Nutrición</div>
-              <div style={{
-                fontWeight: "bold",
-                color: textColor
-              }}>#AlimentaciónSaludable</div>
-              <div style={{
-                color: lightTextColor,
-                fontSize: "0.8rem"
-              }}>3,210 posts</div>
-            </div>
+            {Object.entries(trends).map(([sport, trend]) => (
+              <div key={sport} style={{ marginBottom: "1rem" }}>
+                <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>
+                  {`Tendencia en ${sport.charAt(0).toUpperCase() + sport.slice(1)}`}
+                </div>
+                <div style={{ fontWeight: "bold", color: textColor }}>{trend.tag}</div>
+                <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>{trend.count} posts</div>
+              </div>
+            ))}
           </div>
 
           <div style={{
@@ -1721,138 +1872,54 @@ function PantallaPrincipal() {
               fontWeight: "bold",
               marginBottom: "1rem",
               color: textColor
-            }}>A quién seguir</h3>
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              marginBottom: "1rem"
-            }}>
-              <div style={{
-                width: "40px",
-                height: "40px",
-                borderRadius: "50%",
-                background: primaryColor,
-                marginRight: "0.5rem"
-              }}></div>
-              <div style={{ flex: 1 }}>
+            }}>Sugerencias</h3>
+            {users.slice(0, 3).map(user => (
+              <div key={user.id} style={{
+                display: "flex",
+                alignItems: "center",
+                marginBottom: "1rem"
+              }}>
                 <div style={{
-                  fontWeight: "bold",
-                  color: textColor
-                }}>Entrenador Profesional</div>
-                <div style={{
-                  color: lightTextColor,
-                  fontSize: "0.8rem"
-                }}>@entrenadorpro</div>
-              </div>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                style={{
+                  width: "40px",
+                  height: "40px",
+                  borderRadius: "50%",
                   background: primaryColor,
-                  color: "white",
-                  borderRadius: "30px",
-                  border: "none",
-                  padding: "5px 15px",
-                  fontWeight: "bold",
-                  cursor: "pointer"
-                }}
-              >
-                Seguir
-              </motion.button>
-            </div>
-
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              marginBottom: "1rem"
-            }}>
-              <div style={{
-                width: "40px",
-                height: "40px",
-                borderRadius: "50%",
-                background: primaryColor,
-                marginRight: "0.5rem"
-              }}></div>
-              <div style={{ flex: 1 }}>
-                <div style={{
-                  fontWeight: "bold",
-                  color: textColor
-                }}>Nutricionista Deportivo</div>
-                <div style={{
-                  color: lightTextColor,
-                  fontSize: "0.8rem"
-                }}>@nutrideport</div>
+                  marginRight: "0.5rem",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "white"
+                }}>
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{
+                    fontWeight: "bold",
+                    color: textColor
+                  }}>{user.name}</div>
+                  <div style={{
+                    color: lightTextColor,
+                    fontSize: "0.8rem"
+                  }}>@{user.email.split('@')[0]}</div>
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  style={{
+                    background: primaryColor,
+                    color: "white",
+                    borderRadius: "30px",
+                    border: "none",
+                    padding: "5px 15px",
+                    fontWeight: "bold",
+                    cursor: "pointer"
+                  }}
+                  onClick={() => navigate(`/perfil/${user.id}`, { state: { user: userData } })}
+                >
+                  Visitar
+                </motion.button>
               </div>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                style={{
-                  background: primaryColor,
-                  color: "white",
-                  borderRadius: "30px",
-                  border: "none",
-                  padding: "5px 15px",
-                  fontWeight: "bold",
-                  cursor: "pointer"
-                }}
-              >
-                Seguir
-              </motion.button>
-            </div>
-
-            <div style={{
-              display: "flex",
-              alignItems: "center"
-            }}>
-              <div style={{
-                width: "40px",
-                height: "40px",
-                borderRadius: "50%",
-                background: primaryColor,
-                marginRight: "0.5rem"
-              }}></div>
-              <div style={{ flex: 1 }}>
-                <div style={{
-                  fontWeight: "bold",
-                  color: textColor
-                }}>Comunidad Fitness</div>
-                <div style={{
-                  color: lightTextColor,
-                  fontSize: "0.8rem"
-                }}>@fitnesscomunidad</div>
-              </div>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                style={{
-                  background: primaryColor,
-                  color: "white",
-                  borderRadius: "30px",
-                  border: "none",
-                  padding: "5px 15px",
-                  fontWeight: "bold",
-                  cursor: "pointer"
-                }}
-              >
-                Seguir
-              </motion.button>
-            </div>
-
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              style={{
-                background: "transparent",
-                border: "none",
-                color: accentColor,
-                cursor: "pointer",
-                padding: 0,
-                marginTop: "1rem",
-                textAlign: "left"
-              }}
-            >
-              Mostrar más
-            </motion.button>
+            ))}
           </div>
 
           <div style={{

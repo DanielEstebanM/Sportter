@@ -7,7 +7,7 @@ import { linearGradient } from "framer-motion/client";
 import fondo from "../assets/jjj2.jpg";
 import { registerUser } from "../services/api";
 
-function PantallaInicio() { 
+function PantallaInicio() {
   // Inicializar EmailJS
   useEffect(() => {
     emailjs.init("xKNXufG7xDCs3-jUh");
@@ -102,14 +102,14 @@ function PantallaInicio() {
     visible: { opacity: 1, y: 0 },
   };
 
-   // Verificar si el usuario ya está logueado
+  // Verificar si el usuario ya está logueado
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem("userData") || 'null');
     if (userData) {
       navigate('/principal', { replace: true });
     }
   }, [navigate]);
-  
+
   const isFormValid = () => {
     if (forgotPassword) {
       if (passwordResetStep === 1) {
@@ -452,22 +452,22 @@ function PantallaInicio() {
           console.log("Inicio de sesión exitoso:", userData);
 
           // 1. Guardar datos de usuario en localStorage
-        localStorage.setItem("userData", JSON.stringify({
-          ...userData,
-          // Asegurar que los datos críticos estén presentes
-          correoElectronico: formData.email,
-          timestamp: new Date().getTime() // Para manejar expiración
-        }));
+          localStorage.setItem("userData", JSON.stringify({
+            ...userData,
+            // Asegurar que los datos críticos estén presentes
+            correoElectronico: formData.email,
+            timestamp: new Date().getTime() // Para manejar expiración
+          }));
 
-        // 2. Redirigir a la ruta solicitada originalmente o a /principal por defecto
-        const redirectTo = location.state?.from?.pathname || "/principal";
-        
-        navigate(redirectTo, {
-          state: {
-            user: userData // Envía todos los datos del usuario
-          },
-          replace: true // Evita que el usuario vuelva al login con el botón "atrás"
-        });
+          // 2. Redirigir a la ruta solicitada originalmente o a /principal por defecto
+          const redirectTo = location.state?.from?.pathname || "/principal";
+
+          navigate(redirectTo, {
+            state: {
+              user: userData // Envía todos los datos del usuario
+            },
+            replace: true // Evita que el usuario vuelva al login con el botón "atrás"
+          });
         } catch (error) {
           console.error("Error en el login:", error);
 
@@ -567,9 +567,10 @@ function PantallaInicio() {
     <div
       className="d-flex align-items-center justify-content-center vh-100"
       style={{
-        backgroundImage: `url(${fondo})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
+        // backgroundImage: `url(${fondo})`,
+        // backgroundSize: "cover",
+        // backgroundPosition: "center",
+        backgroundColor: "#000",
         height: "100vh",
         width: "100vw",
         fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
@@ -579,14 +580,12 @@ function PantallaInicio() {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.4 }}
-        className="card p-4 rounded-4 border-0"
+        className="card p-4"
         style={{
           width: "100%",
           maxWidth: "450px",
           overflow: "hidden",
-          // background: "linear-gradient(to right, rgba(103, 103, 103, 0) 40%, rgba(0, 0, 0, 0))",
-          background: "rgba(255, 255, 255, 0.04)",
-          backdropFilter: "blur(3px)",
+          background: "transparent"
         }}
       >
         <AnimatePresence mode="wait">
@@ -679,13 +678,13 @@ function PantallaInicio() {
                     ? passwordResetStep === 1
                       ? "Recuperar contraseña"
                       : passwordResetStep === 2
-                      ? "Verificar código"
-                      : "Nueva contraseña"
+                        ? "Verificar código"
+                        : "Nueva contraseña"
                     : isLogin
-                    ? "Iniciar Sesión"
-                    : verificationSent
-                    ? "Verificar Código"
-                    : "Registrarse"}
+                      ? "Iniciar Sesión"
+                      : verificationSent
+                        ? "Verificar Código"
+                        : "Registrarse"}
                 </h2>
               </motion.div>
 
@@ -707,10 +706,7 @@ function PantallaInicio() {
                         </label>
                         <motion.input
                           whileFocus={{
-                            scale: 1.02,
-                            boxShadow: `0 0 0 2px ${
-                              errors.email ? errorColor : accentColor
-                            }`,
+                            borderBottom: `2px solid ${errors.email ? errorColor : accentColor}`
                           }}
                           type="email"
                           name="email"
@@ -719,8 +715,16 @@ function PantallaInicio() {
                           className="form-control py-2"
                           placeholder="tucorreo@email.com"
                           style={{
-                            borderRadius: "10px",
-                            borderColor: errors.email ? errorColor : "#e2e8f0",
+                            borderRadius: "1px",
+                            border: "none",
+                            borderBottom: `2px solid white`,
+                            backgroundColor: "rgb(0, 0, 0)",
+                            color: "white",
+                            paddingLeft: "0px",
+                            WebkitBoxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
+                            WebkitTextFillColor: "rgba(255, 255, 255, 0.7)",
+                            boxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
+                            transition: "background-color 5000s ease-in-out 0s",
                           }}
                         />
                         {errors.email && (
@@ -748,16 +752,14 @@ function PantallaInicio() {
                       >
                         <label
                           className="form-label fw-medium"
-                          style={{ color: "#4a5568" }}
+                          style={{ color: "rgba(255, 255, 255, 0.7)" }}
                         >
                           Código de verificación
                         </label>
                         <motion.input
                           whileFocus={{
-                            scale: 1.02,
-                            boxShadow: `0 0 0 2px ${
-                              errors.verificationCode ? errorColor : accentColor
-                            }`,
+                            borderBottom: `2px solid ${errors.verificationCode ? errorColor : accentColor
+                              }`,
                           }}
                           type="text"
                           name="verificationCode"
@@ -766,10 +768,16 @@ function PantallaInicio() {
                           className="form-control py-2"
                           placeholder="Ingresa el código de 4 dígitos"
                           style={{
-                            borderRadius: "10px",
-                            borderColor: errors.verificationCode
-                              ? errorColor
-                              : "#e2e8f0",
+                            borderRadius: "1px",
+                            border: "none",
+                            borderBottom: `2px solid white`,
+                            backgroundColor: "rgb(0, 0, 0)",
+                            color: "white",
+                            paddingLeft: "0px",
+                            WebkitBoxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
+                            WebkitTextFillColor: "rgba(255, 255, 255, 0.7)",
+                            boxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
+                            transition: "background-color 5000s ease-in-out 0s"
                           }}
                         />
                         {errors.verificationCode && (
@@ -784,7 +792,7 @@ function PantallaInicio() {
                         )}
                         <motion.small
                           className="d-block mt-1"
-                          style={{ color: "#718096" }}
+                          style={{ color: "rgba(255, 255, 255, 0.55)" }}
                         >
                           Si no te ha llegado el correo{" "}
                           <motion.span
@@ -794,7 +802,7 @@ function PantallaInicio() {
                               textDecoration: "underline",
                               fontWeight: "500",
                             }}
-                            whileHover={{ color: "#764ba2" }}
+                            whileHover={{ color: "rgb(255, 255, 255)" }}
                             whileTap={{ scale: 0.95 }}
                             onClick={resendVerificationEmail}
                           >
@@ -814,17 +822,15 @@ function PantallaInicio() {
                         >
                           <label
                             className="form-label fw-medium"
-                            style={{ color: "#e2e8f0" }}
+                            style={{ color: "rgba(255, 255, 255, 0.7)" }}
                           >
                             Contraseña
                           </label>
                           <div style={{ position: "relative" }}>
                             <motion.input
                               whileFocus={{
-                                scale: 1.02,
-                                boxShadow: `0 0 0 2px ${
-                                  errors.password ? errorColor : accentColor
-                                }`,
+                                borderBottom: `2px solid ${errors.password ? errorColor : accentColor
+                                  }`,
                               }}
                               type={showPassword ? "text" : "password"}
                               name="password"
@@ -833,14 +839,16 @@ function PantallaInicio() {
                               className="form-control py-2"
                               placeholder="********"
                               style={{
-                                borderRadius: "10px",
-                                border: "1px solid rgb(76, 76, 76)",
-                                background: "rgb(0, 0, 0)",
+                                borderRadius: "1px",
+                                border: "none",
+                                borderBottom: `2px solid white`,
+                                backgroundColor: "rgb(0, 0, 0)",
                                 color: "white",
-                                paddingRight: "40px",
-                                "::placeholder": {
-                                  color: "#718096",
-                                },
+                                paddingLeft: "0px",
+                                WebkitBoxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
+                                WebkitTextFillColor: "rgba(255, 255, 255, 0.7)",
+                                boxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
+                                transition: "background-color 5000s ease-in-out 0s"
                               }}
                             />
                             <button
@@ -925,7 +933,7 @@ function PantallaInicio() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 0.7 }}
                             className="d-block mt-1"
-                            style={{ color: "#4a5568" }}
+                            style={{ color: "rgba(255, 255, 255, 0.7)" }}
                           >
                             La contraseña debe tener al menos 8 caracteres, una
                             mayúscula, una minúscula, un número y un caracter
@@ -940,18 +948,16 @@ function PantallaInicio() {
                         >
                           <label
                             className="form-label fw-medium"
-                            style={{ color: "#4a5568" }}
+                            style={{ color: "rgba(255, 255, 255, 0.7)" }}
                           >
                             Confirmar nueva contraseña
                           </label>
                           <motion.input
                             whileFocus={{
-                              scale: 1.02,
-                              boxShadow: `0 0 0 2px ${
-                                errors.passwordConfirm
-                                  ? errorColor
-                                  : accentColor
-                              }`,
+                              borderBottom: `2px solid ${errors.passwordConfirm
+                                ? errorColor
+                                : accentColor
+                                }`,
                             }}
                             type={showPassword ? "text" : "password"}
                             name="passwordConfirm"
@@ -960,12 +966,16 @@ function PantallaInicio() {
                             className="form-control py-2"
                             placeholder="********"
                             style={{
-                              borderRadius: "10px",
-                              background: "rgb(0, 0, 0)",
+                              borderRadius: "1px",
+                              border: "none",
+                              borderBottom: `2px solid white`,
+                              backgroundColor: "rgb(0, 0, 0)",
                               color: "white",
-                              borderColor: errors.passwordConfirm
-                                ? errorColor
-                                : "#e2e8f0",
+                              paddingLeft: "0px",
+                              WebkitBoxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
+                              WebkitTextFillColor: "rgba(255, 255, 255, 0.7)",
+                              boxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
+                              transition: "background-color 5000s ease-in-out 0s"
                             }}
                           />
                           {errors.passwordConfirm && (
@@ -999,10 +1009,8 @@ function PantallaInicio() {
                         </label>
                         <motion.input
                           whileFocus={{
-                            scale: 1.02,
-                            boxShadow: `0 0 0 2px ${
-                              errors.name ? errorColor : accentColor
-                            }`,
+                            borderBottom: `2px solid ${errors.name ? errorColor : accentColor
+                              }`,
                           }}
                           type="text"
                           name="name"
@@ -1011,8 +1019,16 @@ function PantallaInicio() {
                           className="form-control py-2"
                           placeholder="Tu nombre"
                           style={{
-                            borderRadius: "10px",
-                            borderColor: errors.name ? errorColor : "#e2e8f0",
+                            borderRadius: "1px",
+                            border: "none",
+                            borderBottom: `2px solid white`,
+                            backgroundColor: "rgb(0, 0, 0)",
+                            color: "white",
+                            paddingLeft: "0px",
+                            WebkitBoxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
+                            WebkitTextFillColor: "rgba(255, 255, 255, 0.7)",
+                            boxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
+                            transition: "background-color 5000s ease-in-out 0s"
                           }}
                         />
                         {errors.name && (
@@ -1042,10 +1058,7 @@ function PantallaInicio() {
                         </label>
                         <motion.input
                           whileFocus={{
-                            scale: 1.02,
-                            boxShadow: `0 0 0 2px ${
-                              errors.email ? errorColor : accentColor
-                            }`,
+                            borderBottom: `2px solid ${errors.email ? errorColor : accentColor}`,
                           }}
                           type="email"
                           name="email"
@@ -1054,8 +1067,16 @@ function PantallaInicio() {
                           className="form-control py-2"
                           placeholder="tucorreo@email.com"
                           style={{
-                            borderRadius: "10px",
-                            borderColor: errors.email ? errorColor : "#e2e8f0",
+                            borderRadius: "1px",
+                            border: "none",
+                            borderBottom: `2px solid white`,
+                            backgroundColor: "rgb(0, 0, 0)",
+                            color: "white",
+                            paddingLeft: "0px",
+                            WebkitBoxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
+                            WebkitTextFillColor: "rgba(255, 255, 255, 0.7)",
+                            boxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
+                            transition: "background-color 5000s ease-in-out 0s",
                           }}
                         />
                         {errors.email && (
@@ -1086,10 +1107,8 @@ function PantallaInicio() {
                         <div style={{ position: "relative" }}>
                           <motion.input
                             whileFocus={{
-                              scale: 1.02,
-                              boxShadow: `0 0 0 2px ${
-                                errors.password ? errorColor : accentColor
-                              }`,
+                              borderBottom: `2px solid ${errors.password ? errorColor : accentColor
+                                }`,
                             }}
                             type={showPassword ? "text" : "password"}
                             name="password"
@@ -1098,11 +1117,16 @@ function PantallaInicio() {
                             className="form-control py-2"
                             placeholder="********"
                             style={{
-                              borderRadius: "10px",
-                              borderColor: errors.password
-                                ? errorColor
-                                : "#e2e8f0",
-                              paddingRight: "40px",
+                              borderRadius: "1px",
+                              border: "none",
+                              borderBottom: `2px solid white`,
+                              backgroundColor: "rgb(0, 0, 0)",
+                              color: "white",
+                              paddingLeft: "0px",
+                              WebkitBoxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
+                              WebkitTextFillColor: "rgba(255, 255, 255, 0.7)",
+                              boxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
+                              transition: "background-color 5000s ease-in-out 0s"
                             }}
                           />
                           <button
@@ -1199,21 +1223,20 @@ function PantallaInicio() {
                           <motion.div
                             className="text-end mt-1"
                             initial={{ opacity: 0 }}
-                            animate={{ opacity: 0.7 }}
+                            animate={{ opacity: 1 }}
                           >
                             <motion.button
                               type="button"
                               onClick={handleForgotPassword}
-                              className="btn btn-link p-0 fw-bold"
+                              className="btn btn-link p-0 fw-medium"
                               style={{
-                                color: "rgb(255, 77, 0)",
+                                color: accentColor,
                                 textDecoration: "none",
                                 fontSize: "0.8rem",
                                 textShadow: "none",
                               }}
                               whileHover={{
                                 textDecoration: "underline",
-                                textShadow: "0 0px 3px rgba(255, 45, 0, 0.6)",
                               }}
                               whileTap={{ scale: 0.95 }}
                             >
@@ -1237,18 +1260,16 @@ function PantallaInicio() {
                         >
                           <label
                             className="form-label fw-medium"
-                            style={{ color: "#4a5568" }}
+                            style={{ color: "rgba(255, 255, 255, 0.7)" }}
                           >
                             Código de verificación
                           </label>
                           <motion.input
                             whileFocus={{
-                              scale: 1.02,
-                              boxShadow: `0 0 0 2px ${
-                                errors.verificationCode
-                                  ? errorColor
-                                  : accentColor
-                              }`,
+                              borderBottom: `2px solid ${errors.verificationCode
+                                ? errorColor
+                                : accentColor
+                                }`,
                             }}
                             type="text"
                             name="verificationCode"
@@ -1257,10 +1278,16 @@ function PantallaInicio() {
                             className="form-control py-2"
                             placeholder="Ingresa el código de 4 dígitos"
                             style={{
-                              borderRadius: "10px",
-                              borderColor: errors.verificationCode
-                                ? errorColor
-                                : "#e2e8f0",
+                              borderRadius: "1px",
+                              border: "none",
+                              borderBottom: `2px solid white`,
+                              backgroundColor: "rgb(0, 0, 0)",
+                              color: "white",
+                              paddingLeft: "0px",
+                              WebkitBoxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
+                              WebkitTextFillColor: "rgba(255, 255, 255, 0.7)",
+                              boxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
+                              transition: "background-color 5000s ease-in-out 0s"
                             }}
                           />
                           {errors.verificationCode && (
@@ -1304,7 +1331,7 @@ function PantallaInicio() {
                     whileHover={{
                       scale: isFormValid() ? 1.02 : 1,
                       boxShadow: isFormValid()
-                        ? `0 3px 10px rgba(255, 68, 0, 0.54)`
+                        ? `0 4px 10px rgba(255, 68, 0, 0.78)`
                         : "none",
                     }}
                     whileTap={{ scale: isFormValid() ? 0.98 : 1 }}
@@ -1315,26 +1342,26 @@ function PantallaInicio() {
                         ? primaryGradient
                         : "rgba(255, 77, 0, 0.5)",
                       color: "white",
-                      borderRadius: "12px",
+                      borderRadius: "10px",
                       border: "none",
                       fontSize: "1.1rem",
-                      cursor: isFormValid() ? "pointer" : "not-allowed",
+                      cursor: isFormValid() ? "pointer" : "not-allowed"
                     }}
                     disabled={!isFormValid() || isSendingEmail}
                   >
                     {isSendingEmail
                       ? "Enviando..."
                       : forgotPassword
-                      ? passwordResetStep === 1
-                        ? "Enviar código"
-                        : passwordResetStep === 2
-                        ? "Verificar código"
-                        : "Cambiar contraseña"
-                      : isLogin
-                      ? "Entrar"
-                      : verificationSent
-                      ? "Verificar"
-                      : "Registrarse"}
+                        ? passwordResetStep === 1
+                          ? "Enviar código"
+                          : passwordResetStep === 2
+                            ? "Verificar código"
+                            : "Cambiar contraseña"
+                        : isLogin
+                          ? "Entrar"
+                          : verificationSent
+                            ? "Verificar"
+                            : "Registrarse"}
                   </motion.button>
                 </motion.div>
               </motion.form>

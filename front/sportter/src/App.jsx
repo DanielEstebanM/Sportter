@@ -9,6 +9,7 @@ import PantallaEventos from "./components/PantallaEventos";
 import PantallaPerfil from "./components/PantallaPerfil";
 import ProtectedRoute from "./components/proteccionRutas/ProtectedRoute";
 import ReverseProtectedRoute from "./components/proteccionRutas/ReverseProtectedRoute";
+import PantallaInfoEquipo from "./components/PantallaInfoEquipo";
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
           <Route path="/eventos" element={<ProtectedRoute><PantallaEventos /></ProtectedRoute>} />
           <Route path="/perfil" element={<ProtectedRoute><PantallaPerfil /></ProtectedRoute>} />
           <Route path="/mensajes" element={<ProtectedRoute><PantallaMensajes /></ProtectedRoute>} />
+          <Route path="/infoEquipo" element={<ProtectedRoute><PantallaInfoEquipo /></ProtectedRoute>} />
         </Routes>
       </AnimatedRoutes>
     </Router>

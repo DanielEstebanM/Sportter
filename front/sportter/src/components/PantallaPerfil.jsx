@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Tooltip as ReactTooltip } from 'react-tooltip';
 import 'react-tooltip/dist/react-tooltip.css';
+import styled from 'styled-components'
 
 function PantallaPerfil() {
     const location = useLocation();
@@ -14,6 +15,7 @@ function PantallaPerfil() {
     const [editMode, setEditMode] = useState(false);
     const [showSettingsMenu, setShowSettingsMenu] = useState(false);
     const [showSubMenu, setShowSubMenu] = useState(false);
+    const [showAccountSubmenu, setShowAccountSubmenu] = useState(false);
     const [bio, setBio] = useState("Apasionado del deporte y la vida saludable. Amante del running y el baloncesto.");
     const [tempBio, setTempBio] = useState(bio);
     const [name, setName] = useState("Usuario Ejemplo");
@@ -24,6 +26,33 @@ function PantallaPerfil() {
     const userEmail = userData?.correoElectronico;
     const userName = userData?.nombreUsuario || name;
     const userUsername = userEmail?.split('@')[0];
+
+    const [teams, setTeams] = useState([
+  {
+    id: 1,
+    name: "Los Tigres",
+    sport: "fútbol",
+    image: "https://images2.minutemediacdn.com/image/upload/c_crop,w_3531,h_1986,x_0,y_232/c_fill,w_720,ar_16:9,f_auto,q_auto,g_auto/images/GettyImages/mmsport/90min_es_international_web/01j5c0e6nzzxe7vxjnzk.jpg",
+    members: 12,
+    isMember: true
+  },
+  {
+    id: 2,
+    name: "Los Halcones",
+    sport: "baloncesto",
+    image: "https://i.imgur.com/bUwYQP3.png",
+    members: 8,
+    isMember: false
+  },
+  {
+    id: 3,
+    name: "Los Tiburones",
+    sport: "volleyball",
+    image: "https://i.imgur.com/bUwYQP3.png",
+    members: 6,
+    isMember: true
+  }
+]);
 
     // Colores con tema anaranjado-rojizo
     const primaryColor = "#FF4500";
@@ -196,6 +225,30 @@ function PantallaPerfil() {
 
         return icons[sport] || icons["general"];
     };
+
+    // Estilos para el scroll personalizado
+    const CustomScroll = styled.div`
+        overflow-y: auto;
+        max-height: calc(100vh - 400px);
+        padding-right: 8px;
+        scrollbar-width: thin;
+        scrollbar-color: ${lightTextColor} ${cardColor};
+
+        &::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        &::-webkit-scrollbar-track {
+            background: ${cardColor};
+            border-radius: 10px;
+        }
+
+        &::-webkit-scrollbar-thumb {
+            background-color: ${lightTextColor};
+            border-radius: 10px;
+            border: 2px solid ${cardColor};
+        }
+    `;
 
     return (
         <div style={{
@@ -622,173 +675,176 @@ function PantallaPerfil() {
                         )}
                     </div>
                     {/* Menú de configuración */}
-    <div style={{ position: "relative" }}>
-        <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            style={{
-                position: "absolute",
-                top: "20px",
-                right: "20px",
-                backgroundColor: "rgba(0,0,0,0.5)",
-                color: textColor,
-                border: `1px solid ${lightTextColor}`,
-                borderRadius: "20px",
-                padding: "8px 16px",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                zIndex: 10
-            }}
-            onClick={() => setShowSettingsMenu(!showSettingsMenu)}
-        >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "8px" }}>
-                <path d="M19.14 12.94c.04-.3.06-.61.06-.94c0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6s3.6 1.62 3.6 3.6s-1.62 3.6-3.6 3.6z" fill="currentColor" />
-            </svg>
-            Ajustes
-        </motion.button>
+                    <div style={{ position: "relative" }}>
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            style={{
+                                position: "absolute",
+                                top: "20px",
+                                right: "20px",
+                                backgroundColor: "rgba(0,0,0,0.5)",
+                                color: textColor,
+                                border: `1px solid ${lightTextColor}`,
+                                borderRadius: "20px",
+                                padding: "8px 16px",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                zIndex: 10
+                            }}
+                            onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "8px" }}>
+                                <path d="M19.14 12.94c.04-.3.06-.61.06-.94c0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6s3.6 1.62 3.6 3.6s-1.62 3.6-3.6 3.6z" fill="currentColor" />
+                            </svg>
+                            Ajustes
+                        </motion.button>
 
-        {/* Menú desplegable de configuración */}
-        {showSettingsMenu && (
-            <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
-                style={{
-                    position: "absolute",
-                    top: "60px",
-                    right: "20px",
-                    backgroundColor: cardColor,
-                    border: `1px solid ${borderColor}`,
-                    borderRadius: "8px",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-                    width: "200px",
-                    zIndex: 20,
-                    overflow: "hidden"
-                }}
-                onMouseLeave={() => setShowSettingsMenu(false)}
-            >
-                <motion.button
-                    whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
-                    style={{
-                        width: "100%",
-                        padding: "12px 16px",
-                        textAlign: "left",
-                        backgroundColor: "transparent",
-                        border: "none",
-                        color: textColor,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center"
-                    }}
-                    onClick={() => {
-                        setEditMode(true);
-                        setShowSettingsMenu(false);
-                    }}
-                >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "8px" }}>
-                        <path d="M3 17.25V21H6.75L17.81 9.94L14.06 6.19L3 17.25ZM20.71 7.04C21.1 6.65 21.1 6.02 20.71 5.63L18.37 3.29C17.98 2.9 17.35 2.9 16.96 3.29L15.13 5.12L18.88 8.87L20.71 7.04Z" fill="currentColor" />
-                    </svg>
-                    Editar perfil
-                </motion.button>
-
-                <div
-                    style={{
-                        position: "relative",
-                                        padding: "12px 16px",
-                                        cursor: "pointer",
-                                        ":hover": { backgroundColor: "rgba(255,255,255,0.05)" }
-                                    }}
-                                    onMouseEnter={() => setShowSubMenu(true)}
-                                >
-                                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                                        <div style={{ display: "flex", alignItems: "center" }}>
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "8px" }}>
-                                                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12c5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11V11.99z" fill="currentColor" />
-                                            </svg>
-                                            Configuración de cuenta
-                                        </div>
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M10 6L8.59 7.41L13.17 12l-4.58 4.59L10 18l6-6z" fill="currentColor" />
-                                        </svg>
-                                    </div>
-                                </div>
-
-                                {/* Submenú independiente */}
-                                {showSubMenu && (
-                                    <motion.div
-                                        initial={{ opacity: 0, x: -10 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        exit={{ opacity: 0, x: -10 }}
-                                        transition={{ duration: 0.2 }}
-                                        style={{
-                                            position: "absolute",
-                                            left: "px", // Aparece a la izquierda del menú principal
-                                            top: 0,
-                                            backgroundColor: cardColor,
-                                            border: `1px solid ${borderColor}`,
-                                            borderRadius: "8px",
-                                            boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-                                            width: "200px",
-                                            zIndex: 30
-                                        }}
-                                        onMouseEnter={() => setShowSubMenu(true)}
-                                        onMouseLeave={() => setShowSubMenu(false)}
-                                    >
-                                        <motion.button
-                                            whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
-                                            style={{
-                                                width: "100%",
-                                                padding: "12px 16px",
-                                                textAlign: "left",
-                                                backgroundColor: "transparent",
-                                                border: "none",
-                                                color: textColor,
-                                                cursor: "pointer"
-                                            }}
-                                        >
-                                            Cambiar contraseña
-                                        </motion.button>
-                                        <motion.button
-                                            whileHover={{ backgroundColor: "rgba(255,255,white,0.05)" }}
-                                            style={{
-                                                width: "100%",
-                                                padding: "12px 16px",
-                                                textAlign: "left",
-                                                backgroundColor: "transparent",
-                                                border: "none",
-                                                color: "#FF5252",
-                                                cursor: "pointer"
-                                            }}
-                                        >
-                                            Desactivar cuenta
-                                        </motion.button>
-                                    </motion.div>
-                                )}
-
-                                <motion.button
-                                    whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
+                        <div style={{ position: "relative" }}>
+                            {/* Menú desplegable de configuración */}
+                            {showSettingsMenu && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                    transition={{ duration: 0.2 }}
                                     style={{
-                                        width: "100%",
-                                        padding: "12px 16px",
-                                        textAlign: "left",
-                                        backgroundColor: "transparent",
-                                        border: "none",
-                                        color: textColor,
-                                        cursor: "pointer",
-                                        display: "flex",
-                                        alignItems: "center"
+                                        position: "absolute",
+                                        top: "60px",
+                                        right: "20px",
+                                        backgroundColor: cardColor,
+                                        border: `1px solid ${borderColor}`,
+                                        borderRadius: "8px",
+                                        boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                                        width: "200px",
+                                        zIndex: 20,
+                                        overflow: "hidden"
                                     }}
-                                    onClick={handleLogout}
+                                    onMouseLeave={() => setShowSettingsMenu(false)}
                                 >
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "8px" }}>
-                                        <path d="M17 7L15.59 8.41L18.17 11H8V13H18.17L15.59 15.58L17 17L22 12L17 7ZM4 5H12V3H4C2.9 3 2 3.9 2 5V19C2 20.1 2.9 21 4 21H12V19H4V5Z" fill="currentColor" />
-                                    </svg>
-                                    Cerrar sesión
-                                </motion.button>
-                            </motion.div>
-                        )}
+                                    <motion.button
+                                        whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
+                                        style={{
+                                            width: "100%",
+                                            padding: "12px 16px",
+                                            textAlign: "left",
+                                            backgroundColor: "transparent",
+                                            border: "none",
+                                            color: textColor,
+                                            cursor: "pointer",
+                                            display: "flex",
+                                            alignItems: "center"
+                                        }}
+                                        onClick={() => {
+                                            setEditMode(true);
+                                            setShowSettingsMenu(false);
+                                        }}
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "8px" }}>
+                                            <path d="M3 17.25V21H6.75L17.81 9.94L14.06 6.19L3 17.25ZM20.71 7.04C21.1 6.65 21.1 6.02 20.71 5.63L18.37 3.29C17.98 2.9 17.35 2.9 16.96 3.29L15.13 5.12L18.88 8.87L20.71 7.04Z" fill="currentColor" />
+                                        </svg>
+                                        Editar perfil
+                                    </motion.button>
+
+                                    <div
+                                        style={{
+                                            position: "relative",
+                                            padding: "12px 16px",
+                                            cursor: "pointer",
+                                            ":hover": { backgroundColor: "rgba(255,255,255,0.05)" }
+                                        }}
+                                        onMouseEnter={() => setShowAccountSubmenu(true)}
+                                        onMouseLeave={() => !showAccountSubmenu && setShowAccountSubmenu(false)}
+                                    >
+                                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                            <div style={{ display: "flex", alignItems: "center" }}>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "8px" }}>
+                                                    <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12c5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11V11.99z" fill="currentColor" />
+                                                </svg>
+                                                Configuración de cuenta
+                                            </div>
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M10 6L8.59 7.41L13.17 12l-4.58 4.59L10 18l6-6z" fill="currentColor" />
+                                            </svg>
+                                        </div>
+                                    </div>
+
+                                    {/* Submenú independiente */}
+                                    {showAccountSubmenu && (
+                                        <motion.div
+                                            initial={{ opacity: 0, x: 10 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: 10 }}
+                                            transition={{ duration: 0.2 }}
+                                            style={{
+                                                position: "absolute",
+                                                right: "200px", // Aparece a la izquierda del menú principal
+                                                top: 0,
+                                                backgroundColor: cardColor,
+                                                border: `1px solid ${borderColor}`,
+                                                borderRadius: "8px",
+                                                boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                                                width: "200px",
+                                                zIndex: 30
+                                            }}
+                                            onMouseEnter={() => setShowAccountSubmenu(true)}
+                                            onMouseLeave={() => setShowAccountSubmenu(false)}
+                                        >
+                                            <motion.button
+                                                whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
+                                                style={{
+                                                    width: "100%",
+                                                    padding: "12px 16px",
+                                                    textAlign: "left",
+                                                    backgroundColor: "transparent",
+                                                    border: "none",
+                                                    color: textColor,
+                                                    cursor: "pointer"
+                                                }}
+                                            >
+                                                Cambiar contraseña
+                                            </motion.button>
+                                            <motion.button
+                                                whileHover={{ backgroundColor: "rgba(255,255,white,0.05)" }}
+                                                style={{
+                                                    width: "100%",
+                                                    padding: "12px 16px",
+                                                    textAlign: "left",
+                                                    backgroundColor: "transparent",
+                                                    border: "none",
+                                                    color: "#FF5252",
+                                                    cursor: "pointer"
+                                                }}
+                                            >
+                                                Desactivar cuenta
+                                            </motion.button>
+                                        </motion.div>
+                                    )}
+
+                                    <motion.button
+                                        whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
+                                        style={{
+                                            width: "100%",
+                                            padding: "12px 16px",
+                                            textAlign: "left",
+                                            backgroundColor: "transparent",
+                                            border: "none",
+                                            color: textColor,
+                                            cursor: "pointer",
+                                            display: "flex",
+                                            alignItems: "center"
+                                        }}
+                                        onClick={handleLogout}
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "8px" }}>
+                                            <path d="M17 7L15.59 8.41L18.17 11H8V13H18.17L15.59 15.58L17 17L22 12L17 7ZM4 5H12V3H4C2.9 3 2 3.9 2 5V19C2 20.1 2.9 21 4 21H12V19H4V5Z" fill="currentColor" />
+                                        </svg>
+                                        Cerrar sesión
+                                    </motion.button>
+                                </motion.div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -914,20 +970,20 @@ function PantallaPerfil() {
                             flex: 1,
                             padding: "1rem",
                             border: "none",
-                            backgroundColor: selectedContent === "eventos" ? "rgba(255, 69, 0, 0.1)" : "transparent",
-                            color: selectedContent === "eventos" ? accentColor : textColor,
+                            backgroundColor: selectedContent === "equipos" ? "rgba(255, 69, 0, 0.1)" : "transparent",
+                            color: selectedContent === "equipos" ? accentColor : textColor,
                             fontWeight: "bold",
                             cursor: "pointer",
-                            borderBottom: selectedContent === "eventos" ? `2px solid ${accentColor}` : "none"
+                            borderBottom: selectedContent === "equipos" ? `2px solid ${accentColor}` : "none"
                         }}
-                        onClick={() => setSelectedContent("eventos")}
+                        onClick={() => setSelectedContent("equipos")}
                     >
-                        Eventos
+                        Equipos
                     </motion.button>
                 </div>
 
                 {/* Contenido según pestaña seleccionada */}
-                <div style={{ flex: 1, overflowY: "auto" }}>
+                <CustomScroll>
                     {selectedContent === "publicaciones" && (
                         <div>
                             {profilePosts.length > 0 ? (
@@ -1060,170 +1116,57 @@ function PantallaPerfil() {
                         </div>
                     )}
 
-                    {selectedContent === "eventos" && (
+                    {selectedContent === "equipos" && (
                         <div style={{
                             display: "grid",
-                            gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-                            gap: "1.5rem",
-                            padding: "1.5rem"
+                            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+                            gap: "1rem",
+                            padding: "1rem"
                         }}>
-                            {[...events.paraTi, ...events.comunidad].map(event => (
+                            {teams.map(team => (
                                 <motion.div
-                                    key={event.id}
-                                    whileHover={{
-                                        y: -5,
-                                        boxShadow: `0 10px 25px rgba(255, 69, 0, 0.3)`,
-                                        borderColor: primaryColor
-                                    }}
+                                    key={team.id}
+                                    whileHover={{ y: -5, boxShadow: `0 5px 15px rgba(255, 69, 0, 0.2)` }}
                                     style={{
-                                        borderRadius: "16px",
+                                        backgroundColor: cardColor,
+                                        borderRadius: "12px",
                                         overflow: "hidden",
-                                        border: `2px solid ${borderColor}`,
+                                        border: `1px solid ${borderColor}`,
                                         display: "flex",
-                                        flexDirection: "column",
-                                        cursor: "pointer",
-                                        position: "relative",
-                                        transition: "all 0.1s ease",
-                                        height: "280px",
-                                        minWidth: "320px",
-                                        background: "linear-gradient(135deg, rgba(30,30,30,0.9), rgba(18,18,18,1))"
+                                        flexDirection: "column"
                                     }}
                                 >
-                                    {/* Overlay oscuro */}
+                                    {/* Imagen del equipo */}
                                     <div style={{
-                                        position: "absolute",
-                                        top: 0,
-                                        left: 0,
-                                        right: 0,
-                                        bottom: 0,
-                                        backgroundColor: "rgba(0,0,0,0.6)",
-                                        zIndex: 1
-                                    }}></div>
-
-                                    {/* Contenido del evento */}
-                                    <div style={{
-                                        flex: 1,
+                                        height: "150px",
+                                        backgroundColor: "rgba(150, 133, 127, 0.1)",
                                         display: "flex",
                                         alignItems: "center",
                                         justifyContent: "center",
-                                        position: "relative",
-                                        padding: "1rem",
-                                        zIndex: 3
+                                        position: "relative"
                                     }}>
-                                        <div style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "space-between",
-                                            width: "100%",
-                                            height: "100%"
-                                        }}>
-                                            {/* Equipo local */}
-                                            <div style={{
-                                                display: "flex",
-                                                flexDirection: "column",
-                                                alignItems: "center",
-                                                justifyContent: "center",
-                                                flex: 1
-                                            }}>
-                                                <div style={{
-                                                    width: "80px",
-                                                    height: "80px",
-                                                    borderRadius: "50%",
-                                                    overflow: "hidden",
-                                                    border: `3px solid ${primaryColor}`,
-                                                    boxShadow: `0 0 15px rgba(255, 69, 0, 0.3)`,
-                                                    position: "relative"
-                                                }}>
-                                                    <img
-                                                        src={event.localImage}
-                                                        alt={event.localTeam}
-                                                        style={{
-                                                            width: "100%",
-                                                            height: "100%",
-                                                            objectFit: "cover"
-                                                        }}
-                                                    />
-                                                </div>
-                                                <div style={{
-                                                    marginTop: "1rem",
-                                                    fontWeight: "bold",
-                                                    textAlign: "center",
-                                                    color: textColor,
-                                                    fontSize: "1.1rem"
-                                                }}>
-                                                    {event.localTeam}
-                                                </div>
-                                            </div>
-
-                                            {/* VS */}
-                                            <div style={{
-                                                fontSize: "1.8rem",
-                                                fontWeight: "bold",
-                                                color: primaryColor,
-                                                padding: "0 1rem",
-                                                textShadow: `0 0 10px rgba(255, 69, 0, 0.5)`,
-                                                margin: "0 0.5rem"
-                                            }}>
-                                                VS
-                                            </div>
-
-                                            {/* Equipo visitante */}
-                                            <div style={{
-                                                display: "flex",
-                                                flexDirection: "column",
-                                                alignItems: "center",
-                                                justifyContent: "center",
-                                                flex: 1
-                                            }}>
-                                                <div style={{
-                                                    width: "80px",
-                                                    height: "80px",
-                                                    borderRadius: "50%",
-                                                    overflow: "hidden",
-                                                    border: `3px solid ${primaryColor}`,
-                                                    boxShadow: `0 0 15px rgba(255, 69, 0, 0.3)`,
-                                                    position: "relative"
-                                                }}>
-                                                    <img
-                                                        src={event.visitorImage}
-                                                        alt={event.visitorTeam}
-                                                        style={{
-                                                            width: "100%",
-                                                            height: "100%",
-                                                            objectFit: "cover"
-                                                        }}
-                                                    />
-                                                </div>
-                                                <div style={{
-                                                    marginTop: "1rem",
-                                                    fontWeight: "bold",
-                                                    textAlign: "center",
-                                                    color: textColor,
-                                                    fontSize: "1.1rem"
-                                                }}>
-                                                    {event.visitorTeam}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Icono del deporte */}
+                                        <img
+                                            src={team.image}
+                                            alt={team.name}
+                                            style={{
+                                                width: "100%",
+                                                height: "100%",
+                                                objectFit: "cover"
+                                            }}
+                                        />
                                         <div style={{
                                             position: "absolute",
-                                            top: "15px",
-                                            right: "15px",
-                                            background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})`,
+                                            top: "10px",
+                                            right: "10px",
+                                            backgroundColor: "rgba(0, 0, 0, 0.7)",
                                             color: "white",
-                                            padding: "0.5rem",
-                                            borderRadius: "50%",
-                                            width: "40px",
-                                            height: "40px",
+                                            padding: "0.25rem 0.25rem",
+                                            borderRadius: "50px",
+                                            fontSize: "0.8rem",
                                             display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            boxShadow: `0 2px 10px rgba(255, 69, 0, 0.5)`,
-                                            zIndex: 3
+                                            alignItems: "center"
                                         }}>
-                                            <SportIcon sport={event.sport} style={{
+                                            <SportIcon sport={team.sport} style={{
                                                 width: "25px",
                                                 height: "25px",
                                                 color: "white"
@@ -1231,99 +1174,45 @@ function PantallaPerfil() {
                                         </div>
                                     </div>
 
-                                    {/* Pie de tarjeta con información */}
-                                    <div style={{
-                                        padding: "1rem",
-                                        background: "rgba(30,30,30,0.9)",
-                                        borderTop: `1px solid ${borderColor}`,
-                                        position: "relative",
-                                        zIndex: 3,
-                                        minHeight: "100px"
-                                    }}>
-                                        {/* Indicador de miembro */}
-                                        {event.isMember && (
-                                            <div style={{
-                                                position: "absolute",
-                                                top: "-12px",
-                                                left: "15px",
-                                                background: primaryColor,
-                                                color: "white",
-                                                padding: "3px 10px",
-                                                borderRadius: "20px",
-                                                fontSize: "0.7rem",
-                                                fontWeight: "bold",
-                                                display: "flex",
-                                                alignItems: "center"
-                                            }}>
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "5px" }}>
-                                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="white" />
-                                                </svg>
-                                                Mi equipo
-                                            </div>
-                                        )}
-
+                                    {/* Información del equipo */}
+                                    <div style={{ padding: "1rem" }}>
+                                        <h3 style={{
+                                            margin: "0 0 0.5rem 0",
+                                            fontSize: "1.2rem",
+                                            fontWeight: "bold"
+                                        }}>
+                                            {team.name}
+                                        </h3>
                                         <div style={{
                                             display: "flex",
                                             alignItems: "center",
-                                            justifyContent: "space-between",
-                                            marginTop: event.isMember ? "0.5rem" : "0"
+                                            color: lightTextColor,
+                                            marginBottom: "1rem",
+                                            fontSize: "0.9rem"
                                         }}>
-                                            <div style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                color: lightTextColor,
-                                                fontSize: "0.9rem"
-                                            }}>
-                                                <svg width="16" height="16" viewBox="0 0 46 46" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "5px" }}>
-                                                    <g fill="none" stroke="#a0a0a0" strokeWidth="4">
-                                                        <circle cx="24" cy="8" r="4" fill=""></circle>
-                                                        <path
-                                                            strokeLinecap="round"
-                                                            strokeLinejoin="round"
-                                                            d="M7 18H19V34"
-                                                        ></path>
-                                                        <path
-                                                            strokeLinecap="round"
-                                                            strokeLinejoin="round"
-                                                            d="M41 18H29V44"
-                                                        ></path>
-                                                    </g>
-                                                </svg>
-                                                {event.sport.charAt(0).toUpperCase() + event.sport.slice(1)}
-                                            </div>
-
-                                            <div style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                color: lightTextColor,
-                                                fontSize: "0.9rem"
-                                            }}>
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "5px" }}>
-                                                    <path d="M12 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" fill={lightTextColor} />
-                                                </svg>
-                                                {new Date(event.date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                                            </div>
-                                        </div>
-
-                                        <div style={{
-                                            marginTop: "0.5rem",
-                                            color: textColor,
-                                            fontWeight: "500",
-                                            fontSize: "0.95rem",
-                                            display: "flex",
-                                            alignItems: "center"
-                                        }}>
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "5px" }}>
-                                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill={primaryColor} />
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "0.5rem", marginTop: "0.4rem" }}>
+                                                <path d="M0 7a7 7 0 1 0 14 0A7 7 0 1 0 0 7" fill="currentColor" />
                                             </svg>
-                                            {event.location}
+                                            {team.members} {team.members === 1 ? "miembro" : "miembros"}
                                         </div>
+                                        {team.isMember && (
+                                            <div style={{
+                                                display: "inline-block",
+                                                backgroundColor: "rgba(255, 69, 0, 0.1)",
+                                                color: accentColor,
+                                                padding: "0.25rem 0.5rem",
+                                                borderRadius: "4px",
+                                                fontSize: "0.8rem"
+                                            }}>
+                                                Eres miembro
+                                            </div>
+                                        )}
                                     </div>
                                 </motion.div>
                             ))}
                         </div>
                     )}
-                </div>
+                </CustomScroll>
             </div>
 
             {/* Botón para mostrar barra izquierda en móviles */}
