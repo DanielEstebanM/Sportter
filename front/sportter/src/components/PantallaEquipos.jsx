@@ -488,7 +488,6 @@ function PantallaEquipos() {
                                 navigate('/perfil', {
                                     state: { user: userEmail },
                                     replace: false,
-                                    teams: teamsData
                                 });
                                 document.body.style.overflow = ""; // Restaura el scroll
                             }, 300);
