@@ -13,7 +13,7 @@ import jakarta.persistence.Table;
 
 
 @Entity
-@Table(name = "Mensaje")
+@Table(name = "mensaje")
 public class Mensaje {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -36,7 +36,7 @@ public class Mensaje {
     @JoinColumn(name = "destinatario_id", referencedColumnName = "id", nullable = false)
     private Usuario destinatario;
     
-    @Column(name = "conversacion_id", nullable = false)
+    @Column(name = "conversacion_id")
     private String conversacionId;
 
 	public Long getId() {

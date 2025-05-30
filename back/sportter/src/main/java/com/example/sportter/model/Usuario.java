@@ -1,16 +1,25 @@
 package com.example.sportter.model;
 
+import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "Usuario")
+@Table(name = "usuario")
 public class Usuario {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    
+    
+    @OneToMany(mappedBy = "usuario", fetch = FetchType.LAZY)
+    @JsonIgnore // Evita recursión infinita
+    private List<Publicacion> publicaciones;
+    
     
     @JsonProperty("nombreUsuario")
     @Column(name = "nombre_usuario") // Cambiado de nombre.usuario a nombre_usuario
