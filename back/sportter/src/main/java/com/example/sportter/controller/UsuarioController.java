@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.util.Map;
 import java.util.Optional;
@@ -19,34 +20,38 @@ public class UsuarioController {
 
 	@Autowired
 	private UsuarioRepository usuarioRepository;
+	
+	private BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
 	@PostMapping("/login")
 	public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
-		Optional<Usuario> usuario = usuarioRepository.findByCorreoElectronicoAndContrasena(
-				loginRequest.getCorreoElectronico(), loginRequest.getContrasena());
+	    Optional<Usuario> usuarioOpt = usuarioRepository.findByCorreoElectronico(loginRequest.getCorreoElectronico());
 
-		if (usuario.isPresent()) {
-			return ResponseEntity.ok(usuario.get());
-		} else {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuario o contraseña incorrecta");
-		}
+	    if (usuarioOpt.isPresent()) {
+	        Usuario usuario = usuarioOpt.get();
+	        if (passwordEncoder.matches(loginRequest.getContrasena(), usuario.getContrasena())) {
+	            return ResponseEntity.ok(usuario);
+	        }
+	    }
+
+	    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuario o contraseña incorrecta");
 	}
 
 	@PostMapping("/registro")
 	public ResponseEntity<?> registrarUsuario(@RequestBody Usuario usuario) {
-		try {
-			// Verificar si el correo ya existe
-			if (usuarioRepository.existsByCorreoElectronico(usuario.getCorreoElectronico())) {
-				return ResponseEntity.badRequest().body("El correo electrónico ya está en uso");
-			}
+	    try {
+	        if (usuarioRepository.existsByCorreoElectronico(usuario.getCorreoElectronico())) {
+	            return ResponseEntity.badRequest().body("El correo electrónico ya está en uso");
+	        }
 
-			// Guardar el usuario
+	        // Hashear la contraseña antes de guardar
+	        usuario.setContrasena(passwordEncoder.encode(usuario.getContrasena()));
 
-			Usuario nuevoUsuario = usuarioRepository.save(usuario);
-			return ResponseEntity.ok(nuevoUsuario);
-		} catch (Exception e) {
-			return ResponseEntity.internalServerError().body("Error al registrar el usuario");
-		}
+	        Usuario nuevoUsuario = usuarioRepository.save(usuario);
+	        return ResponseEntity.ok(nuevoUsuario);
+	    } catch (Exception e) {
+	        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al registrar usuario");
+	    }
 	}
 
 	// Verificar si el email existe
