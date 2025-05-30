@@ -28,31 +28,31 @@ function PantallaPerfil() {
     const userUsername = userEmail?.split('@')[0];
 
     const [teams, setTeams] = useState([
-  {
-    id: 1,
-    name: "Los Tigres",
-    sport: "fútbol",
-    image: "https://images2.minutemediacdn.com/image/upload/c_crop,w_3531,h_1986,x_0,y_232/c_fill,w_720,ar_16:9,f_auto,q_auto,g_auto/images/GettyImages/mmsport/90min_es_international_web/01j5c0e6nzzxe7vxjnzk.jpg",
-    members: 12,
-    isMember: true
-  },
-  {
-    id: 2,
-    name: "Los Halcones",
-    sport: "baloncesto",
-    image: "https://i.imgur.com/bUwYQP3.png",
-    members: 8,
-    isMember: false
-  },
-  {
-    id: 3,
-    name: "Los Tiburones",
-    sport: "volleyball",
-    image: "https://i.imgur.com/bUwYQP3.png",
-    members: 6,
-    isMember: true
-  }
-]);
+        {
+            id: 1,
+            name: "Los Tigres",
+            sport: "fútbol",
+            image: "https://images2.minutemediacdn.com/image/upload/c_crop,w_3531,h_1986,x_0,y_232/c_fill,w_720,ar_16:9,f_auto,q_auto,g_auto/images/GettyImages/mmsport/90min_es_international_web/01j5c0e6nzzxe7vxjnzk.jpg",
+            members: 12,
+            isMember: true
+        },
+        {
+            id: 2,
+            name: "Los Halcones",
+            sport: "baloncesto",
+            image: "https://i.imgur.com/bUwYQP3.png",
+            members: 8,
+            isMember: false
+        },
+        {
+            id: 3,
+            name: "Los Tiburones",
+            sport: "volleyball",
+            image: "https://i.imgur.com/bUwYQP3.png",
+            members: 6,
+            isMember: true
+        }
+    ]);
 
     // Colores con tema anaranjado-rojizo
     const primaryColor = "#FF4500";
@@ -617,7 +617,7 @@ function PantallaPerfil() {
                 {/* Encabezado del perfil */}
                 <div style={{
                     position: "relative",
-                    height: "200px",
+                    height: "150px",
                     backgroundColor: cardColor,
                     borderBottom: `1px solid ${borderColor}`
                 }}>
@@ -748,16 +748,20 @@ function PantallaPerfil() {
                                     </motion.button>
 
                                     <div
-                                        style={{
-                                            position: "relative",
-                                            padding: "12px 16px",
-                                            cursor: "pointer",
-                                            ":hover": { backgroundColor: "rgba(255,255,255,0.05)" }
-                                        }}
+                                        style={{ position: "relative" }}
                                         onMouseEnter={() => setShowAccountSubmenu(true)}
-                                        onMouseLeave={() => !showAccountSubmenu && setShowAccountSubmenu(false)}
+                                        onMouseLeave={() => setShowAccountSubmenu(false)}
                                     >
-                                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                        <div
+                                            style={{
+                                                padding: "12px 16px",
+                                                cursor: "pointer",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "space-between",
+                                                backgroundColor: showAccountSubmenu ? "rgba(255,255,255,0.05)" : "transparent"
+                                            }}
+                                        >
                                             <div style={{ display: "flex", alignItems: "center" }}>
                                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "8px" }}>
                                                     <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12c5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11V11.99z" fill="currentColor" />
@@ -773,23 +777,21 @@ function PantallaPerfil() {
                                     {/* Submenú independiente */}
                                     {showAccountSubmenu && (
                                         <motion.div
-                                            initial={{ opacity: 0, x: 10 }}
+                                            initial={{ opacity: 0, x: 20 }}
                                             animate={{ opacity: 1, x: 0 }}
-                                            exit={{ opacity: 0, x: 10 }}
+                                            exit={{ opacity: 0, x: 20 }}
                                             transition={{ duration: 0.2 }}
                                             style={{
                                                 position: "absolute",
-                                                right: "200px", // Aparece a la izquierda del menú principal
                                                 top: 0,
+                                                left: "-210px", // Mostrar a la izquierda
                                                 backgroundColor: cardColor,
                                                 border: `1px solid ${borderColor}`,
                                                 borderRadius: "8px",
                                                 boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
                                                 width: "200px",
-                                                zIndex: 30
+                                                zIndex: 9999
                                             }}
-                                            onMouseEnter={() => setShowAccountSubmenu(true)}
-                                            onMouseLeave={() => setShowAccountSubmenu(false)}
                                         >
                                             <motion.button
                                                 whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
@@ -806,7 +808,7 @@ function PantallaPerfil() {
                                                 Cambiar contraseña
                                             </motion.button>
                                             <motion.button
-                                                whileHover={{ backgroundColor: "rgba(255,255,white,0.05)" }}
+                                                whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
                                                 style={{
                                                     width: "100%",
                                                     padding: "12px 16px",
