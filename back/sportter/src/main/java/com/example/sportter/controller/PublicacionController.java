@@ -1,5 +1,6 @@
 package com.example.sportter.controller;
 
+import java.time.LocalDateTime;
 import java.util.*;
 
 import org.springframework.http.ResponseEntity;
@@ -121,6 +122,31 @@ public class PublicacionController {
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
 					.body("Error al verificar like: " + e.getMessage());
 		}
+	}
+	
+	@PostMapping("/crearPubli")  // Cambiado para que coincida con el frontend
+	public ResponseEntity<Publicacion> crearPublicacion(@RequestBody Publicacion publicacion) {
+	    try {
+	        publicacion.setFechaHora(LocalDateTime.now());
+	        publicacion.setLikes(0L);
+	        publicacion.setComentarios(0L);
+	        publicacion.setCompartidos(0L);
+	        
+	        // Asegúrate de que el usuario existe
+	        if (publicacion.getUsuario() != null && publicacion.getUsuario().getId() != null) {
+	            Optional<Usuario> usuario = usuarioRepository.findById(publicacion.getUsuario().getId());
+	            if (usuario.isPresent()) {
+	                publicacion.setUsuario(usuario.get());
+	            } else {
+	                return ResponseEntity.badRequest().body(null);
+	            }
+	        }
+	        
+	        Publicacion nuevaPublicacion = publicacionRepository.save(publicacion);
+	        return ResponseEntity.ok(nuevaPublicacion);
+	    } catch (Exception e) {
+	        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+	    }
 	}
 
 }

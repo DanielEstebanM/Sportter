@@ -7,6 +7,7 @@ import PantallaMensajes from './components/PantallaMensajes';
 import PantallaEquipos from "./components/PantallaEquipos";
 import PantallaEventos from "./components/PantallaEventos";
 import PantallaPerfil from "./components/PantallaPerfil";
+import PublicacionDetalle from "./components/PublicacionDetalle";
 import ProtectedRoute from "./components/proteccionRutas/ProtectedRoute";
 import ReverseProtectedRoute from "./components/proteccionRutas/ReverseProtectedRoute";
 import PantallaInfoEquipo from "./components/PantallaInfoEquipo";
@@ -18,6 +19,7 @@ function App() {
         <Routes>
           <Route path="/" element={<ReverseProtectedRoute><PantallaInicio /></ReverseProtectedRoute>} />
           <Route path="/principal" element={<ProtectedRoute><PantallaPrincipal /></ProtectedRoute>} />
+          <Route path="/publicacion/:id" element={<ProtectedRoute><PublicacionDetalle /></ProtectedRoute>} />
           <Route path="/equipos" element={<ProtectedRoute><PantallaEquipos /></ProtectedRoute>} />
           <Route path="/eventos" element={<ProtectedRoute><PantallaEventos /></ProtectedRoute>} />
           <Route path="/perfil" element={<ProtectedRoute><PantallaPerfil /></ProtectedRoute>} />

@@ -248,3 +248,23 @@ export const checkLikeStatus = async (postId, userEmail) => {
     return false;
   }
 };
+
+
+export const crearPublicacion = async (publicacionData) => {
+  try {
+    const response = await axios.post(
+      'http://localhost:8080/api/publicaciones/crearPubli', // Cambiado el endpoint
+      publicacionData,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error('Error al crear publicación:', error);
+    throw error;
+  }
+};

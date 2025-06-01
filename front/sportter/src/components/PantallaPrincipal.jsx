@@ -3,7 +3,12 @@ import { motion } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import "react-tooltip/dist/react-tooltip.css";
-import { loadPosts, darLike, quitarLike } from "../services/api";
+import {
+  loadPosts,
+  darLike,
+  quitarLike,
+  crearPublicacion,
+} from "../services/api";
 
 function PantallaPrincipal() {
   const location = useLocation();
@@ -19,7 +24,8 @@ function PantallaPrincipal() {
   const [isMobile, setIsMobile] = useState(false);
   const [scrollY, setScrollY] = useState(0);
 
-  const userData = location.state?.user || JSON.parse(localStorage.getItem("userData"));
+  const userData =
+    location.state?.user || JSON.parse(localStorage.getItem("userData"));
   const userEmail = userData?.correoElectronico;
   const userName = userData?.nombreUsuario;
 
@@ -50,10 +56,10 @@ function PantallaPrincipal() {
         if (fetchedPosts && Array.isArray(fetchedPosts)) {
           const resolvedPosts = await Promise.all(fetchedPosts);
           const processedPosts = resolvedPosts
-            .filter(post => post)
-            .map(post => ({
+            .filter((post) => post)
+            .map((post) => ({
               ...post,
-              time: new Date(post.time)
+              time: new Date(post.time),
             }));
           setPosts(processedPosts);
           console.log("Total posts establecidos:", processedPosts.length);
@@ -177,8 +183,6 @@ function PantallaPrincipal() {
       }
     });
   };
-
-  // Datos de ejemplo para los posts
 
   //HASTA AQUI MODIFICACION SARA
 
@@ -335,26 +339,65 @@ function PantallaPrincipal() {
     }
   };
 
-  const handlePostSubmit = (e) => {
+  const handlePostSubmit = async (e) => {
     e.preventDefault();
-    if (newPostContent.trim() && modalSelectedSport) {
-      const newPost = {
-        id: Date.now(), // Mejor ID temporal
-        user: userEmail.split("@")[0],
-        name: userName,
-        content: newPostContent,
-        time: new Date(), // Fecha actual como objeto Date
-        likes: 0,
-        comments: 0,
-        shares: 0,
-        isLiked: false,
-        sport: modalSelectedSport,
+
+    if (!newPostContent.trim() || !modalSelectedSport) return;
+
+    try {
+      const nuevaPublicacion = {
+        contenido: newPostContent,
+        categoriaDeporte: {
+          id: getDeporteId(modalSelectedSport), // Función que mapea nombre deporte a ID
+        },
+        usuario: {
+          id: userData.id, // Asegúrate que userData tenga el ID del usuario
+        },
+        // No necesitas enviar likes, comentarios, compartidos ni fecha - el backend los maneja
       };
-      setPosts([newPost, ...posts]);
+
+      // Llamar a la API para crear la publicación
+      const publicacionCreada = await crearPublicacion(nuevaPublicacion);
+
+      // Actualizar el estado local con la nueva publicación
+      setPosts([
+        {
+          id: publicacionCreada.id,
+          content: publicacionCreada.contenido,
+          user: userEmail.split("@")[0],
+          name: userName,
+          time: new Date(publicacionCreada.fechaHora),
+          likes: publicacionCreada.likes || 0,
+          comments: publicacionCreada.comentarios || 0,
+          shares: publicacionCreada.compartidos || 0,
+          isLiked: false,
+          sport: modalSelectedSport,
+        },
+        ...posts,
+      ]);
+
+      // Resetear el formulario
       setNewPostContent("");
       setShowPostModal(false);
       setModalSelectedSport("General");
+    } catch (error) {
+      console.error("Error al crear publicación:", error);
+      // Puedes mostrar un mensaje de error al usuario aquí
+      alert("Error al crear la publicación. Por favor intenta nuevamente.");
     }
+  };
+
+  // Función auxiliar para mapear deportes a IDs (ajusta según tus categorías)
+  const getDeporteId = (deporteNombre) => {
+    const deportes = {
+      General: 6,
+      Fútbol: 1,
+      Baloncesto: 2,
+      Volleyball: 3,
+      Tenis: 4,
+      Ciclismo: 5,
+    };
+    return deportes[deporteNombre] || 6;
   };
 
   const formatRelativeTime = (date) => {
@@ -403,18 +446,18 @@ function PantallaPrincipal() {
   const filteredPosts =
     selectedSport === "General"
       ? posts.filter(
-        (post) =>
-          post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          post.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          post.user.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-      : posts.filter(
-        (post) =>
-          post.sport === selectedSport &&
-          (post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (post) =>
+            post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
             post.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            post.user.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
+            post.user.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      : posts.filter(
+          (post) =>
+            post.sport === selectedSport &&
+            (post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              post.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              post.user.toLowerCase().includes(searchQuery.toLowerCase()))
+        );
 
   return (
     <div
@@ -1662,7 +1705,14 @@ function PantallaPrincipal() {
             {/* Lista de posts */}
 
             {filteredPosts.map((post) => {
-              console.log("Post time:", post.time, "Type:", typeof post.time, "Valid:", post.time instanceof Date && !isNaN(post.time.getTime()));
+              console.log(
+                "Post time:",
+                post.time,
+                "Type:",
+                typeof post.time,
+                "Valid:",
+                post.time instanceof Date && !isNaN(post.time.getTime())
+              );
               return (
                 <motion.div
                   key={post.id}
@@ -1674,7 +1724,13 @@ function PantallaPrincipal() {
                     borderBottom: `1px solid ${borderColor}`,
                     display: "flex",
                     backgroundColor: cardColor,
+                    cursor: "pointer",
                   }}
+                  onClick={() =>
+                    navigate(`/publicacion/${post.id}`, {
+                      state: { user: userData },
+                    })
+                  }
                 >
                   <div
                     style={{
@@ -1712,26 +1768,47 @@ function PantallaPrincipal() {
                   </div>
 
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", marginBottom: "0.25rem" }}>
-                      <span style={{ fontWeight: "bold", marginRight: "0.25rem", color: textColor }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        marginBottom: "0.25rem",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontWeight: "bold",
+                          marginRight: "0.25rem",
+                          color: textColor,
+                        }}
+                      >
                         {post.name}
                       </span>
                       {!isMobile && (
                         <>
-                          <span style={{ marginRight: "0.25rem", color: lightTextColor }}>
+                          <span
+                            style={{
+                              marginRight: "0.25rem",
+                              color: lightTextColor,
+                            }}
+                          >
                             @{post.user}
                           </span>
                         </>
                       )}
-                      <span style={{ color: lightTextColor }}>· {formatRelativeTime(new Date(post.time))}</span>
+                      <span style={{ color: lightTextColor }}>
+                        · {formatRelativeTime(new Date(post.time))}
+                      </span>
                       {post.sport !== "General" && (
-                        <span style={{
-                          marginLeft: "0.5rem",
-                          color: primaryColor,
-                          fontSize: "0.8rem",
-                          display: "flex",
-                          alignItems: "center",
-                        }}>
+                        <span
+                          style={{
+                            marginLeft: "0.5rem",
+                            color: primaryColor,
+                            fontSize: "0.8rem",
+                            display: "flex",
+                            alignItems: "center",
+                          }}
+                        >
                           <SportIcon
                             sport={post.sport}
                             style={{
@@ -1774,7 +1851,13 @@ function PantallaPrincipal() {
                           alignItems: "center",
                         }}
                       >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <svg
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
                           <path
                             fill="currentColor"
                             fillRule="evenodd"
@@ -1987,8 +2070,9 @@ function PantallaPrincipal() {
               {Object.entries(trends).map(([sport, trend]) => (
                 <div key={sport} style={{ marginBottom: "1rem" }}>
                   <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>
-                    {`Tendencia en ${sport.charAt(0).toUpperCase() + sport.slice(1)
-                      }`}
+                    {`Tendencia en ${
+                      sport.charAt(0).toUpperCase() + sport.slice(1)
+                    }`}
                   </div>
                   <div style={{ fontWeight: "bold", color: textColor }}>
                     {trend.tag}
@@ -2228,8 +2312,9 @@ function PantallaPrincipal() {
             {Object.entries(trends).map(([sport, trend]) => (
               <div key={sport} style={{ marginBottom: "1rem" }}>
                 <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>
-                  {`Tendencia en ${sport.charAt(0).toUpperCase() + sport.slice(1)
-                    }`}
+                  {`Tendencia en ${
+                    sport.charAt(0).toUpperCase() + sport.slice(1)
+                  }`}
                 </div>
                 <div style={{ fontWeight: "bold", color: textColor }}>
                   {trend.tag}
@@ -2296,7 +2381,7 @@ function PantallaPrincipal() {
                       fontSize: "0.8rem",
                     }}
                   >
-                    @{user.email.split("@")[0]}
+                    @{user.email.split("@")[1]}
                   </div>
                 </div>
                 <motion.button
