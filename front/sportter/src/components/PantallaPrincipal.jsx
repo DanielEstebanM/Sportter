@@ -38,6 +38,8 @@ function PantallaPrincipal() {
   const [useEffectd, setUsed] = useState(false);
   const [posts, setPosts] = useState([]);
 
+  const [showUserSearchModal, setShowUserSearchModal] = useState(false);
+
   // Datos de ejemplo para usuarios
   const [users, setUsers] = useState([
     { id: 1, name: "Usuario1", email: "usuario1@example.com" },
@@ -510,7 +512,10 @@ function PantallaPrincipal() {
             >
               <h3 style={{ margin: 0 }}>Compartir publicación</h3>
               <button
-                onClick={() => setShowShareModal(false)}
+                onClick={() => {
+                  setShowShareModal(false)
+                  setShareSearchQuery("");
+                }}
                 style={{
                   background: "transparent",
                   border: "none",
@@ -599,69 +604,90 @@ function PantallaPrincipal() {
                         .toLowerCase()
                         .includes(shareSearchQuery.toLowerCase())
                   )
-                  .map((user) => (
-                    <div
-                      key={user.id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "0.5rem",
-                        borderRadius: "4px",
-                        backgroundColor: selectedUsers.some(
-                          (u) => u.id === user.id
-                        )
-                          ? "rgba(255, 112, 67, 0.2)"
-                          : "transparent",
-                        marginBottom: "0.5rem",
-                        cursor: "pointer",
-                      }}
-                      onClick={() => toggleUserSelection(user)}
-                    >
-                      <div style={{ display: "flex", alignItems: "center" }}>
-                        <div
-                          style={{
-                            width: "40px",
-                            height: "40px",
-                            borderRadius: "50%",
-                            background: primaryColor,
-                            marginRight: "0.5rem",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: "white",
-                          }}
-                        >
-                          {user.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: "bold" }}>{user.name}</div>
+                  .length === 0 ? (
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '1rem',
+                    color: lightTextColor
+                  }}>
+                    No se encontraron usuarios con ese nombre
+                  </div>
+                ) : (
+                  users
+                    .filter(
+                      (user) =>
+                        user.name
+                          .toLowerCase()
+                          .includes(shareSearchQuery.toLowerCase()) ||
+                        user.email
+                          .toLowerCase()
+                          .includes(shareSearchQuery.toLowerCase())
+                    )
+                    .map((user) => (
+                      <div
+                        key={user.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "0.5rem",
+                          borderRadius: "4px",
+                          backgroundColor: selectedUsers.some(
+                            (u) => u.id === user.id
+                          )
+                            ? "rgba(255, 112, 67, 0.2)"
+                            : "transparent",
+                          marginBottom: "0.5rem",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => toggleUserSelection(user)}
+                      >
+                        <div style={{ display: "flex", alignItems: "center" }}>
                           <div
                             style={{
-                              fontSize: "0.8rem",
-                              color: lightTextColor,
+                              width: "40px",
+                              height: "40px",
+                              borderRadius: "50%",
+                              background: primaryColor,
+                              marginRight: "0.5rem",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              color: "white",
                             }}
                           >
-                            {user.email}
+                            {user.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: "bold" }}>{user.name}</div>
+                            <div
+                              style={{
+                                fontSize: "0.8rem",
+                                color: lightTextColor,
+                              }}
+                            >
+                              {user.email}
+                            </div>
                           </div>
                         </div>
+                        {selectedUsers.some((u) => u.id === user.id) && (
+                          <svg
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M9 16.17L4.83 12L3.41 13.41L9 19L21 7L19.59 5.59L9 16.17Z"
+                              fill={accentColor}
+                            />
+                          </svg>
+                        )}
                       </div>
-                      {selectedUsers.some((u) => u.id === user.id) && (
-                        <svg
-                          width="24"
-                          height="24"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M9 16.17L4.83 12L3.41 13.41L9 19L21 7L19.59 5.59L9 16.17Z"
-                            fill={accentColor}
-                          />
-                        </svg>
-                      )}
-                    </div>
-                  ))}
+                    ))
+                )
+                }
               </div>
             </div>
 
@@ -2008,7 +2034,7 @@ function PantallaPrincipal() {
               <div
                 style={{
                   position: "relative",
-                  marginBottom: "1rem",
+                  marginBottom: "0.5rem",
                 }}
               >
                 <input
@@ -2047,6 +2073,259 @@ function PantallaPrincipal() {
                   />
                 </svg>
               </div>
+              <motion.button
+                whileHover={{ color: accentColor }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowUserSearchModal(true)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  fontWeight: "bold",
+                  color: lightTextColor,
+                  cursor: "pointer",
+                  marginTop: "0.5rem",
+                  fontSize: "0.9rem",
+                  textAlign: "left",
+                  padding: "0.25rem 0.5rem",
+                }}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  width="1.3em"
+                  height="1.3em"
+                  style={{ marginRight: "0.9rem", marginLeft: "0.15rem", marginBottom: "0.1rem" }}
+                >
+                  <path
+                    fill="currentColor"
+                    d="M11.91 14h7.843a2.25 2.25 0 0 1 2.25 2.25v.905A3.75 3.75 0 0 1 20.696 20C19.13 21.345 16.89 22.002 14 22.002h-.179a1.75 1.75 0 0 0-.221-1.897l-.111-.121l-2.23-2.224a5.48 5.48 0 0 0 .65-3.76M6.5 10.5a4.5 4.5 0 0 1 3.46 7.377l2.823 2.814a.75.75 0 0 1-.975 1.134l-.085-.072l-2.903-2.896A4.5 4.5 0 1 1 6.5 10.5m0 1.5a3 3 0 1 0 0 6a3 3 0 0 0 0-6M14 2.005a5 5 0 1 1 0 10a5 5 0 0 1 0-10"
+                  ></path>
+                </svg>
+                Buscar usuarios
+              </motion.button>
+
+              {/* Modal para buscar usuarios */}
+              {showUserSearchModal && (
+                <div
+                  style={{
+                    position: "fixed",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: "rgba(0,0,0,0.7)",
+                    backdropFilter: "blur(5px)",
+                    zIndex: 100,
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}
+                >
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    style={{
+                      backgroundColor: cardColor,
+                      borderRadius: "16px",
+                      padding: "1.5rem",
+                      width: "90%",
+                      maxWidth: "500px",
+                      border: `1px solid ${borderColor}`,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "1rem",
+                      }}
+                    >
+                      <h3 style={{ margin: 0 }}>Buscar usuarios</h3>
+                      <button
+                        onClick={() => {
+                          setShowUserSearchModal(false)
+                          setShareSearchQuery("");
+                        }}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: textColor,
+                          cursor: "pointer",
+                          fontSize: "1.5rem",
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+
+                    <div style={{ marginBottom: "1rem" }}>
+                      <div
+                        style={{
+                          position: "relative",
+                          marginBottom: "1rem",
+                        }}
+                      >
+                        <input
+                          type="text"
+                          placeholder="Buscar usuarios..."
+                          value={shareSearchQuery}
+                          onChange={(e) => setShareSearchQuery(e.target.value)}
+                          style={{
+                            width: "100%",
+                            padding: "0.75rem 1rem 0.75rem 2.5rem",
+                            borderRadius: "50px",
+                            border: `1px solid ${borderColor}`,
+                            backgroundColor: backgroundColor,
+                            color: textColor,
+                            outline: "none",
+                            fontSize: "0.9rem",
+                          }}
+                        />
+                        <svg
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          style={{
+                            position: "absolute",
+                            left: "12px",
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            color: lightTextColor,
+                          }}
+                        >
+                          <path
+                            d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3C5.91 3 3 5.91 3 9.5C3 13.09 5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5C5 7.01 7.01 5 9.5 5C11.99 5 14 7.01 14 9.5C14 11.99 11.99 14 9.5 14Z"
+                            fill="currentColor"
+                          />
+                        </svg>
+                      </div>
+
+                      <div
+                        style={{
+                          maxHeight: "300px",
+                          overflowY: "auto",
+                          border: `1px solid ${borderColor}`,
+                          borderRadius: "8px",
+                          padding: "0.5rem",
+                          scrollbarWidth: "thin",
+                          scrollbarColor: `${lightTextColor} ${backgroundColor}`,
+                          "&::-webkit-scrollbar": {
+                            width: "8px",
+                          },
+                          "&::-webkit-scrollbar-track": {
+                            background: backgroundColor,
+                          },
+                          "&::-webkit-scrollbar-thumb": {
+                            backgroundColor: lightTextColor,
+                            borderRadius: "10px",
+                            border: `2px solid ${backgroundColor}`,
+                          },
+                        }}
+                      >
+                        {users
+                          .filter(
+                            (user) =>
+                              user.name
+                                .toLowerCase()
+                                .includes(shareSearchQuery.toLowerCase()) ||
+                              user.email
+                                .toLowerCase()
+                                .includes(shareSearchQuery.toLowerCase())
+                          )
+                          .length === 0 ? (
+                          <div style={{
+                            textAlign: 'center',
+                            padding: '1rem',
+                            color: lightTextColor
+                          }}>
+                            No se encontraron usuarios con ese nombre
+                          </div>
+                        ) : (
+                          users
+                            .filter(
+                              (user) =>
+                                user.name
+                                  .toLowerCase()
+                                  .includes(shareSearchQuery.toLowerCase()) ||
+                                user.email
+                                  .toLowerCase()
+                                  .includes(shareSearchQuery.toLowerCase())
+                            )
+                            .map((user) => (
+                              <div
+                                key={user.id}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  padding: "0.5rem",
+                                  borderRadius: "4px",
+                                  backgroundColor: selectedUsers.some(
+                                    (u) => u.id === user.id
+                                  )
+                                    ? "rgba(255, 112, 67, 0.2)"
+                                    : "transparent",
+                                  marginBottom: "0.5rem",
+                                  cursor: "pointer",
+                                }}
+                                onClick={() => {
+                                  navigate(`/perfil/${user.id}`, {
+                                    state: { user: userData },
+                                  });
+                                  setShowUserSearchModal(false);
+                                }}
+                              >
+                                <div style={{ display: "flex", alignItems: "center" }}>
+                                  <div
+                                    style={{
+                                      width: "40px",
+                                      height: "40px",
+                                      borderRadius: "50%",
+                                      background: primaryColor,
+                                      marginRight: "0.5rem",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      color: "white",
+                                    }}
+                                  >
+                                    {user.name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <div style={{ fontWeight: "bold" }}>{user.name}</div>
+                                    <div
+                                      style={{
+                                        fontSize: "0.8rem",
+                                        color: lightTextColor,
+                                      }}
+                                    >
+                                      {user.email}
+                                    </div>
+                                  </div>
+                                </div>
+                                <svg
+                                  width="24"
+                                  height="24"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                >
+                                  <path
+                                    d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"
+                                    fill={accentColor}
+                                  />
+                                </svg>
+                              </div>
+                            )))}
+                      </div>
+                    </div>
+                  </motion.div>
+                </div>
+              )}
+
             </div>
 
             <div
