@@ -35,7 +35,7 @@ public class MensajeController {
 	@MessageMapping("/chat/{conversacionId}")
 	public void enviarMensaje(@DestinationVariable String conversacionId, Mensaje mensaje, Principal principal) {
 		// Corregido: usar usuarioRepository (minúscula) y findByCorreoElectronico
-		Usuario remitente = UsuarioRepository.findByCorreoElectronico(principal.getName())
+		Usuario remitente = usuarioRepository.findByCorreoElectronico(principal.getName())
 				.orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
 		Usuario destinatario = usuarioRepository.findById(mensaje.getDestinatario().getId())
@@ -58,7 +58,7 @@ public class MensajeController {
 	@GetMapping("/conversaciones")
 	public ResponseEntity<List<ConversacionDTO>> obtenerConversaciones(Principal principal) {
 		// Corregido: usar usuarioRepository (minúscula) y findByCorreoElectronico
-		Usuario usuario = UsuarioRepository.findByCorreoElectronico(principal.getName())
+		Usuario usuario = usuarioRepository.findByCorreoElectronico(principal.getName())
 				.orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
 		// Aquí continuaría la lógica para obtener conversaciones...
@@ -70,7 +70,7 @@ public class MensajeController {
 			Principal principal) {
 
 		// Corrección en el nombre del método (findByCorreoElectronico)
-		Usuario usuario = UsuarioRepository.findByCorreoElectronico(principal.getName())
+		Usuario usuario = usuarioRepository.findByCorreoElectronico(principal.getName())
 				.orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
 		// Corrección en la validación (faltaba paréntesis de cierre)

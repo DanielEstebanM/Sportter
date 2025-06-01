@@ -27,14 +27,37 @@ public class UsuarioController {
 	public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
 	    Optional<Usuario> usuarioOpt = usuarioRepository.findByCorreoElectronico(loginRequest.getCorreoElectronico());
 
-	    if (usuarioOpt.isPresent()) {
-	        Usuario usuario = usuarioOpt.get();
-	        if (passwordEncoder.matches(loginRequest.getContrasena(), usuario.getContrasena())) {
-	            return ResponseEntity.ok(usuario);
+	    if (usuarioOpt.isEmpty()) {
+	        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuario o contraseña incorrecta");
+	    }
+
+	    Usuario usuario = usuarioOpt.get();
+	    String contrasenaAlmacenada = usuario.getContrasena();
+	    String contrasenaIngresada = loginRequest.getContrasena();
+
+	    // Verificación híbrida
+	    boolean contrasenaValida = false;
+	    
+	    // 1. Primero intenta con BCrypt (para contraseñas nuevas)
+	    if (contrasenaAlmacenada.startsWith("$2a$")) {
+	        contrasenaValida = passwordEncoder.matches(contrasenaIngresada, contrasenaAlmacenada);
+	    }
+	    // 2. Si no es BCrypt, compara directamente (para contraseñas existentes)
+	    else {
+	        contrasenaValida = contrasenaIngresada.equals(contrasenaAlmacenada);
+	        
+	        // Opcional: Actualizar a BCrypt si la contraseña es correcta
+	        if (contrasenaValida) {
+	            usuario.setContrasena(passwordEncoder.encode(contrasenaIngresada));
+	            usuarioRepository.save(usuario);
 	        }
 	    }
 
-	    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuario o contraseña incorrecta");
+	    if (contrasenaValida) {
+	        return ResponseEntity.ok(usuario);
+	    } else {
+	        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuario o contraseña incorrecta");
+	    }
 	}
 
 	@PostMapping("/registro")

@@ -32,7 +32,6 @@ function PantallaPrincipal() {
   const [useEffectd, setUsed] = useState(false);
   const [posts, setPosts] = useState([]);
 
-
   // Datos de ejemplo para usuarios
   const [users, setUsers] = useState([
     { id: 1, name: "Usuario1", email: "usuario1@example.com" },
@@ -43,37 +42,40 @@ function PantallaPrincipal() {
   ]);
 
   // Cargar publicaciones al iniciar
-useEffect(() => {
-  const fetchAndSetPosts = async () => { 
-    setLoading(true);
-    try {
-      const fetchedPosts = await loadPosts(); 
-      console.log("Posts obtenidos:", fetchedPosts);
-      
-      if (fetchedPosts && Array.isArray(fetchedPosts)) {
-        // Wait for all promises to resolve
-        const resolvedPosts = await Promise.all(fetchedPosts);
-        setPosts(resolvedPosts.filter(post => post)); // Filter out any undefined posts
-        console.log("Total posts establecidos:", resolvedPosts.length);
-      } else {
-        console.warn("No se recibieron posts o el array está vacío");
+  useEffect(() => {
+    const fetchAndSetPosts = async () => {
+      setLoading(true);
+      try {
+        const fetchedPosts = await loadPosts();
+        if (fetchedPosts && Array.isArray(fetchedPosts)) {
+          const resolvedPosts = await Promise.all(fetchedPosts);
+          const processedPosts = resolvedPosts
+            .filter(post => post)
+            .map(post => ({
+              ...post,
+              time: new Date(post.time)
+            }));
+          setPosts(processedPosts);
+          console.log("Total posts establecidos:", processedPosts.length);
+        } else {
+          console.warn("No se recibieron posts o el array está vacío");
+          setPosts([]);
+        }
+      } catch (error) {
+        console.error("Error cargando publicaciones:", error);
         setPosts([]);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error cargando publicaciones:", error);
-      setPosts([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-  fetchAndSetPosts();
-}, []);
+    };
+    fetchAndSetPosts();
+  }, []);
 
-useEffect(() => {  
-  // Opcional: Recargar publicaciones cada X tiempo
-  const interval = setInterval(loadPosts, 30000); // Cada 30 segundos
-  return () => clearInterval(interval);
-}, []);
+  useEffect(() => {
+    // Opcional: Recargar publicaciones cada X tiempo
+    const interval = setInterval(loadPosts, 30000); // Cada 30 segundos
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (userData) {
@@ -182,40 +184,40 @@ useEffect(() => {
 
   const [newPostContent, setNewPostContent] = useState("");
 
- const analyzeTrends = () => {
-  const hashtagCounts = {};
+  const analyzeTrends = () => {
+    const hashtagCounts = {};
 
-  // Analizar todos los posts para contar hashtags por deporte
-  posts.forEach((post) => {
-    // Add null checks for post and post.content
-    if (!post || !post.content) return;
-    
-    const hashtags = post.content.match(/#\w+/g) || [];
-    const sport = post.sport || "General";
-    
-    hashtags.forEach((tag) => {
-      const key = `${sport.toLowerCase()}_${tag.toLowerCase()}`;
-      hashtagCounts[key] = (hashtagCounts[key] || 0) + 1;
+    // Analizar todos los posts para contar hashtags por deporte
+    posts.forEach((post) => {
+      // Add null checks for post and post.content
+      if (!post || !post.content) return;
+
+      const hashtags = post.content.match(/#\w+/g) || [];
+      const sport = post.sport || "General";
+
+      hashtags.forEach((tag) => {
+        const key = `${sport.toLowerCase()}_${tag.toLowerCase()}`;
+        hashtagCounts[key] = (hashtagCounts[key] || 0) + 1;
+      });
     });
-  });
 
-  // Agrupar por deporte y seleccionar solo el hashtag más popular por deporte
-  const trendsBySport = {};
-  Object.keys(hashtagCounts).forEach((key) => {
-    const [sport, tag] = key.split("_");
-    if (
-      !trendsBySport[sport] ||
-      hashtagCounts[key] > trendsBySport[sport].count
-    ) {
-      trendsBySport[sport] = {
-        tag,
-        count: hashtagCounts[key],
-      };
-    }
-  });
+    // Agrupar por deporte y seleccionar solo el hashtag más popular por deporte
+    const trendsBySport = {};
+    Object.keys(hashtagCounts).forEach((key) => {
+      const [sport, tag] = key.split("_");
+      if (
+        !trendsBySport[sport] ||
+        hashtagCounts[key] > trendsBySport[sport].count
+      ) {
+        trendsBySport[sport] = {
+          tag,
+          count: hashtagCounts[key],
+        };
+      }
+    });
 
-  return trendsBySport;
-};
+    return trendsBySport;
+  };
 
   const trends = analyzeTrends();
 
@@ -293,58 +295,55 @@ useEffect(() => {
     "Ciclismo",
   ];
 
-// En PantallaPrincipal.jsx
-const handleLike = async (postId) => {
-  try {
-    const post = posts.find((post) => post.id === postId);
-    
-    if (post.isLiked) {
-      // Quitar like
-      await quitarLike(postId, userEmail);
-      setPosts(
-        posts.map((post) => {
-          if (post.id === postId) {
-            return {
-              ...post,
-              likes: post.likes - 1,
-              isLiked: false,
-            };
-          }
-          return post;
-        })
-      );
-    } else {
-      // Dar like
-      await darLike(postId, userEmail);
-      setPosts(
-        posts.map((post) => {
-          if (post.id === postId) {
-            return {
-              ...post,
-              likes: post.likes + 1,
-              isLiked: true,
-            };
-          }
-          return post;
-        })
-      );
-    }
-  } catch (error) {
-    console.error("Error al manejar like:", error);
-    // Podrías mostrar un mensaje de error al usuario aquí
-  }
-};
+  const handleLike = async (postId) => {
+    try {
+      const post = posts.find((post) => post.id === postId);
 
+      if (post.isLiked) {
+        // Quitar like
+        await quitarLike(postId, userEmail);
+        setPosts(
+          posts.map((post) => {
+            if (post.id === postId) {
+              return {
+                ...post,
+                likes: post.likes - 1,
+                isLiked: false,
+              };
+            }
+            return post;
+          })
+        );
+      } else {
+        // Dar like
+        await darLike(postId, userEmail);
+        setPosts(
+          posts.map((post) => {
+            if (post.id === postId) {
+              return {
+                ...post,
+                likes: post.likes + 1,
+                isLiked: true,
+              };
+            }
+            return post;
+          })
+        );
+      }
+    } catch (error) {
+      console.error("Error al manejar like:", error);
+    }
+  };
 
   const handlePostSubmit = (e) => {
     e.preventDefault();
     if (newPostContent.trim() && modalSelectedSport) {
       const newPost = {
-        id: posts.length + 1,
+        id: Date.now(), // Mejor ID temporal
         user: userEmail.split("@")[0],
         name: userName,
         content: newPostContent,
-        time: "ahora",
+        time: new Date(), // Fecha actual como objeto Date
         likes: 0,
         comments: 0,
         shares: 0,
@@ -354,8 +353,38 @@ const handleLike = async (postId) => {
       setPosts([newPost, ...posts]);
       setNewPostContent("");
       setShowPostModal(false);
-      setModalSelectedSport("General"); // Resetear a General
+      setModalSelectedSport("General");
     }
+  };
+
+  const formatRelativeTime = (date) => {
+    // Si no es un objeto Date válido
+    if (!(date instanceof Date) || isNaN(date.getTime())) {
+      console.warn("Fecha inválida recibida:", date);
+      return "ahora";
+    }
+
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+
+    if (diffInSeconds < 0) return "ahora"; // Futuro
+    if (diffInSeconds < 5) return "ahora";
+    if (diffInSeconds < 60) return `${diffInSeconds}s`;
+
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    if (diffInMinutes < 60) return `${diffInMinutes}min`;
+
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours}h`;
+
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 30) return `${diffInDays}d`;
+
+    const diffInMonths = Math.floor(diffInDays / 30);
+    if (diffInMonths < 12) return `${diffInMonths}m`;
+
+    const diffInYears = Math.floor(diffInMonths / 12);
+    return `${diffInYears}a`;
   };
 
   const handleLogout = () => {
@@ -374,18 +403,18 @@ const handleLike = async (postId) => {
   const filteredPosts =
     selectedSport === "General"
       ? posts.filter(
-          (post) =>
-            post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            post.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            post.user.toLowerCase().includes(searchQuery.toLowerCase())
-        )
+        (post) =>
+          post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          post.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          post.user.toLowerCase().includes(searchQuery.toLowerCase())
+      )
       : posts.filter(
-          (post) =>
-            post.sport === selectedSport &&
-            (post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              post.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              post.user.toLowerCase().includes(searchQuery.toLowerCase()))
-        );
+        (post) =>
+          post.sport === selectedSport &&
+          (post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            post.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            post.user.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
 
   return (
     <div
@@ -826,7 +855,7 @@ const handleLike = async (postId) => {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <textarea
-                    placeholder="¿Qué está pasando?"
+                    placeholder="¿Qué está pasando? ¡Pon un # para clasificar tu contenido!"
                     rows="4"
                     style={{
                       width: "100%",
@@ -1632,208 +1661,220 @@ const handleLike = async (postId) => {
 
             {/* Lista de posts */}
 
-            {filteredPosts.map((post) => (
-              <motion.div
-                key={post.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                style={{
-                  padding: "1rem",
-                  borderBottom: `1px solid ${borderColor}`,
-                  display: "flex",
-                  backgroundColor: cardColor,
-                }}
-              >
-                <div
+            {filteredPosts.map((post) => {
+              console.log("Post time:", post.time, "Type:", typeof post.time, "Valid:", post.time instanceof Date && !isNaN(post.time.getTime()));
+              return (
+                <motion.div
+                  key={post.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
                   style={{
-                    width: "48px",
-                    height: "48px",
-                    borderRadius: "50%",
-                    background: primaryColor,
+                    padding: "1rem",
+                    borderBottom: `1px solid ${borderColor}`,
                     display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginRight: "0.75rem",
-                    flexShrink: 0,
+                    backgroundColor: cardColor,
                   }}
                 >
-                  <svg
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                      fill="white"
-                    />
-                    <path
-                      d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                      fill="white"
-                    />
-                    <path
-                      d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                      fill="white"
-                    />
-                  </svg>
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
                   <div
                     style={{
+                      width: "48px",
+                      height: "48px",
+                      borderRadius: "50%",
+                      background: primaryColor,
                       display: "flex",
                       alignItems: "center",
-                      marginBottom: "0.25rem",
+                      justifyContent: "center",
+                      marginRight: "0.75rem",
+                      flexShrink: 0,
                     }}
                   >
-                    <span
-                      style={{
-                        fontWeight: "bold",
-                        marginRight: "0.25rem",
-                        color: textColor,
-                      }}
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
                     >
-                      {post.name}
-                    </span>
-                    <span
-                      style={{
-                        marginRight: "0.25rem",
-                        color: lightTextColor,
-                      }}
-                    >
-                      @{post.user}
-                    </span>
-                    <span style={{ color: lightTextColor }}>· {post.time}</span>
-                    {post.sport !== "General" && (
-                      <span
-                        style={{
+                      <path
+                        d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
+                        fill="white"
+                      />
+                      <path
+                        d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
+                        fill="white"
+                      />
+                      <path
+                        d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
+                        fill="white"
+                      />
+                    </svg>
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", marginBottom: "0.25rem" }}>
+                      <span style={{ fontWeight: "bold", marginRight: "0.25rem", color: textColor }}>
+                        {post.name}
+                      </span>
+                      {!isMobile && (
+                        <>
+                          <span style={{ marginRight: "0.25rem", color: lightTextColor }}>
+                            @{post.user}
+                          </span>
+                        </>
+                      )}
+                      <span style={{ color: lightTextColor }}>· {formatRelativeTime(new Date(post.time))}</span>
+                      {post.sport !== "General" && (
+                        <span style={{
                           marginLeft: "0.5rem",
                           color: primaryColor,
                           fontSize: "0.8rem",
                           display: "flex",
                           alignItems: "center",
+                        }}>
+                          <SportIcon
+                            sport={post.sport}
+                            style={{
+                              width: "16px",
+                              height: "16px",
+                              marginRight: "0.25rem",
+                              color: "white",
+                            }}
+                          />
+                          {post.sport}
+                        </span>
+                      )}
+                    </div>
+                    <p
+                      style={{
+                        marginBottom: "0.5rem",
+                        color: textColor,
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {post.content}
+                    </p>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        maxWidth: "100%",
+                      }}
+                    >
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: lightTextColor,
+                          cursor: "pointer",
+                          padding: "0.5rem",
+                          display: "flex",
+                          alignItems: "center",
                         }}
                       >
-                        <SportIcon
-                          sport={post.sport}
-                          style={{
-                            width: "16px",
-                            height: "16px",
-                            marginRight: "0.25rem",
-                            color: "white",
-                          }}
-                        />
-                        {post.sport}
-                      </span>
-                    )}
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path
+                            fill="currentColor"
+                            fillRule="evenodd"
+                            d="M3 10.4c0-2.24 0-3.36.436-4.216a4 4 0 0 1 1.748-1.748C6.04 4 7.16 4 9.4 4h5.2c2.24 0 3.36 0 4.216.436a4 4 0 0 1 1.748 1.748C21 7.04 21 8.16 21 10.4v1.2c0 2.24 0 3.36-.436 4.216a4 4 0 0 1-1.748 1.748C17.96 18 16.84 18 14.6 18H7.414a1 1 0 0 0-.707.293l-2 2c-.63.63-1.707.184-1.707-.707zM9 8a1 1 0 0 0 0 2h6a1 1 0 1 0 0-2zm0 4a1 1 0 1 0 0 2h3a1 1 0 1 0 0-2z"
+                            clipRule="evenodd"
+                          ></path>
+                        </svg>
+                        <span>{post.comments}</span>
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: post.isLiked ? accentColor : lightTextColor,
+                          cursor: "pointer",
+                          padding: "0.5rem",
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                        onClick={() => handleLike(post.id)}
+                      >
+                        <svg
+                          width="17"
+                          height="17"
+                          viewBox="0 0 256 256"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          style={{ marginRight: "0.25rem" }}
+                        >
+                          <path
+                            fill="currentColor"
+                            d="M240 102c0 70-103.79 126.66-108.21 129a8 8 0 0 1-7.58 0C119.79 228.66 16 172 16 102a62.07 62.07 0 0 1 62-62c20.65 0 38.73 8.88 50 23.89C139.27 48.88 157.35 40 178 40a62.07 62.07 0 0 1 62 62"
+                          ></path>
+                        </svg>
+                        <span>{post.likes}</span>
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: lightTextColor,
+                          cursor: "pointer",
+                          padding: "0.5rem",
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                        onClick={() => handleShare(post.id)}
+                      >
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 512 512"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          style={{ marginRight: "0.25rem" }}
+                        >
+                          <path
+                            fill="currentColor"
+                            d="M378 324a69.78 69.78 0 0 0-48.83 19.91L202 272.41a69.7 69.7 0 0 0 0-32.82l127.13-71.5A69.76 69.76 0 1 0 308.87 129l-130.13 73.2a70 70 0 1 0 0 107.56L308.87 383A70 70 0 1 0 378 324"
+                          ></path>
+                        </svg>
+                        <span>{post.shares}</span>
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: lightTextColor,
+                          cursor: "pointer",
+                          padding: "0.5rem",
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                        onClick={() => navigate(`/perfil/${post.user}`)}
+                      >
+                        <svg
+                          width="19"
+                          height="19"
+                          viewBox="0 0 16 16"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          style={{ marginRight: "0.25rem" }}
+                        >
+                          <path
+                            fill="currentColor"
+                            d="M8 8a3 3 0 1 0 0-6a3 3 0 0 0 0 6m4.735 6c.618 0 1.093-.561.872-1.139a6.002 6.002 0 0 0-11.215 0c-.22.578.254 1.139.872 1.139z"
+                          ></path>
+                        </svg>
+                      </motion.button>
+                    </div>
                   </div>
-                  <p
-                    style={{
-                      marginBottom: "0.5rem",
-                      color: textColor,
-                      wordBreak: "break-word",
-                    }}
-                  >
-                    {post.content}
-                  </p>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      maxWidth: "100%",
-                    }}
-                  >
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        color: lightTextColor,
-                        cursor: "pointer",
-                        padding: "0.5rem",
-                        display: "flex",
-                        alignItems: "center",
-                      }}
-                    >
-                      <svg
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                        style={{ marginRight: "0.25rem" }}
-                      >
-                        <path
-                          d="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2ZM20 16H6L4 18V4H20V16Z"
-                          fill="currentColor"
-                        />
-                      </svg>
-                      <span>{post.comments}</span>
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        color: post.isLiked ? accentColor : lightTextColor,
-                        cursor: "pointer",
-                        padding: "0.5rem",
-                        display: "flex",
-                        alignItems: "center",
-                      }}
-                      onClick={() => handleLike(post.id)}
-                    >
-                      <svg
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                        style={{ marginRight: "0.25rem" }}
-                      >
-                        <path
-                          d="M12 21.35L10.55 20.03C5.4 15.36 2 12.28 2 8.5C2 5.42 4.42 3 7.5 3C9.24 3 10.91 3.81 12 5.09C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.42 22 8.5C22 12.28 18.6 15.36 13.45 20.03L12 21.35Z"
-                          fill="currentColor"
-                        />
-                      </svg>
-                      <span>{post.likes}</span>
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        color: lightTextColor,
-                        cursor: "pointer",
-                        padding: "0.5rem",
-                        display: "flex",
-                        alignItems: "center",
-                      }}
-                      onClick={() => handleShare(post.id)}
-                    >
-                      <svg
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                        style={{ marginRight: "0.25rem" }}
-                      >
-                        <path
-                          d="M18 16.08C17.24 16.08 16.56 16.38 16.04 16.85L8.91 12.7C8.96 12.47 9 12.24 9 12C9 11.76 8.96 11.53 8.91 11.3L15.96 7.19C16.5 7.69 17.21 8 18 8C19.66 8 21 6.66 21 5C21 3.34 19.66 2 18 2C16.34 2 15 3.34 15 5C15 5.24 15.04 5.47 15.09 5.7L8.04 9.81C7.5 9.31 6.79 9 6 9C4.34 9 3 10.34 3 12C3 13.66 4.34 15 6 15C6.79 15 7.5 14.69 8.04 14.19L15.16 18.35C15.11 18.56 15.08 18.78 15.08 19C15.08 20.61 16.39 21.92 18 21.92C19.61 21.92 20.92 20.61 20.92 19C20.92 17.39 19.61 16.08 18 16.08Z"
-                          fill="currentColor"
-                        />
-                      </svg>
-                      <span>{post.shares}</span>
-                    </motion.button>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              );
+            })}
           </div>
         </div>
 
@@ -1946,9 +1987,8 @@ const handleLike = async (postId) => {
               {Object.entries(trends).map(([sport, trend]) => (
                 <div key={sport} style={{ marginBottom: "1rem" }}>
                   <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>
-                    {`Tendencia en ${
-                      sport.charAt(0).toUpperCase() + sport.slice(1)
-                    }`}
+                    {`Tendencia en ${sport.charAt(0).toUpperCase() + sport.slice(1)
+                      }`}
                   </div>
                   <div style={{ fontWeight: "bold", color: textColor }}>
                     {trend.tag}
@@ -1956,88 +1996,6 @@ const handleLike = async (postId) => {
                   <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>
                     {trend.count} posts
                   </div>
-                </div>
-              ))}
-            </div>
-
-            <div
-              style={{
-                padding: "1rem",
-                borderRadius: "1rem",
-                backgroundColor: backgroundColor,
-              }}
-            >
-              <h3
-                style={{
-                  fontWeight: "bold",
-                  marginBottom: "1rem",
-                  color: textColor,
-                }}
-              >
-                Sugerencias
-              </h3>
-              {users.slice(0, 3).map((user) => (
-                <div
-                  key={user.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    marginBottom: "1rem",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: "40px",
-                      height: "40px",
-                      borderRadius: "50%",
-                      background: primaryColor,
-                      marginRight: "0.5rem",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "white",
-                    }}
-                  >
-                    {user.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div
-                      style={{
-                        fontWeight: "bold",
-                        color: textColor,
-                      }}
-                    >
-                      {user.name}
-                    </div>
-                    <div
-                      style={{
-                        color: lightTextColor,
-                        fontSize: "0.8rem",
-                      }}
-                    >
-                      @{user.email.split("@")[0]}
-                    </div>
-                  </div>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    style={{
-                      background: primaryColor,
-                      color: "white",
-                      borderRadius: "30px",
-                      border: "none",
-                      padding: "5px 15px",
-                      fontWeight: "bold",
-                      cursor: "pointer",
-                    }}
-                    onClick={() =>
-                      navigate(`/perfil/${user.id}`, {
-                        state: { user: userData },
-                      })
-                    }
-                  >
-                    Visitar
-                  </motion.button>
                 </div>
               ))}
             </div>
@@ -2270,9 +2228,8 @@ const handleLike = async (postId) => {
             {Object.entries(trends).map(([sport, trend]) => (
               <div key={sport} style={{ marginBottom: "1rem" }}>
                 <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>
-                  {`Tendencia en ${
-                    sport.charAt(0).toUpperCase() + sport.slice(1)
-                  }`}
+                  {`Tendencia en ${sport.charAt(0).toUpperCase() + sport.slice(1)
+                    }`}
                 </div>
                 <div style={{ fontWeight: "bold", color: textColor }}>
                   {trend.tag}
