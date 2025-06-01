@@ -123,18 +123,18 @@ export const actualizarContrasena = async (email, nuevaContrasena) => {
   }
 };
 
-// Función para obtener publicaciones
-// In api.js, update the loadPosts function:
 export const loadPosts = async () => {
   try {
     const response = await axios.get("http://localhost:8080/api/publicaciones");
 
     if (!response.data || !Array.isArray(response.data)) {
-      return []; // Return empty array if data is invalid
+      return [];
     }
 
-    // Process posts synchronously (remove async from map)
-    const postsData = response.data.map((post) => {
+    const userData = JSON.parse(localStorage.getItem("userData"));
+    const userEmail = userData?.correoElectronico;
+
+    const postsData = await Promise.all(response.data.map(async (post) => {
       const usuario = post.usuario || {
         id: 0,
         nombreUsuario: "Anónimo",
@@ -143,29 +143,60 @@ export const loadPosts = async () => {
 
       const categoria = post.categoriaDeporte || { nombre: "General" };
 
+      let isLiked = false;
+      if (userEmail) {
+        try {
+          const likeResponse = await axios.get(
+            `http://localhost:8080/api/publicaciones/${post.id}/check-like`,
+            { params: { userEmail } }
+          );
+          isLiked = likeResponse.data;
+        } catch (error) {
+          console.error("Error verificando like:", error);
+        }
+      }
+
+      // Manejo mejorado de la fecha
+      let postDate;
+      if (post.fechaHora) {
+        // Si es un timestamp en segundos
+        if (typeof post.fechaHora === 'number') {
+          postDate = new Date(post.fechaHora * 1000);
+        } 
+        // Si es un string ISO (como "2023-10-05T12:00:00Z")
+        else if (typeof post.fechaHora === 'string') {
+          postDate = new Date(post.fechaHora);
+        }
+        // Si es un objeto Date (poco probable desde el backend)
+        else if (post.fechaHora instanceof Date) {
+          postDate = post.fechaHora;
+        }
+      }
+      
+      // Si no se pudo parsear, usa la fecha actual
+      if (!postDate || isNaN(postDate.getTime())) {
+        console.warn(`Fecha inválida para post ${post.id}, usando fecha actual`);
+        postDate = new Date();
+      }
+
       return {
         id: post.id,
         userId: usuario.id,
         user: usuario.correoElectronico || "anonimo@example.com",
         name: usuario.nombreUsuario || "Anónimo",
         content: post.contenido || "",
-        time: post.fechaHora
-          ? new Date(post.fechaHora).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })
-          : "Ahora",
+        time: postDate, // Usamos el objeto Date ya creado
         likes: post.likes || 0,
         shares: post.compartidos || 0,
         sport: categoria.nombre || "General",
-        isLiked: post.isLiked || false, 
+        isLiked: isLiked,
       };
-    });
+    }));
 
     return postsData;
   } catch (error) {
     console.error("Error loading posts:", error);
-    return []; // Return empty array on error
+    return [];
   }
 };
 

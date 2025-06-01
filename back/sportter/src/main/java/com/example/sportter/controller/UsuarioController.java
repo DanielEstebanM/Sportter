@@ -34,60 +34,37 @@ public class UsuarioController {
             loginRequest.getContrasena()
         );
 
-        if (usuario.isPresent()) {
-            return ResponseEntity.ok(usuario.get());
-        } else {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuario o contraseña incorrecta");
-        }
-    }
-    
-    
-    @PostMapping("/registro")
-    public ResponseEntity<?> registrarUsuario(@RequestBody Usuario usuario) {
-        try {
-            // Verificar si el correo ya existe
-            if (usuarioRepository.existsByCorreoElectronico(usuario.getCorreoElectronico())) {
-                return ResponseEntity.badRequest().body("El correo electrónico ya está en uso");
-            }
-            
-            // Guardar el usuario
-            
-            Usuario nuevoUsuario = usuarioRepository.save(usuario);
-            return ResponseEntity.ok(nuevoUsuario);
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().body("Error al registrar el usuario");
-        }
-    }
-    
-    // Verificar si el email existe
-    @PostMapping("/existe-email")
-    public ResponseEntity<?> verificarEmail(@RequestBody Map<String, String> request) {
-    String email = request.get("email");
-        boolean existe = usuarioRepository.existsByCorreoElectronico(email);
-        
-        if (existe) {
-            return ResponseEntity.ok().build();
-        } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("message", "Este correo no está vinculado a ninguna cuenta"));
-        }
-    }
-    
-    // Actualizar contraseña
-    @PostMapping("/actualizar-contrasena")
-    public ResponseEntity<?> actualizarContrasena(@RequestBody CambioContrasenaRequest request) {
-        Optional<Usuario> usuarioOpt = UsuarioRepository.findByCorreoElectronico(request.getEmail());
-        
-        if (usuarioOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body("Usuario no encontrado");
-        }
+	    if (usuarioOpt.isEmpty()) {
+	        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuario o contraseña incorrecta");
+	    }
 
-        Usuario usuario = usuarioOpt.get();
-        usuario.setContrasena(request.getNuevaContrasena()); // Asegúrate de hashear la contraseña aquí
-        usuarioRepository.save(usuario);
-        
-        return ResponseEntity.ok().build();
-    }
+	    Usuario usuario = usuarioOpt.get();
+	    String contrasenaAlmacenada = usuario.getContrasena();
+	    String contrasenaIngresada = loginRequest.getContrasena();
+
+	    // Verificación híbrida
+	    boolean contrasenaValida = false;
+	    
+	    // 1. Primero intenta con BCrypt (para contraseñas nuevas)
+	    if (contrasenaAlmacenada.startsWith("$2a$")) {
+	        contrasenaValida = passwordEncoder.matches(contrasenaIngresada, contrasenaAlmacenada);
+	    }
+	    // 2. Si no es BCrypt, compara directamente (para contraseñas existentes)
+	    else {
+	        contrasenaValida = contrasenaIngresada.equals(contrasenaAlmacenada);
+	        
+	        // Opcional: Actualizar a BCrypt si la contraseña es correcta
+	        if (contrasenaValida) {
+	            usuario.setContrasena(passwordEncoder.encode(contrasenaIngresada));
+	            usuarioRepository.save(usuario);
+	        }
+	    }
+
+	    if (contrasenaValida) {
+	        return ResponseEntity.ok(usuario);
+	    } else {
+	        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuario o contraseña incorrecta");
+	    }
+	}
 
 }

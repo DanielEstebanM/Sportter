@@ -123,4 +123,12 @@ public class Publicacion {
 	public void setImagen(String imagen) {
 		this.imagen = imagen;
 	}
+	
+	public Set<Usuario> getUsuariosQueDieronLike() {
+	    return usuariosQueDieronLike;
+	}
+
+	public void setUsuariosQueDieronLike(Set<Usuario> usuariosQueDieronLike) {
+	    this.usuariosQueDieronLike = usuariosQueDieronLike;
+	}
 }
