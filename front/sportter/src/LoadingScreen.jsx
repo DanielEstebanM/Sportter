@@ -5,6 +5,7 @@ const LoadingScreen = () => {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
+    setProgress(0); // Reset progress when component mounts
     const interval = setInterval(() => {
       setProgress(prev => Math.min(prev + 30, 100));
     }, 100);
@@ -14,9 +15,9 @@ const LoadingScreen = () => {
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      initial={{ opacity: 1 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      exit={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
       style={{
         position: "fixed",
@@ -33,6 +34,7 @@ const LoadingScreen = () => {
         gap: "1.5rem"
       }}
     >
+      {/* Resto del código del loader permanece igual */}
       <motion.div
         animate={{
           scale: [1, 1.1, 1],
@@ -60,10 +62,7 @@ const LoadingScreen = () => {
           height="45"
           style={{ filter: "invert(1)" }}
         />
-
       </motion.div>
-
-
 
       <motion.h2
         style={{ color: "#FF4500", margin: 0 }}
@@ -101,11 +100,7 @@ const LoadingScreen = () => {
       >
         Cargando...
       </motion.p>
-
-
     </motion.div>
-
-
   );
 };
 

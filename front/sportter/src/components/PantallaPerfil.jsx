@@ -1,13 +1,24 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Tooltip as ReactTooltip } from 'react-tooltip';
 import 'react-tooltip/dist/react-tooltip.css';
-import styled from 'styled-components'
+import styled from 'styled-components';
+import {
+    getUsers,
+    getUserById,
+    getUserPosts,
+    getUserTeams,
+    updateProfile,
+    uploadProfileImage,
+    darLike,
+    quitarLike
+} from '../services/api';
 
 function PantallaPerfil() {
-    const location = useLocation();
+    const { id } = useParams();
     const navigate = useNavigate();
+    const [hover, setHover] = useState(false);
     const [activeTab, setActiveTab] = useState("perfil");
     const [showLeftSidebar, setShowLeftSidebar] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
@@ -16,43 +27,32 @@ function PantallaPerfil() {
     const [showSettingsMenu, setShowSettingsMenu] = useState(false);
     const [showSubMenu, setShowSubMenu] = useState(false);
     const [showAccountSubmenu, setShowAccountSubmenu] = useState(false);
-    const [bio, setBio] = useState("Apasionado del deporte y la vida saludable. Amante del running y el baloncesto.");
+    const [bio, setBio] = useState("");
     const [tempBio, setTempBio] = useState(bio);
-    const [name, setName] = useState("Usuario Ejemplo");
+    const [name, setName] = useState("");
     const [tempName, setTempName] = useState(name);
     const [profileImage, setProfileImage] = useState("https://i.imgur.com/bUwYQP3.png");
-
+    const [teams, setTeams] = useState([]);
+    const [profilePosts, setProfilePosts] = useState([]);
+    const [loadingPosts, setLoadingPosts] = useState(false);
+    const [isCurrentUser, setIsCurrentUser] = useState(false);
+    const [profileExists, setProfileExists] = useState(true);
+    const [users, setUsers] = useState([]);
+    const [userProfile, setUserProfile] = useState({
+        nombre_usuario: "",
+        email: "",
+        bio: "",
+        imagen: "https://i.imgur.com/bUwYQP3.png",
+        equipos: []
+    });
+    const [currentSharedPost, setCurrentSharedPost] = useState(null);
+    const [selectedUsers, setSelectedUsers] = useState([]);
+    const [shareSearchQuery, setShareSearchQuery] = useState("");
+    const [showShareModal, setShowShareModal] = useState(false);
     const userData = JSON.parse(localStorage.getItem('userData'));
+    const currentUserId = userData?.id;
     const userEmail = userData?.correoElectronico;
-    const userName = userData?.nombreUsuario || name;
-    const userUsername = userEmail?.split('@')[0];
-
-    const [teams, setTeams] = useState([
-        {
-            id: 1,
-            name: "Los Tigres",
-            sport: "fútbol",
-            image: "https://images2.minutemediacdn.com/image/upload/c_crop,w_3531,h_1986,x_0,y_232/c_fill,w_720,ar_16:9,f_auto,q_auto,g_auto/images/GettyImages/mmsport/90min_es_international_web/01j5c0e6nzzxe7vxjnzk.jpg",
-            members: 12,
-            isMember: true
-        },
-        {
-            id: 2,
-            name: "Los Halcones",
-            sport: "baloncesto",
-            image: "https://i.imgur.com/bUwYQP3.png",
-            members: 8,
-            isMember: false
-        },
-        {
-            id: 3,
-            name: "Los Tiburones",
-            sport: "volleyball",
-            image: "https://i.imgur.com/bUwYQP3.png",
-            members: 6,
-            isMember: true
-        }
-    ]);
+    const userName = userData?.nombreUsuario || userData?.nombre_usuario;
 
     // Colores con tema anaranjado-rojizo
     const primaryColor = "#FF4500";
@@ -63,70 +63,140 @@ function PantallaPerfil() {
     const lightTextColor = "#a0a0a0";
     const borderColor = "#2d2d2d";
 
-    // Datos de ejemplo para publicaciones del perfil
-    const [profilePosts, setProfilePosts] = useState([
-        {
-            id: 1,
-            content: "¡Nuevo récord personal en 10k! 42:35 minutos. #running #deporte",
-            time: "2d",
-            likes: 24,
-            comments: 5,
-            shares: 3,
-            isLiked: false,
-            sport: "running"
-        },
-        {
-            id: 2,
-            content: "Entrenamiento intenso hoy en el gimnasio. ¿Alguien más está preparándose para una maratón?",
-            time: "5d",
-            likes: 15,
-            comments: 8,
-            shares: 2,
-            isLiked: true,
-            sport: "general"
-        }
-    ]);
+    const [hasChanges, setHasChanges] = useState(false);
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+    const [confirmationAction, setConfirmationAction] = useState(null);
+    const [confirmationMessage, setConfirmationMessage] = useState("");
+    const handleConfirmedAction = async () => {
+        if (confirmationAction === 'edit') {
+            try {
+                if (isCurrentUser) {
+                    const updateData = {
+                        nombreUsuario: tempName,
+                        bio: tempBio
+                    };
 
-    // Datos de ejemplo para eventos (los mismos que en PantallaEventos)
-    const [events, setEvents] = useState({
-        paraTi: [
-            {
-                id: 1,
-                localTeam: "Los Tigres",
-                visitorTeam: "Las Águilas",
-                sport: "fútbol",
-                localImage: "https://images2.minutemediacdn.com/image/upload/c_crop,w_3531,h_1986,x_0,y_232/c_fill,w_720,ar_16:9,f_auto,q_auto,g_auto/images/GettyImages/mmsport/90min_es_international_web/01j5c0e6nzzxe7vxjnzk.jpg",
-                visitorImage: "https://i.imgur.com/bUwYQP3.png",
-                date: "2023-12-15T20:00:00",
-                location: "Estadio Municipal",
-                isMember: true
-            },
-            {
-                id: 2,
-                localTeam: "Los Leones",
-                visitorTeam: "Los Halcones",
-                sport: "baloncesto",
-                localImage: "https://i.imgur.com/bUwYQP3.png",
-                visitorImage: "https://i.imgur.com/bUwYQP3.png",
-                date: "2023-12-18T19:30:00",
-                location: "Pabellón Deportivo",
-                isMember: true
+                    const updatedProfile = await updateProfile(currentUserId, updateData);
+
+                    setName(updatedProfile.nombreUsuario || tempName);
+                    setBio(updatedProfile.bio || tempBio);
+                    setEditMode(false);
+                    setHasChanges(false);
+
+                    setUserProfile(prev => ({
+                        ...prev,
+                        nombre_usuario: updatedProfile.nombreUsuario || tempName,
+                        bio: updatedProfile.bio || tempBio
+                    }));
+
+                    const updatedUserData = {
+                        ...userData,
+                        nombreUsuario: updatedProfile.nombreUsuario || tempName,
+                        bio: updatedProfile.bio || tempBio
+                    };
+                    localStorage.setItem('userData', JSON.stringify(updatedUserData));
+
+                    alert("Perfil actualizado correctamente");
+                }
+            } catch (error) {
+                console.error("Error al guardar perfil:", error);
+                alert("Error al guardar los cambios: " + (error.message || "Inténtalo de nuevo más tarde"));
             }
-        ],
-        comunidad: [
-            {
-                id: 3,
-                localTeam: "Los Osos",
-                visitorTeam: "Los Tiburones",
-                sport: "volleyball",
-                localImage: "https://i.imgur.com/bUwYQP3.png",
-                visitorImage: "https://i.imgur.com/bUwYQP3.png",
-                date: "2023-12-20T18:00:00",
-                location: "Polideportivo Central",
-                isMember: false
+        } else if (confirmationAction === 'delete') {
+            // Lógica para eliminar usuario
+            console.log("Eliminar cuenta confirmado");
+        } else if (confirmationAction === 'changePassword') {
+            // Lógica para cambiar contraseña
+            console.log("Cambiar contraseña confirmado");
+        }
+        setShowConfirmationModal(false);
+    };
+
+    useEffect(() => {
+        if (id && currentUserId) {
+            setIsCurrentUser(id === currentUserId.toString());
+        }
+    }, [id, currentUserId]);
+
+    // Obtener datos del perfil al cargar el componente o cambiar el ID
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const data = await getUserById(id);
+                console.log("Datos recibidos de la API:", data);
+
+                if (!data || data.error) {
+                    setProfileExists(false);
+                    return;
+                }
+
+                setProfileExists(true);
+                setUserProfile({
+                    nombre_usuario: data.nombreUsuario || "",
+                    email: data.correoElectronico || "",
+                    bio: data.bio || "Este usuario no tiene biografía.",
+                    imagen: data.imagenPerfil || "https://i.imgur.com/bUwYQP3.png",
+                    equipos: data.equipos || []
+                });
+
+                // Asegurarse de cargar los valores iniciales para edición
+                setName(data.nombreUsuario || "");
+                setBio(data.bio || "");
+                setTempName(data.nombreUsuario || "");
+                setTempBio(data.bio || "");
+                setProfileImage(data.imagenPerfil || "https://i.imgur.com/bUwYQP3.png");
+
+            } catch (err) {
+                console.error("Error al cargar el perfil:", err);
+                setProfileExists(false);
             }
-        ]
-    });
+        };
+
+        fetchData();
+    }, [id]);
+
+    // Obtener publicaciones del usuario
+    useEffect(() => {
+        const fetchPosts = async () => {
+            setLoadingPosts(true);
+            try {
+                const posts = await getUserPosts(id);
+                // Asegurar que cada post tenga los campos necesarios
+                const processedPosts = posts.map(post => ({
+                    ...post,
+                    isLiked: post.isLiked || false,
+                    likes: post.likes || 0,
+                    comentarios: post.comentarios || 0,
+                    compartidos: post.compartidos || 0
+                }));
+                setProfilePosts(processedPosts);
+            } catch (error) {
+                console.error("Error loading posts:", error);
+            } finally {
+                setLoadingPosts(false);
+            }
+        };
+
+        fetchPosts();
+    }, [id]);
+
+    useEffect(() => {
+        const fetchUsers = async () => {
+            try {
+                const fetchedUsers = await getUsers();
+                const sortedUsers = fetchedUsers.sort((a, b) => {
+                    const nameA = a.nombreUsuario?.toUpperCase() || '';
+                    const nameB = b.nombreUsuario?.toUpperCase() || '';
+                    return nameA.localeCompare(nameB);
+                });
+                setUsers(sortedUsers);
+            } catch (error) {
+                console.error("Error loading users:", error);
+                setUsers([]);
+            }
+        };
+        fetchUsers();
+    }, []);
 
     // Detectar si es móvil o tablet
     useEffect(() => {
@@ -142,55 +212,207 @@ function PantallaPerfil() {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    const handleLike = (postId) => {
-        setProfilePosts(profilePosts.map(post => {
-            if (post.id === postId) {
-                return {
-                    ...post,
-                    likes: post.isLiked ? post.likes - 1 : post.likes + 1,
-                    isLiked: !post.isLiked
-                };
+    const handleLike = async (postId) => {
+        try {
+            const post = profilePosts.find((post) => post.id === postId);
+
+            if (post.isLiked) {
+                // Quitar like
+                await quitarLike(postId, userEmail);
+                setProfilePosts(
+                    profilePosts.map((post) => {
+                        if (post.id === postId) {
+                            return {
+                                ...post,
+                                likes: post.likes - 1,
+                                isLiked: false,
+                            };
+                        }
+                        return post;
+                    })
+                );
+            } else {
+                // Dar like
+                await darLike(postId, userEmail);
+                setProfilePosts(
+                    profilePosts.map((post) => {
+                        if (post.id === postId) {
+                            return {
+                                ...post,
+                                likes: post.likes + 1,
+                                isLiked: true,
+                            };
+                        }
+                        return post;
+                    })
+                );
             }
-            return post;
-        }));
+        } catch (error) {
+            console.error("Error al manejar like:", error);
+        }
     };
 
-    const handleSaveBio = () => {
-        setBio(tempBio);
-        setName(tempName);
-        setEditMode(false);
+    const handleShare = (postId) => {
+        setCurrentSharedPost(profilePosts.find((post) => post.id === postId));
+        setShowShareModal(true);
+        setSelectedUsers([]);
+    };
+
+    const handleSendShare = () => {
+        if (selectedUsers.length === 0 || !currentSharedPost) return;
+
+        console.log(
+            `Compartiendo publicación ${currentSharedPost.id} con usuarios:`,
+            selectedUsers
+        );
+
+        // Actualizar el contador de shares
+        setProfilePosts(
+            profilePosts.map((post) => {
+                if (post.id === currentSharedPost.id) {
+                    return {
+                        ...post,
+                        shares: post.shares + selectedUsers.length,
+                    };
+                }
+                return post;
+            })
+        );
+
+        setShowShareModal(false);
+        setCurrentSharedPost(null);
+        setSelectedUsers([]);
+    };
+
+    const toggleUserSelection = (user) => {
+        setSelectedUsers((prev) => {
+            if (prev.some((u) => u.id === user.id)) {
+                return prev.filter((u) => u.id !== user.id);
+            } else {
+                return [...prev, user];
+            }
+        });
+    };
+
+    // Reemplaza tus handlers actuales con estos:
+    const handleNameChange = (e) => {
+        setTempName(e.target.value);
+        setHasChanges(e.target.value !== name || tempBio !== bio);
+    };
+
+    const handleBioChange = (e) => {
+        setTempBio(e.target.value);
+        setHasChanges(e.target.value !== bio || tempName !== name);
     };
 
     const handleCancelEdit = () => {
         setTempBio(bio);
         setTempName(name);
         setEditMode(false);
+        setHasChanges(false);
     };
 
-    const handleLogout = () => {
-        navigate('/');
-    };
+    const handleSaveBio = async () => {
+        if (!hasChanges) return;
 
-    const handleImageChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setProfileImage(reader.result);
-            };
-            reader.readAsDataURL(file);
+        try {
+            if (isCurrentUser) {
+                const updateData = {
+                    nombreUsuario: tempName,
+                    bio: tempBio
+                };
+
+                const updatedProfile = await updateProfile(currentUserId, updateData);
+
+                setName(updatedProfile.nombreUsuario || tempName);
+                setBio(updatedProfile.bio || tempBio);
+                setEditMode(false);
+                setHasChanges(false);
+
+                setUserProfile(prev => ({
+                    ...prev,
+                    nombre_usuario: updatedProfile.nombreUsuario || tempName,
+                    bio: updatedProfile.bio || tempBio
+                }));
+
+                const updatedUserData = {
+                    ...userData,
+                    nombreUsuario: updatedProfile.nombreUsuario || tempName,
+                    bio: updatedProfile.bio || tempBio
+                };
+                localStorage.setItem('userData', JSON.stringify(updatedUserData));
+
+                alert("Perfil actualizado correctamente");
+            }
+        } catch (error) {
+            console.error("Error al guardar perfil:", error);
+            alert("Error al guardar los cambios: " + (error.message || "Inténtalo de nuevo más tarde"));
         }
     };
 
-    const formatDate = (dateString) => {
-        const options = {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long',
-            hour: '2-digit',
-            minute: '2-digit'
-        };
-        return new Date(dateString).toLocaleDateString('es-ES', options);
+    const handleSaveClick = () => {
+        if (hasChanges) {
+            setConfirmationAction('edit');
+            setConfirmationMessage("¿Estás seguro que deseas guardar los cambios en tu perfil?");
+            setShowConfirmationModal(true);
+        }
+    };
+
+    const handleLogout = () => {
+        // 1. Limpiar datos de autenticación
+        localStorage.removeItem("userData");
+
+        // 2. Redirigir al login (con replace para evitar volver atrás)
+        navigate("/", { replace: true });
+    };
+
+    const handleImageChange = async (e) => {
+        const file = e.target.files[0];
+        if (file && isCurrentUser) {
+            try {
+                const response = await uploadProfileImage(currentUserId, file);
+                setProfileImage(response.imagenUrl);
+
+                // Actualizar imagen en localStorage si es el usuario actual
+                const updatedUserData = {
+                    ...userData,
+                    imagenPerfil: response.imagenUrl
+                };
+                localStorage.setItem('userData', JSON.stringify(updatedUserData));
+            } catch (error) {
+                console.error("Error al subir imagen:", error);
+            }
+        }
+    };
+
+    const formatRelativeTime = (date) => {
+        // Si no es un objeto Date válido
+        if (!(date instanceof Date) || isNaN(date.getTime())) {
+            console.warn("Fecha inválida recibida:", date);
+            return "ahora";
+        }
+
+        const now = new Date();
+        const diffInSeconds = Math.floor((now - date) / 1000);
+
+        if (diffInSeconds < 0) return "ahora"; // Futuro
+        if (diffInSeconds < 5) return "ahora";
+        if (diffInSeconds < 60) return `${diffInSeconds}s`;
+
+        const diffInMinutes = Math.floor(diffInSeconds / 60);
+        if (diffInMinutes < 60) return `${diffInMinutes}min`;
+
+        const diffInHours = Math.floor(diffInMinutes / 60);
+        if (diffInHours < 24) return `${diffInHours}h`;
+
+        const diffInDays = Math.floor(diffInHours / 24);
+        if (diffInDays < 30) return `${diffInDays}d`;
+
+        const diffInMonths = Math.floor(diffInDays / 30);
+        if (diffInMonths < 12) return `${diffInMonths}m`;
+
+        const diffInYears = Math.floor(diffInMonths / 12);
+        return `${diffInYears}a`;
     };
 
     // Componente para los iconos de deporte
@@ -198,27 +420,58 @@ function PantallaPerfil() {
         const icons = {
             "fútbol": (
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" {...props}>
-                    <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2m1 3.3l1.35-.95a8 8 0 0 1 4.38 3.34l-.39 1.34l-1.35.46L13 6.7zm-3.35-.95L11 5.3v1.4L7.01 9.49l-1.35-.46l-.39-1.34a8.1 8.1 0 0 1 4.38-3.34M7.08 17.11l-1.14.1A7.94 7.94 0 0 1 4 12c0-.12.01-.23.02-.35l1-.73l1.38.48l1.46 4.34zm7.42 2.48c-.79.26-1.63.41-2.5.41s-1.71-.15-2.5-.41l-.69-1.49l.64-1.1h5.11l.64 1.11zM14.27 15H9.73l-1.35-4.02L12 8.44l3.63 2.54zm3.79 2.21l-1.14-.1l-.79-1.37l1.46-4.34l1.39-.47l1 .73c.01.11.02.22.02.34c0 1.99-.73 3.81-1.94 5.21" />
+                    <path
+                        fill="currentColor"
+                        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2m1 3.3l1.35-.95a8 8 0 0 1 4.38 3.34l-.39 1.34l-1.35.46L13 6.7zm-3.35-.95L11 5.3v1.4L7.01 9.49l-1.35-.46l-.39-1.34a8.1 8.1 0 0 1 4.38-3.34M7.08 17.11l-1.14.1A7.94 7.94 0 0 1 4 12c0-.12.01-.23.02-.35l1-.73l1.38.48l1.46 4.34zm7.42 2.48c-.79.26-1.63.41-2.5.41s-1.71-.15-2.5-.41l-.69-1.49l.64-1.1h5.11l.64 1.11zM14.27 15H9.73l-1.35-4.02L12 8.44l3.63 2.54zm3.79 2.21l-1.14-.1l-.79-1.37l1.46-4.34l1.39-.47l1 .73c.01.11.02.22.02.34c0 1.99-.73 3.81-1.94 5.21"
+                    />
                 </svg>
             ),
             "baloncesto": (
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" {...props}>
-                    <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2M5.23 7.75C6.1 8.62 6.7 9.74 6.91 11H4.07a8.1 8.1 0 0 1 1.16-3.25M4.07 13h2.84a5.97 5.97 0 0 1-1.68 3.25A8.1 8.1 0 0 1 4.07 13M11 19.93c-1.73-.22-3.29-1-4.49-2.14A7.95 7.95 0 0 0 8.93 13H11zM11 11H8.93A8 8 0 0 0 6.5 6.2A8.04 8.04 0 0 1 11 4.07zm8.93 0h-2.84c.21-1.26.81-2.38 1.68-3.25c.6.97 1.01 2.07 1.16 3.25M13 4.07c1.73.22 3.29.99 4.5 2.13a8 8 0 0 0-2.43 4.8H13zm0 15.86V13h2.07a8 8 0 0 0 2.42 4.79A8 8 0 0 1 13 19.93m5.77-3.68A6 6 0 0 1 17.09 13h2.84a8.1 8.1 0 0 1-1.16 3.25" />
+                    <path
+                        fill="currentColor"
+                        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2M5.23 7.75C6.1 8.62 6.7 9.74 6.91 11H4.07a8.1 8.1 0 0 1 1.16-3.25M4.07 13h2.84a5.97 5.97 0 0 1-1.68 3.25A8.1 8.1 0 0 1 4.07 13M11 19.93c-1.73-.22-3.29-1-4.49-2.14A7.95 7.95 0 0 0 8.93 13H11zM11 11H8.93A8 8 0 0 0 6.5 6.2A8.04 8.04 0 0 1 11 4.07zm8.93 0h-2.84c.21-1.26.81-2.38 1.68-3.25c.6.97 1.01 2.07 1.16 3.25M13 4.07c1.73.22 3.29.99 4.5 2.13a8 8 0 0 0-2.43 4.8H13zm0 15.86V13h2.07a8 8 0 0 0 2.42 4.79A8 8 0 0 1 13 19.93m5.77-3.68A6 6 0 0 1 17.09 13h2.84a8.1 8.1 0 0 1-1.16 3.25"
+                    />
                 </svg>
             ),
             "volleyball": (
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" {...props}>
-                    <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2m1 2.07c3.07.38 5.57 2.52 6.54 5.36L13 5.65zM8 5.08c1.18-.69 3.33-1.06 3-1.02v7.35l-3 1.73zM4.63 15.1c-.4-.96-.63-2-.63-3.1c0-2.02.76-3.86 2-5.27v7.58zm1.01 1.73L12 13.15l3 1.73l-6.98 4.03a7.8 7.8 0 0 1-2.38-2.08M12 20c-.54 0-1.07-.06-1.58-.16l6.58-3.8l1.36.78C16.9 18.75 14.6 20 12 20m1-8.58V7.96l7 4.05c0 1.1-.23 2.14-.63 3.09z" />
+                    <path
+                        fill="currentColor"
+                        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2m1 2.07c3.07.38 5.57 2.52 6.54 5.36L13 5.65zM8 5.08c1.18-.69 3.33-1.06 3-1.02v7.35l-3 1.73zM4.63 15.1c-.4-.96-.63-2-.63-3.1c0-2.02.76-3.86 2-5.27v7.58zm1.01 1.73L12 13.15l3 1.73l-6.98 4.03a7.8 7.8 0 0 1-2.38-2.08M12 20c-.54 0-1.07-.06-1.58-.16l6.58-3.8l1.36.78C16.9 18.75 14.6 20 12 20m1-8.58V7.96l7 4.05c0 1.1-.23 2.14-.63 3.09z"
+                    />
                 </svg>
             ),
-            "running": (
+            "tenis": (
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" {...props}>
-                    <path fill="currentColor" d="M13.49 5.48c1.1 0 2-.9 2-2s-.9-2-2-2s-2 .9-2 2s.9 2 2 2zm-3.6 13.9l1-4.4l2.1 2v6h2v-7.5l-2.1-2l.6-3c1.3 1.5 3.3 2.5 5.5 2.5v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1c-.3 0-.5.1-.8.1l-5.2 2.2v4.7h2v-3.4l1.8-.7l-1.6 8.1l-4.9-1l-.4 2l7 1.4z" />
+                    <path
+                        fill="currentColor"
+                        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2M5.61 16.78C4.6 15.45 4 13.8 4 12s.6-3.45 1.61-4.78a5.975 5.975 0 0 1 0 9.56M12 20c-1.89 0-3.63-.66-5-1.76c1.83-1.47 3-3.71 3-6.24S8.83 7.23 7 5.76C8.37 4.66 10.11 4 12 4s3.63.66 5 1.76c-1.83 1.47-3 3.71-3 6.24s1.17 4.77 3 6.24A7.96 7.96 0 0 1 12 20m6.39-3.22a5.975 5.975 0 0 1 0-9.56C19.4 8.55 20 10.2 20 12s-.6 3.45-1.61 4.78"
+                    />
+                </svg>
+            ),
+            "ciclismo": (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" {...props}>
+                    <path
+                        fill="currentColor"
+                        d="M15.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2s-2 .9-2 2s.9 2 2 2M5 12c-2.8 0-5 2.2-5 5s2.2 5 5 5s5-2.2 5-5s-2.2-5-5-5m0 8.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5s3.5 1.6 3.5 3.5s-1.6 3.5-3.5 3.5m5.8-10l2.4-2.4l.8.8c1.06 1.06 2.38 1.78 3.96 2.02c.6.09 1.14-.39 1.14-1c0-.49-.37-.91-.85-.99c-1.11-.18-2.02-.71-2.75-1.43l-1.9-1.9c-.5-.4-1-.6-1.6-.6s-1.1.2-1.4.6L7.8 8.4c-.4.4-.6.9-.6 1.4c0 .6.2 1.1.6 1.4L11 14v4c0 .55.45 1 1 1s1-.45 1-1v-4.4c0-.52-.2-1.01-.55-1.38zM19 12c-2.8 0-5 2.2-5 5s2.2 5 5 5s5-2.2 5-5s-2.2-5-5-5m0 8.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5s3.5 1.6 3.5 3.5s-1.6 3.5-3.5 3.5"
+                    />
                 </svg>
             ),
             "general": (
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" {...props}>
-                    <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8s8 3.59 8 8s-3.59 8-8 8z" />
+                    <g
+                        fill="none"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="1.5"
+                        color="currentColor"
+                    >
+                        <path d="M2 8.571c0-2.155 0-3.232.586-3.902S4.114 4 6 4h12c1.886 0 2.828 0 3.414.67c.586.668.586 1.745.586 3.9v6.858c0 2.155 0 3.232-.586 3.902S19.886 20 18 20H6c-1.886 0-2.828 0-3.414-.67C2 18.662 2 17.585 2 15.43z"></path>
+                        <circle cx="12" cy="12" r="2"></circle>
+                        <path d="M12 10V5m0 9v5M22 9h-2.5a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1H22M2 9h2.5a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H2"></path>
+                    </g>
                 </svg>
             )
         };
@@ -230,7 +483,6 @@ function PantallaPerfil() {
     const CustomScroll = styled.div`
         overflow-y: auto;
         max-height: calc(100vh - 400px);
-        padding-right: 8px;
         scrollbar-width: thin;
         scrollbar-color: ${lightTextColor} ${cardColor};
 
@@ -299,7 +551,7 @@ function PantallaPerfil() {
                     <img
                         src="https://i.imgur.com/bUwYQP3.png"
                         alt="Logo"
-                        style={{ width: "100%", height: "100%", objectFit: "contain", filter: "invert()" }}
+                        style={{ width: "100%", height: "100%", objectFit: "contain" }}
                     />
                 </motion.div>
 
@@ -612,14 +864,16 @@ function PantallaPerfil() {
                 marginLeft: isMobile ? "0" : "250px",
                 backgroundColor: backgroundColor,
                 display: "flex",
-                flexDirection: "column"
+                flexDirection: "column",
+                height: "100vh",
+                overflow: "hidden"
             }}>
                 {/* Encabezado del perfil */}
                 <div style={{
                     position: "relative",
-                    height: "150px",
                     backgroundColor: cardColor,
-                    borderBottom: `1px solid ${borderColor}`
+                    borderBottom: `1px solid ${borderColor}`,
+                    flexShrink: 0
                 }}>
                     {/* Portada */}
                     <div style={{
@@ -676,30 +930,41 @@ function PantallaPerfil() {
                     </div>
                     {/* Menú de configuración */}
                     <div style={{ position: "relative" }}>
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            style={{
-                                position: "absolute",
-                                top: "20px",
-                                right: "20px",
-                                backgroundColor: "rgba(0,0,0,0.5)",
-                                color: textColor,
-                                border: `1px solid ${lightTextColor}`,
-                                borderRadius: "20px",
-                                padding: "8px 16px",
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                zIndex: 10
-                            }}
-                            onClick={() => setShowSettingsMenu(!showSettingsMenu)}
-                        >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "8px" }}>
-                                <path d="M19.14 12.94c.04-.3.06-.61.06-.94c0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6s3.6 1.62 3.6 3.6s-1.62 3.6-3.6 3.6z" fill="currentColor" />
-                            </svg>
-                            Ajustes
-                        </motion.button>
+                        {isCurrentUser && (
+                            <motion.button
+                                whileHover={{ backgroundColor: `${borderColor}` }}
+                                whileTap={{ scale: 0.95 }}
+                                style={{
+                                    position: "absolute",
+                                    top: "20px",
+                                    right: "20px",
+                                    backgroundColor: backgroundColor,
+                                    color: textColor,
+                                    border: `2px solid ${borderColor}`,
+                                    borderRadius: "10px",
+                                    padding: "8px 16px",
+                                    cursor: "pointer",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    zIndex: 10
+                                }}
+                                onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+                            >
+                                <svg
+                                    style={{ marginRight: "8px", paddingTop: "2px" }}
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 26 26"
+                                    width="1.4em"
+                                    height="1.4em"
+                                >
+                                    <g fill="none" stroke="currentColor" strokeWidth="1.7">
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                        <path d="M13.765 2.152C13.398 2 12.932 2 12 2s-1.398 0-1.765.152a2 2 0 0 0-1.083 1.083c-.092.223-.129.484-.143.863a1.62 1.62 0 0 1-.79 1.353a1.62 1.62 0 0 1-1.567.008c-.336-.178-.579-.276-.82-.308a2 2 0 0 0-1.478.396C4.04 5.79 3.806 6.193 3.34 7s-.7 1.21-.751 1.605a2 2 0 0 0 .396 1.479c.148.192.355.353.676.555c.473.297.777.803.777 1.361s-.304 1.064-.777 1.36c-.321.203-.529.364-.676.556a2 2 0 0 0-.396 1.479c.052.394.285.798.75 1.605c.467.807.7 1.21 1.015 1.453a2 2 0 0 0 1.479.396c.24-.032.483-.13.819-.308a1.62 1.62 0 0 1 1.567.008c.483.28.77.795.79 1.353c.014.38.05.64.143.863a2 2 0 0 0 1.083 1.083C10.602 22 11.068 22 12 22s1.398 0 1.765-.152a2 2 0 0 0 1.083-1.083c.092-.223.129-.483.143-.863c.02-.558.307-1.074.79-1.353a1.62 1.62 0 0 1 1.567-.008c.336.178.579.276.819.308a2 2 0 0 0 1.479-.396c.315-.242.548-.646 1.014-1.453s.7-1.21.751-1.605a2 2 0 0 0-.396-1.479c-.148-.192-.355-.353-.676-.555A1.62 1.62 0 0 1 19.562 12c0-.558.304-1.064.777-1.36c.321-.203.529-.364.676-.556a2 2 0 0 0 .396-1.479c-.052-.394-.285-.798-.75-1.605c-.467-.807-.7-1.21-1.015-1.453a2 2 0 0 0-1.479-.396c-.24.032-.483.13-.82.308a1.62 1.62 0 0 1-1.566-.008a1.62 1.62 0 0 1-.79-1.353c-.014-.38-.05-.64-.143-.863a2 2 0 0 0-1.083-1.083Z"></path>
+                                    </g>
+                                </svg>
+                                Ajustes
+                            </motion.button>
+                        )}
 
                         <div style={{ position: "relative" }}>
                             {/* Menú desplegable de configuración */}
@@ -711,18 +976,22 @@ function PantallaPerfil() {
                                     transition={{ duration: 0.2 }}
                                     style={{
                                         position: "absolute",
-                                        top: "60px",
+                                        top: "70px",
                                         right: "20px",
                                         backgroundColor: cardColor,
                                         border: `1px solid ${borderColor}`,
                                         borderRadius: "8px",
                                         boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-                                        width: "200px",
+                                        width: "250px",
                                         zIndex: 20,
                                         overflow: "hidden"
                                     }}
-                                    onMouseLeave={() => setShowSettingsMenu(false)}
+                                    onMouseLeave={() => {
+                                        setShowSettingsMenu(false);
+                                        setShowAccountSubmenu(false);
+                                    }}
                                 >
+                                    {/* Opción Editar Perfil */}
                                     <motion.button
                                         whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
                                         style={{
@@ -734,96 +1003,172 @@ function PantallaPerfil() {
                                             color: textColor,
                                             cursor: "pointer",
                                             display: "flex",
-                                            alignItems: "center"
+                                            alignItems: "center",
+                                            borderBottom: `1px solid ${borderColor}`
                                         }}
                                         onClick={() => {
                                             setEditMode(true);
                                             setShowSettingsMenu(false);
                                         }}
                                     >
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "8px" }}>
-                                            <path d="M3 17.25V21H6.75L17.81 9.94L14.06 6.19L3 17.25ZM20.71 7.04C21.1 6.65 21.1 6.02 20.71 5.63L18.37 3.29C17.98 2.9 17.35 2.9 16.96 3.29L15.13 5.12L18.88 8.87L20.71 7.04Z" fill="currentColor" />
+                                        <svg
+                                            style={{ marginRight: "12px" }}
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 24 24"
+                                            width="1.3em"
+                                            height="1.3em"
+                                        >
+                                            <path
+                                                fill="currentColor"
+                                                d="M15.748 2.947a2 2 0 0 1 2.828 0l2.475 2.475a2 2 0 0 1 0 2.829L9.158 20.144l-6.38 1.076l1.077-6.38zm-.229 3.057l2.475 2.475l1.643-1.643l-2.475-2.474zm1.06 3.89l-2.474-2.475l-8.384 8.384l-.503 2.977l2.977-.502z"
+                                            ></path>
                                         </svg>
                                         Editar perfil
                                     </motion.button>
 
-                                    <div
-                                        style={{ position: "relative" }}
-                                        onMouseEnter={() => setShowAccountSubmenu(true)}
-                                        onMouseLeave={() => setShowAccountSubmenu(false)}
-                                    >
-                                        <div
+                                    {/* Menú desplegable de Configuración de cuenta */}
+                                    <div style={{ position: "relative" }}>
+                                        <motion.button
+                                            whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
                                             style={{
+                                                width: "100%",
                                                 padding: "12px 16px",
+                                                textAlign: "left",
+                                                backgroundColor: showAccountSubmenu ? "rgba(255,255,255,0.05)" : "transparent",
+                                                border: "none",
+                                                color: textColor,
                                                 cursor: "pointer",
                                                 display: "flex",
                                                 alignItems: "center",
                                                 justifyContent: "space-between",
-                                                backgroundColor: showAccountSubmenu ? "rgba(255,255,255,0.05)" : "transparent"
+                                                borderBottom: `1px solid ${borderColor}`
                                             }}
+                                            onClick={() => setShowAccountSubmenu(!showAccountSubmenu)}
                                         >
                                             <div style={{ display: "flex", alignItems: "center" }}>
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "8px" }}>
-                                                    <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12c5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11V11.99z" fill="currentColor" />
+                                                <svg
+                                                    style={{ marginRight: "12px" }}
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    viewBox="0 0 24 24"
+                                                    width="1.3em"
+                                                    height="1.3em"
+                                                >
+                                                    <g
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth="2.1"
+                                                    >
+                                                        <path d="m15.5 7.5l2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4m2-2l-9.6 9.6"></path>
+                                                        <circle cx="7.5" cy="15.5" r="5.5"></circle>
+                                                    </g>
                                                 </svg>
                                                 Configuración de cuenta
                                             </div>
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M10 6L8.59 7.41L13.17 12l-4.58 4.59L10 18l6-6z" fill="currentColor" />
+                                            <svg style={{ paddingBottom: "4px" }}
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                viewBox="0 0 16 16"
+                                                width="1.3em"
+                                                height="1.3em"
+                                            >
+                                                <path
+                                                    fill="currentColor"
+                                                    d="m8.71 11.71l2.59 2.59c.39.39 1.02.39 1.41 0l2.59-2.59c.63-.63.18-1.71-.71-1.71H9.41c-.89 0-1.33 1.08-.7 1.71"
+                                                ></path>
                                             </svg>
-                                        </div>
+                                        </motion.button>
+
+                                        {showAccountSubmenu && (
+                                            <motion.div
+                                                initial={{ opacity: 0, height: 0 }}
+                                                animate={{ opacity: 1, height: "auto" }}
+                                                exit={{ opacity: 0, height: 0 }}
+                                                transition={{ duration: 0.2 }}
+                                                style={{
+                                                    backgroundColor: "rgba(30, 30, 30, 0.9)",
+                                                    overflow: "hidden"
+                                                }}
+                                            >
+                                                <motion.button
+                                                    whileHover={{ backgroundColor: "rgba(255,255,255,0.05)", borderTop: `2px solid ${cardColor}` }}
+                                                    style={{
+                                                        width: "100%",
+                                                        padding: "12px 16px 12px 40px",
+                                                        textAlign: "left",
+                                                        backgroundColor: "transparent",
+                                                        border: "none",
+                                                        color: textColor,
+                                                        cursor: "pointer",
+                                                        borderBottom: `1px solid ${borderColor}`,
+                                                        borderTop: `2px solid transparent`
+                                                    }}
+                                                >
+                                                    <svg
+                                                        style={{ marginRight: "12px", paddingBottom: "3px" }}
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        viewBox="0 0 23 23"
+                                                        width="1.55em"
+                                                        height="1.55em"
+                                                    >
+                                                        <g fill="none">
+                                                            <path
+                                                                stroke="currentColor"
+                                                                strokeLinecap="round"
+                                                                strokeWidth="1.8"
+                                                                d="M12 4h-2C6.229 4 4.343 4 3.172 5.172S2 8.229 2 12s0 5.657 1.172 6.828S6.229 20 10 20h2m3-16c3.114.01 4.765.108 5.828 1.172C22 6.343 22 8.229 22 12s0 5.657-1.172 6.828C19.765 19.892 18.114 19.99 15 20"
+                                                            ></path>
+                                                            <path
+                                                                fill="currentColor"
+                                                                d="M9 12a1 1 0 1 1-2 0a1 1 0 0 1 2 0m4 0a1 1 0 1 1-2 0a1 1 0 0 1 2 0"
+                                                            ></path>
+                                                            <path
+                                                                stroke="currentColor"
+                                                                strokeLinecap="round"
+                                                                strokeWidth="1.5"
+                                                                d="M15 2v20"
+                                                            ></path>
+                                                        </g>
+                                                    </svg>
+                                                    Cambiar contraseña
+                                                </motion.button>
+                                                <motion.button
+                                                    whileHover={{ backgroundColor: "rgba(255, 0, 0, 0.10)" }}
+                                                    style={{
+                                                        width: "100%",
+                                                        padding: "12px 16px 12px 40px",
+                                                        textAlign: "left",
+                                                        backgroundColor: "transparent",
+                                                        border: "none",
+                                                        borderBottom: `1px solid ${borderColor}`,
+                                                        color: "#FF5252",
+                                                        cursor: "pointer"
+                                                    }}
+                                                    onClick={() => {
+                                                        setConfirmationAction('delete');
+                                                        setConfirmationMessage("¿Estás seguro que deseas desactivar tu cuenta? Esta acción no se puede deshacer.");
+                                                        setShowConfirmationModal(true);
+                                                    }}
+                                                >
+                                                    <svg
+                                                        style={{ marginLeft: "2px", marginRight: "11px", paddingBottom: "3px" }}
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        viewBox="0 0 26 26"
+                                                        width="1.5em"
+                                                        height="1.5em"
+                                                    >
+                                                        <path
+                                                            fill="currentColor"
+                                                            d="M10.875 0a1 1 0 0 0-.594.281L5.562 5H3c-.551 0-1 .449-1 1v2c0 .551.449 1 1 1h.25l2.281 13.719v.062c.163.788.469 1.541 1.032 2.157A3.26 3.26 0 0 0 8.938 26h8.124a3.26 3.26 0 0 0 2.375-1.031c.571-.615.883-1.405 1.032-2.219v-.031L22.78 9H23c.551 0 1-.449 1-1V6c0-.551-.449-1-1-1h-1.563l-2.812-3.5a.81.81 0 0 0-.719-.313a.8.8 0 0 0-.343.125L14.688 3.25L11.717.281A1 1 0 0 0 10.876 0zM11 2.438L13.563 5H8.436L11 2.437zm6.844.656L19.375 5h-2.938l-.593-.594zM5.25 9h.688l1.187 1.188l-1.438 1.406zm2.094 0h.937l-.469.469zm2.312 0h1.688l.906.906l-2 2l-1.75-1.75zm3.125 0h.344l-.156.188L12.78 9zm1.781 0h1.688l1.156 1.156l-1.75 1.75l-2-2.031zm3.063 0h.938l-.47.469L17.626 9zm2.344 0h.812l-.437 2.688l-1.532-1.532zm-7.032 1.594l2.032 2l-2.031 2l-2-2l2-2zm-5.124.281l1.718 1.719l-2 2l-1.625-1.625l-.031-.156zm10.28 0l2 2l-1.718 1.75l-2-2.031l1.719-1.719zm-7.843 2.438l2 2l-2 2l-2-2zm5.406 0l2.031 2l-2 2l-2.03-2zm4.188 1.25l-.219 1.312l-.563-.563l.782-.75zm-13.657.093l.657.656l-.469.47zM7.532 16l2 2l-2 2.031l-.562-.562l-.407-2.5zm5.407 0l2.03 2.031l-2 2L10.939 18zm5.437 0l1.063 1.063l-.407 2.28l-.656.657l-2-2zm-8.125 2.719l2 2l-2 2.031l-2-2zm5.406 0l2 2l-2 2l-2-2zm-8.094 2.718l2 2L9 24h-.063c-.391 0-.621-.13-.874-.406a2.65 2.65 0 0 1-.594-1.188v-.031l-.125-.75l.218-.188zm5.407 0l2 2l-.563.563H11.5l-.563-.563l2.032-2zm5.406 0l.281.282l-.125.656c-.002.01.002.02 0 .031c-.095.49-.316.922-.562 1.188c-.252.27-.509.406-.907.406h-.125l-.562-.563z"
+                                                        ></path>
+                                                    </svg>
+                                                    Desactivar cuenta
+                                                </motion.button>
+                                            </motion.div>
+                                        )}
                                     </div>
 
-                                    {/* Submenú independiente */}
-                                    {showAccountSubmenu && (
-                                        <motion.div
-                                            initial={{ opacity: 0, x: 20 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            exit={{ opacity: 0, x: 20 }}
-                                            transition={{ duration: 0.2 }}
-                                            style={{
-                                                position: "absolute",
-                                                top: 0,
-                                                left: "-210px", // Mostrar a la izquierda
-                                                backgroundColor: cardColor,
-                                                border: `1px solid ${borderColor}`,
-                                                borderRadius: "8px",
-                                                boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-                                                width: "200px",
-                                                zIndex: 9999
-                                            }}
-                                        >
-                                            <motion.button
-                                                whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
-                                                style={{
-                                                    width: "100%",
-                                                    padding: "12px 16px",
-                                                    textAlign: "left",
-                                                    backgroundColor: "transparent",
-                                                    border: "none",
-                                                    color: textColor,
-                                                    cursor: "pointer"
-                                                }}
-                                            >
-                                                Cambiar contraseña
-                                            </motion.button>
-                                            <motion.button
-                                                whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
-                                                style={{
-                                                    width: "100%",
-                                                    padding: "12px 16px",
-                                                    textAlign: "left",
-                                                    backgroundColor: "transparent",
-                                                    border: "none",
-                                                    color: "#FF5252",
-                                                    cursor: "pointer"
-                                                }}
-                                            >
-                                                Desactivar cuenta
-                                            </motion.button>
-                                        </motion.div>
-                                    )}
-
+                                    {/* Opción Cerrar sesión */}
                                     <motion.button
                                         whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
                                         style={{
@@ -839,8 +1184,13 @@ function PantallaPerfil() {
                                         }}
                                         onClick={handleLogout}
                                     >
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "8px" }}>
-                                            <path d="M17 7L15.59 8.41L18.17 11H8V13H18.17L15.59 15.58L17 17L22 12L17 7ZM4 5H12V3H4C2.9 3 2 3.9 2 5V19C2 20.1 2.9 21 4 21H12V19H4V5Z" fill="currentColor" />
+                                        <svg
+                                            style={{ marginRight: "8px" }} width="25" height="25" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path stroke="currentColor"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth="1.5"
+                                                d="M13 4h3a2 2 0 0 1 2 2v14M2 20h3m8 0h9m-12-8v.01m3-7.448v16.157a1 1 0 0 1-1.242.97L5 20V5.562a2 2 0 0 1 1.515-1.94l4-1A2 2 0 0 1 13 4.561Z" fill="none" />
                                         </svg>
                                         Cerrar sesión
                                     </motion.button>
@@ -852,199 +1202,285 @@ function PantallaPerfil() {
 
                 {/* Información del perfil */}
                 <div style={{
-                    padding: "1rem",
-                    paddingTop: "60px",
-                    backgroundColor: cardColor,
-                    borderBottom: `1px solid ${borderColor}`
+                    flex: 1,
+                    overflowY: "auto",
+                    scrollbarWidth: "thin",
+                    scrollbarColor: `${lightTextColor} ${cardColor}`,
+                    "&::-webkit-scrollbar": {
+                        width: "8px",
+                    },
+                    "&::-webkit-scrollbar-track": {
+                        background: cardColor,
+                        borderRadius: "10px",
+                    },
+                    "&::-webkit-scrollbar-thumb": {
+                        backgroundColor: lightTextColor,
+                        borderRadius: "10px",
+                        border: `2px solid ${cardColor}`,
+                    }
                 }}>
-                    {editMode ? (
-                        <div>
-                            <input
-                                type="text"
-                                value={tempName}
-                                onChange={(e) => setTempName(e.target.value)}
-                                style={{
-                                    width: "100%",
-                                    backgroundColor: backgroundColor,
-                                    color: textColor,
-                                    border: `1px solid ${borderColor}`,
-                                    borderRadius: "8px",
-                                    padding: "0.75rem",
-                                    marginBottom: "1rem",
-                                    fontSize: "1.5rem",
-                                    fontWeight: "bold"
-                                }}
-                            />
-                            <textarea
-                                value={tempBio}
-                                onChange={(e) => setTempBio(e.target.value)}
-                                style={{
-                                    width: "100%",
-                                    minHeight: "100px",
-                                    backgroundColor: backgroundColor,
-                                    color: textColor,
-                                    border: `1px solid ${borderColor}`,
-                                    borderRadius: "8px",
-                                    padding: "0.75rem",
-                                    marginBottom: "1rem"
-                                }}
-                            />
-                            <div style={{ display: "flex", gap: "0.5rem" }}>
-                                <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
+                    <div style={{
+                        padding: "1rem",
+                        paddingTop: "60px",
+                        paddingLeft: "25px",
+                        backgroundColor: cardColor,
+                        borderBottom: `1px solid ${borderColor}`
+                    }}>
+                        {editMode ? (
+                            <div>
+                                <input
+                                    type="text"
+                                    value={tempName}
+                                    onChange={handleNameChange}
                                     style={{
-                                        backgroundColor: primaryColor,
-                                        color: "white",
-                                        border: "none",
-                                        borderRadius: "20px",
-                                        padding: "8px 16px",
-                                        cursor: "pointer"
-                                    }}
-                                    onClick={handleSaveBio}
-                                >
-                                    Guardar
-                                </motion.button>
-                                <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    style={{
-                                        backgroundColor: "transparent",
+                                        width: "100%",
+                                        backgroundColor: backgroundColor,
                                         color: textColor,
-                                        border: `1px solid ${lightTextColor}`,
-                                        borderRadius: "20px",
-                                        padding: "8px 16px",
-                                        cursor: "pointer"
+                                        border: `1px solid ${borderColor}`,
+                                        borderRadius: "8px",
+                                        padding: "0.75rem",
+                                        marginBottom: "1rem",
+                                        marginTop: "1rem",
+                                        fontSize: "1.5rem",
+                                        fontWeight: "bold"
                                     }}
-                                    onClick={handleCancelEdit}
-                                >
-                                    Cancelar
-                                </motion.button>
+                                />
+                                <textarea
+                                    value={tempBio}
+                                    onChange={handleBioChange}
+                                    style={{
+                                        width: "100%",
+                                        minHeight: "100px",
+                                        backgroundColor: backgroundColor,
+                                        color: textColor,
+                                        border: `1px solid ${borderColor}`,
+                                        borderRadius: "8px",
+                                        padding: "0.75rem",
+                                        marginBottom: "1rem"
+                                    }}
+                                />
+                                <div style={{ display: "flex", gap: "0.5rem", justifyContent: "right" }}>
+                                    <motion.button
+                                        whileHover={hasChanges ? { backgroundColor: primaryColor } : {}}
+                                        whileTap={hasChanges ? { scale: 0.95 } : {}}
+                                        style={{
+                                            backgroundColor: hasChanges ? primaryColor : "rgba(255, 69, 0, 0.3)",
+                                            color: "white",
+                                            border: `1px solid ${hasChanges ? primaryColor : "rgba(255, 69, 0, 0.3)"}`,
+                                            borderRadius: "10px",
+                                            padding: "8px 16px",
+                                            cursor: hasChanges ? "pointer" : "not-allowed",
+                                            transition: "all 0.2s ease-in-out",
+                                            opacity: hasChanges ? 1 : 0.7
+                                        }}
+                                        onClick={hasChanges ? handleSaveClick : undefined}
+                                        disabled={!hasChanges}
+                                    >
+                                        Guardar
+                                    </motion.button>
+                                    <motion.button
+                                        whileHover={{ backgroundColor: "rgba(255, 255, 255, 0.05)" }}
+                                        whileTap={{ scale: 0.95 }}
+                                        style={{
+                                            backgroundColor: "transparent",
+                                            color: textColor,
+                                            border: `1px solid rgba(255, 255, 255, 0.1)`,
+                                            borderRadius: "10px",
+                                            padding: "8px 16px",
+                                            cursor: "pointer",
+                                            transition: "all 0.2s ease-in-out"
+                                        }}
+                                        onClick={handleCancelEdit}
+                                    >
+                                        Cancelar
+                                    </motion.button>
+                                </div>
                             </div>
-                        </div>
-                    ) : (
-                        <>
-                            <h1 style={{
-                                fontSize: "1.5rem",
+                        ) : (
+                            <>
+                                <h1 style={{
+                                    fontSize: "1.5rem",
+                                    fontWeight: "bold",
+                                    marginBottom: "0.25rem",
+                                    color: textColor
+                                }}>{userProfile.nombre_usuario}</h1>
+                                <div style={{
+                                    color: lightTextColor,
+                                    marginBottom: "1rem"
+                                }}>{userProfile.email}</div>
+                                <p style={{
+                                    marginBottom: "1rem",
+                                    color: textColor
+                                }}>{userProfile.bio}</p>
+                            </>
+                        )}
+                    </div>
+                    {/* Pestañas de contenido */}
+                    <div style={{
+                        display: "flex",
+                        borderBottom: `1px solid ${borderColor}`,
+                        backgroundColor: cardColor
+                    }}>
+                        <motion.button
+                            whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
+                            whileTap={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+                            style={{
+                                flex: 1,
+                                padding: "1rem",
+                                border: "none",
+                                backgroundColor: selectedContent === "publicaciones" ? "rgba(255, 69, 0, 0.1)" : "transparent",
+                                color: selectedContent === "publicaciones" ? accentColor : textColor,
                                 fontWeight: "bold",
-                                marginBottom: "0.25rem",
-                                color: textColor
-                            }}>{name}</h1>
-                            <div style={{
-                                color: lightTextColor,
-                                marginBottom: "1rem"
-                            }}>@{userUsername}</div>
-                            <p style={{
-                                marginBottom: "1rem",
-                                color: textColor
-                            }}>{bio}</p>
-                        </>
-                    )}
-                </div>
+                                cursor: "pointer",
+                                borderBottom: selectedContent === "publicaciones" ? `2px solid ${accentColor}` : "none"
+                            }}
+                            onClick={() => setSelectedContent("publicaciones")}
+                        >
+                            Publicaciones
+                        </motion.button>
+                        <motion.button
+                            whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
+                            whileTap={{ backgroundColor: "rgba(255,255,white,0.1)" }}
+                            style={{
+                                flex: 1,
+                                padding: "1rem",
+                                border: "none",
+                                backgroundColor: selectedContent === "equipos" ? "rgba(255, 69, 0, 0.1)" : "transparent",
+                                color: selectedContent === "equipos" ? accentColor : textColor,
+                                fontWeight: "bold",
+                                cursor: "pointer",
+                                borderBottom: selectedContent === "equipos" ? `2px solid ${accentColor}` : "none"
+                            }}
+                            onClick={() => setSelectedContent("equipos")}
+                        >
+                            Equipos
+                        </motion.button>
+                    </div>
 
-                {/* Pestañas de contenido */}
-                <div style={{
-                    display: "flex",
-                    borderBottom: `1px solid ${borderColor}`,
-                    backgroundColor: cardColor
-                }}>
-                    <motion.button
-                        whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
-                        whileTap={{ backgroundColor: "rgba(255,255,255,0.1)" }}
-                        style={{
-                            flex: 1,
-                            padding: "1rem",
-                            border: "none",
-                            backgroundColor: selectedContent === "publicaciones" ? "rgba(255, 69, 0, 0.1)" : "transparent",
-                            color: selectedContent === "publicaciones" ? accentColor : textColor,
-                            fontWeight: "bold",
-                            cursor: "pointer",
-                            borderBottom: selectedContent === "publicaciones" ? `2px solid ${accentColor}` : "none"
-                        }}
-                        onClick={() => setSelectedContent("publicaciones")}
-                    >
-                        Publicaciones
-                    </motion.button>
-                    <motion.button
-                        whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
-                        whileTap={{ backgroundColor: "rgba(255,255,white,0.1)" }}
-                        style={{
-                            flex: 1,
-                            padding: "1rem",
-                            border: "none",
-                            backgroundColor: selectedContent === "equipos" ? "rgba(255, 69, 0, 0.1)" : "transparent",
-                            color: selectedContent === "equipos" ? accentColor : textColor,
-                            fontWeight: "bold",
-                            cursor: "pointer",
-                            borderBottom: selectedContent === "equipos" ? `2px solid ${accentColor}` : "none"
-                        }}
-                        onClick={() => setSelectedContent("equipos")}
-                    >
-                        Equipos
-                    </motion.button>
-                </div>
-
-                {/* Contenido según pestaña seleccionada */}
-                <CustomScroll>
-                    {selectedContent === "publicaciones" && (
-                        <div>
-                            {profilePosts.length > 0 ? (
-                                profilePosts.map(post => (
-                                    <div key={post.id} style={{
-                                        padding: "1rem",
-                                        borderBottom: `1px solid ${borderColor}`,
-                                        backgroundColor: cardColor
-                                    }}>
-                                        <div style={{ display: "flex" }}>
-                                            <div style={{
-                                                width: "48px",
-                                                height: "48px",
-                                                borderRadius: "50%",
-                                                background: primaryColor,
+                    {/* Contenido según pestaña seleccionada */}
+                    <CustomScroll>
+                        {selectedContent === "publicaciones" && (
+                            <div>
+                                {loadingPosts ? (
+                                    <div style={{ padding: "2rem", textAlign: "center" }}>
+                                        Cargando publicaciones...
+                                    </div>
+                                ) : profilePosts.length > 0 ? (
+                                    profilePosts.map(post => (
+                                        <motion.div
+                                            key={post.id}
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ duration: 0.3 }}
+                                            style={{
+                                                padding: "1rem",
+                                                borderBottom: `1px solid ${borderColor}`,
                                                 display: "flex",
-                                                alignItems: "center",
-                                                justifyContent: "center",
-                                                marginRight: "0.75rem",
-                                                flexShrink: 0,
-                                                overflow: "hidden"
-                                            }}>
+                                                backgroundColor: cardColor,
+                                                cursor: "pointer"
+                                            }}
+                                            onClick={() =>
+                                                navigate(`/publicacion/${post.id}`, {
+                                                    state: { user: userData },
+                                                })
+                                            }
+                                        >
+                                            <div
+                                                style={{
+                                                    width: "48px",
+                                                    height: "48px",
+                                                    borderRadius: "50%",
+                                                    background: primaryColor,
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                    marginRight: "0.75rem",
+                                                    flexShrink: 0,
+                                                }}
+                                            >
                                                 <img
                                                     src={profileImage}
                                                     alt="Perfil"
                                                     style={{
                                                         width: "100%",
                                                         height: "100%",
-                                                        objectFit: "cover"
+                                                        objectFit: "cover",
+                                                        borderRadius: "50%",
                                                     }}
                                                 />
                                             </div>
-                                            <div style={{ flex: 1 }}>
-                                                <div style={{
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    marginBottom: "0.25rem"
-                                                }}>
-                                                    <span style={{
-                                                        fontWeight: "bold",
-                                                        marginRight: "0.25rem",
-                                                        color: textColor
-                                                    }}>{name}</span>
-                                                    <span style={{
-                                                        marginRight: "0.25rem",
-                                                        color: lightTextColor
-                                                    }}>@{userUsername}</span>
-                                                    <span style={{ color: lightTextColor }}>· {post.time}</span>
+
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div
+                                                    style={{
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        marginBottom: "0.25rem",
+                                                    }}
+                                                >
+                                                    <span
+                                                        style={{
+                                                            fontWeight: "bold",
+                                                            marginRight: "0.25rem",
+                                                            color: textColor,
+                                                        }}
+                                                    >
+                                                        {post.name}
+                                                    </span>
+                                                    {!isMobile && (
+                                                        <>
+                                                            <span
+                                                                style={{
+                                                                    marginRight: "0.25rem",
+                                                                    color: lightTextColor,
+                                                                }}
+                                                            >
+                                                                {post.userUsername}
+                                                            </span>
+                                                        </>
+                                                    )}
+                                                    <span style={{ color: lightTextColor }}>
+                                                        · {formatRelativeTime(post.fechaHora)}
+                                                    </span>
+                                                    {post.categoriaDeporteId !== "General" && (
+                                                        <span
+                                                            style={{
+                                                                marginLeft: "0.5rem",
+                                                                color: primaryColor,
+                                                                fontSize: "0.8rem",
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                            }}
+                                                        >
+                                                            <SportIcon
+                                                                sport={post.categoriaDeporteId}
+                                                                style={{
+                                                                    width: "16px",
+                                                                    height: "16px",
+                                                                    marginRight: "0.25rem",
+                                                                    color: "white",
+                                                                }}
+                                                            />
+                                                            {post.categoriaDeporteId}
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                <p style={{
-                                                    marginBottom: "0.5rem",
-                                                    color: textColor,
-                                                    wordBreak: "break-word"
-                                                }}>{post.content}</p>
-                                                <div style={{
-                                                    display: "flex",
-                                                    justifyContent: "space-between",
-                                                    maxWidth: "100%"
-                                                }}>
+                                                <p
+                                                    style={{
+                                                        marginBottom: "0.5rem",
+                                                        color: textColor,
+                                                        wordBreak: "break-word",
+                                                    }}
+                                                >
+                                                    {post.contenido}
+                                                </p>
+                                                <div
+                                                    style={{
+                                                        display: "flex",
+                                                        justifyContent: "space-between",
+                                                        maxWidth: "100%",
+                                                    }}
+                                                >
                                                     <motion.button
                                                         whileHover={{ scale: 1.1 }}
                                                         whileTap={{ scale: 0.9 }}
@@ -1055,31 +1491,31 @@ function PantallaPerfil() {
                                                             cursor: "pointer",
                                                             padding: "0.5rem",
                                                             display: "flex",
-                                                            alignItems: "center"
+                                                            alignItems: "center",
+                                                        }}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            // Navegar a la publicación específica
+                                                            navigate(`/publicacion/${post.id}`, {
+                                                                state: { user: userData },
+                                                            });
                                                         }}
                                                     >
-                                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "0.25rem" }}>
-                                                            <path d="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2ZM20 16H6L4 18V4H20V16Z" fill="currentColor" />
+                                                        <svg
+                                                            width="20"
+                                                            height="20"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                        >
+                                                            <path
+                                                                fill="currentColor"
+                                                                fillRule="evenodd"
+                                                                d="M3 10.4c0-2.24 0-3.36.436-4.216a4 4 0 0 1 1.748-1.748C6.04 4 7.16 4 9.4 4h5.2c2.24 0 3.36 0 4.216.436a4 4 0 0 1 1.748 1.748C21 7.04 21 8.16 21 10.4v1.2c0 2.24 0 3.36-.436 4.216a4 4 0 0 1-1.748 1.748C17.96 18 16.84 18 14.6 18H7.414a1 1 0 0 0-.707.293l-2 2c-.63.63-1.707.184-1.707-.707zM9 8a1 1 0 0 0 0 2h6a1 1 0 1 0 0-2zm0 4a1 1 0 1 0 0 2h3a1 1 0 1 0 0-2z"
+                                                                clipRule="evenodd"
+                                                            ></path>
                                                         </svg>
-                                                        <span>{post.comments}</span>
-                                                    </motion.button>
-                                                    <motion.button
-                                                        whileHover={{ scale: 1.1 }}
-                                                        whileTap={{ scale: 0.9 }}
-                                                        style={{
-                                                            background: "transparent",
-                                                            border: "none",
-                                                            color: lightTextColor,
-                                                            cursor: "pointer",
-                                                            padding: "0.5rem",
-                                                            display: "flex",
-                                                            alignItems: "center"
-                                                        }}
-                                                    >
-                                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "0.25rem" }}>
-                                                            <path d="M18 16.08C17.24 16.08 16.56 16.38 16.04 16.85L8.91 12.7C8.96 12.47 9 12.24 9 12C9 11.76 8.96 11.53 8.91 11.3L15.96 7.19C16.5 7.69 17.21 8 18 8C19.66 8 21 6.66 21 5C21 3.34 19.66 2 18 2C16.34 2 15 3.34 15 5C15 5.24 15.04 5.47 15.09 5.7L8.04 9.81C7.5 9.31 6.79 9 6 9C4.34 9 3 10.34 3 12C3 13.66 4.34 15 6 15C6.79 15 7.5 14.69 8.04 14.19L15.16 18.35C15.11 18.56 15.08 18.78 15.08 19C15.08 20.61 16.39 21.92 18 21.92C19.61 21.92 20.92 20.61 20.92 19C20.92 17.39 19.61 16.08 18 16.08Z" fill="currentColor" />
-                                                        </svg>
-                                                        <span>{post.shares}</span>
+                                                        <span>{post.comentarios || 0}</span>
                                                     </motion.button>
                                                     <motion.button
                                                         whileHover={{ scale: 1.1 }}
@@ -1091,161 +1527,602 @@ function PantallaPerfil() {
                                                             cursor: "pointer",
                                                             padding: "0.5rem",
                                                             display: "flex",
-                                                            alignItems: "center"
+                                                            alignItems: "center",
                                                         }}
-                                                        onClick={() => handleLike(post.id)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleLike(post.id);
+                                                        }}
                                                     >
-                                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "0.25rem" }}>
-                                                            <path d="M12 21.35L10.55 20.03C5.4 15.36 2 12.28 2 8.5C2 5.42 4.42 3 7.5 3C9.24 3 10.91 3.81 12 5.09C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.42 22 8.5C22 12.28 18.6 15.36 13.45 20.03L12 21.35Z" fill="currentColor" />
+                                                        <svg
+                                                            width="17"
+                                                            height="17"
+                                                            viewBox="0 0 256 256"
+                                                            fill="none"
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            style={{ marginRight: "0.25rem" }}
+                                                        >
+                                                            <path
+                                                                fill="currentColor"
+                                                                d="M240 102c0 70-103.79 126.66-108.21 129a8 8 0 0 1-7.58 0C119.79 228.66 16 172 16 102a62.07 62.07 0 0 1 62-62c20.65 0 38.73 8.88 50 23.89C139.27 48.88 157.35 40 178 40a62.07 62.07 0 0 1 62 62"
+                                                            ></path>
                                                         </svg>
-                                                        <span>{post.likes}</span>
+                                                        <span>{post.likes || 0}</span>
+                                                    </motion.button>
+                                                    <motion.button
+                                                        whileHover={{ scale: 1.1 }}
+                                                        whileTap={{ scale: 0.9 }}
+                                                        style={{
+                                                            background: "transparent",
+                                                            border: "none",
+                                                            color: lightTextColor,
+                                                            cursor: "pointer",
+                                                            padding: "0.5rem",
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                        }}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleShare(post.id);
+                                                        }}
+                                                    >
+                                                        <svg
+                                                            width="18"
+                                                            height="18"
+                                                            viewBox="0 0 512 512"
+                                                            fill="none"
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            style={{ marginRight: "0.25rem" }}
+                                                        >
+                                                            <path
+                                                                fill="currentColor"
+                                                                d="M378 324a69.78 69.78 0 0 0-48.83 19.91L202 272.41a69.7 69.7 0 0 0 0-32.82l127.13-71.5A69.76 69.76 0 1 0 308.87 129l-130.13 73.2a70 70 0 1 0 0 107.56L308.87 383A70 70 0 1 0 378 324"
+                                                            ></path>
+                                                        </svg>
+                                                        <span>{post.compartidos || 0}</span>
                                                     </motion.button>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                ))
-                            ) : (
-                                <div style={{
-                                    padding: "2rem",
-                                    textAlign: "center",
-                                    color: lightTextColor
-                                }}>
-                                    <div style={{ fontSize: "1.2rem", marginBottom: "1rem" }}>No hay publicaciones aún</div>
-                                    <div>Cuando publiques algo, aparecerá aquí</div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {selectedContent === "equipos" && (
-                        <div style={{
-                            display: "grid",
-                            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-                            gap: "1rem",
-                            padding: "1rem"
-                        }}>
-                            {teams.map(team => (
-                                <motion.div
-                                    key={team.id}
-                                    whileHover={{ y: -5, boxShadow: `0 5px 15px rgba(255, 69, 0, 0.2)` }}
-                                    style={{
-                                        backgroundColor: cardColor,
-                                        borderRadius: "12px",
-                                        overflow: "hidden",
-                                        border: `1px solid ${borderColor}`,
-                                        display: "flex",
-                                        flexDirection: "column"
-                                    }}
-                                >
-                                    {/* Imagen del equipo */}
+                                        </motion.div>
+                                    ))
+                                ) : (
                                     <div style={{
-                                        height: "150px",
-                                        backgroundColor: "rgba(150, 133, 127, 0.1)",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        position: "relative"
+                                        padding: "2rem",
+                                        textAlign: "center",
+                                        color: lightTextColor
                                     }}>
-                                        <img
-                                            src={team.image}
-                                            alt={team.name}
-                                            style={{
-                                                width: "100%",
-                                                height: "100%",
-                                                objectFit: "cover"
-                                            }}
-                                        />
-                                        <div style={{
-                                            position: "absolute",
-                                            top: "10px",
-                                            right: "10px",
-                                            backgroundColor: "rgba(0, 0, 0, 0.7)",
-                                            color: "white",
-                                            padding: "0.25rem 0.25rem",
-                                            borderRadius: "50px",
-                                            fontSize: "0.8rem",
-                                            display: "flex",
-                                            alignItems: "center"
-                                        }}>
-                                            <SportIcon sport={team.sport} style={{
-                                                width: "25px",
-                                                height: "25px",
-                                                color: "white"
-                                            }} />
+                                        <div style={{ fontSize: "1.2rem", marginBottom: "1rem" }}>No hay publicaciones aún</div>
+                                        <div>
+                                            {isCurrentUser ? "Cuando publiques algo, aparecerá aquí" : ""}
                                         </div>
                                     </div>
+                                )}
+                            </div>
+                        )}
 
-                                    {/* Información del equipo */}
-                                    <div style={{ padding: "1rem" }}>
-                                        <h3 style={{
-                                            margin: "0 0 0.5rem 0",
-                                            fontSize: "1.2rem",
-                                            fontWeight: "bold"
-                                        }}>
-                                            {team.name}
-                                        </h3>
+                        {selectedContent === "equipos" && (
+                            <div style={{
+                                display: "grid",
+                                gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+                                gap: "1rem",
+                                padding: "1rem"
+                            }}>
+                                {userProfile.equipos.map(equipo => (
+                                    <motion.div
+                                        key={equipo.id}
+                                        whileHover={{ y: -5, boxShadow: `0 5px 15px rgba(255, 69, 0, 0.2)` }}
+                                        style={{
+                                            backgroundColor: cardColor,
+                                            borderRadius: "12px",
+                                            overflow: "hidden",
+                                            border: `1px solid ${borderColor}`,
+                                            display: "flex",
+                                            flexDirection: "column"
+                                        }}
+                                    >
+                                        {/* Imagen del equipo */}
                                         <div style={{
+                                            height: "150px",
+                                            backgroundColor: "rgba(150, 133, 127, 0.1)",
                                             display: "flex",
                                             alignItems: "center",
-                                            color: lightTextColor,
-                                            marginBottom: "1rem",
-                                            fontSize: "0.9rem"
+                                            justifyContent: "center",
+                                            position: "relative"
                                         }}>
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "0.5rem", marginTop: "0.4rem" }}>
-                                                <path d="M0 7a7 7 0 1 0 14 0A7 7 0 1 0 0 7" fill="currentColor" />
-                                            </svg>
-                                            {team.members} {team.members === 1 ? "miembro" : "miembros"}
-                                        </div>
-                                        {team.isMember && (
+                                            <img
+                                                src={team.image}
+                                                alt={team.name}
+                                                style={{
+                                                    width: "100%",
+                                                    height: "100%",
+                                                    objectFit: "cover"
+                                                }}
+                                            />
                                             <div style={{
-                                                display: "inline-block",
-                                                backgroundColor: "rgba(255, 69, 0, 0.1)",
-                                                color: accentColor,
-                                                padding: "0.25rem 0.5rem",
-                                                borderRadius: "4px",
-                                                fontSize: "0.8rem"
+                                                position: "absolute",
+                                                top: "10px",
+                                                right: "10px",
+                                                backgroundColor: "rgba(0, 0, 0, 0.7)",
+                                                color: "white",
+                                                padding: "0.25rem 0.25rem",
+                                                borderRadius: "50px",
+                                                fontSize: "0.8rem",
+                                                display: "flex",
+                                                alignItems: "center"
                                             }}>
-                                                Eres miembro
+                                                <SportIcon sport={team.sport} style={{
+                                                    width: "25px",
+                                                    height: "25px",
+                                                    color: "white"
+                                                }} />
                                             </div>
-                                        )}
-                                    </div>
-                                </motion.div>
-                            ))}
-                        </div>
-                    )}
-                </CustomScroll>
+                                        </div>
+
+                                        {/* Información del equipo */}
+                                        <div style={{ padding: "1rem" }}>
+                                            <h3 style={{
+                                                margin: "0 0 0.5rem 0",
+                                                fontSize: "1.2rem",
+                                                fontWeight: "bold"
+                                            }}>
+                                                {team.nombre}
+                                            </h3>
+                                            <div style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                color: lightTextColor,
+                                                marginBottom: "1rem",
+                                                fontSize: "0.9rem"
+                                            }}>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "0.5rem", marginTop: "0.4rem" }}>
+                                                    <path d="M0 7a7 7 0 1 0 14 0A7 7 0 1 0 0 7" fill="currentColor" />
+                                                </svg>
+                                                {team.members} {team.members === 1 ? "miembro" : "miembros"}
+                                            </div>
+                                            {team.isMember && (
+                                                <div style={{
+                                                    display: "inline-block",
+                                                    backgroundColor: "rgba(255, 69, 0, 0.1)",
+                                                    color: accentColor,
+                                                    padding: "0.25rem 0.5rem",
+                                                    borderRadius: "4px",
+                                                    fontSize: "0.8rem"
+                                                }}>
+                                                    Eres miembro
+                                                </div>
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                ))}
+                            </div>
+                        )}
+                    </CustomScroll>
+                </div>
             </div>
 
-            {/* Botón para mostrar barra izquierda en móviles */}
-            {isMobile && !showLeftSidebar && (
-                <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => setShowLeftSidebar(true)}
+            {/* Modal de confirmación */}
+            {showConfirmationModal && (
+                <div
                     style={{
                         position: "fixed",
-                        left: "20px",
-                        top: "20px",
-                        zIndex: 50,
-                        width: "50px",
-                        height: "50px",
-                        border: "none",
-                        borderRadius: "50%",
-                        background: "transparent",
-                        color: "white",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: "rgba(0,0,0,0.7)",
+                        backdropFilter: "blur(5px)",
+                        zIndex: 1000,
                         display: "flex",
                         justifyContent: "center",
                         alignItems: "center",
-                        cursor: "pointer"
                     }}
                 >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M3 18H21V16H3V18ZM3 13H21V11H3V13ZM3 6V8H21V6H3Z" fill="white" />
-                    </svg>
-                </motion.button>
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        style={{
+                            backgroundColor: cardColor,
+                            borderRadius: "16px",
+                            padding: "1.5rem",
+                            width: "90%",
+                            maxWidth: "500px",
+                            border: `1px solid ${borderColor}`,
+                        }}
+                    >
+                        <h3 style={{ marginTop: 0, color: textColor }}>Confirmar acción</h3>
+                        <p style={{ color: lightTextColor, marginBottom: "2rem" }}>{confirmationMessage}</p>
+
+                        <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem" }}>
+                            <motion.button
+                                whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
+                                whileTap={{ scale: 0.95 }}
+                                style={{
+                                    backgroundColor: "transparent",
+                                    color: textColor,
+                                    border: `1px solid ${borderColor}`,
+                                    borderRadius: "8px",
+                                    padding: "8px 16px",
+                                    cursor: "pointer",
+                                    transition: "background-color 0.2s ease",
+                                }}
+                                onClick={() => setShowConfirmationModal(false)}
+                            >
+                                Cancelar
+                            </motion.button>
+
+                            <motion.button
+                                whileHover={{ backgroundColor: confirmationAction === 'delete' ? "rgba(255, 0, 0, 0.4)" : "rgba(255, 112, 67, 0.2)" }}
+                                whileTap={{ scale: 0.95 }}
+                                style={{
+                                    backgroundColor: confirmationAction === 'delete' ? "rgb(255, 0, 0)" : "red",
+                                    color: "white",
+                                    border: "none",
+                                    borderRadius: "8px",
+                                    padding: "8px 16px",
+                                    cursor: "pointer",
+                                }}
+                                onClick={handleConfirmedAction}
+                            >
+                                {confirmationAction === 'delete' ? 'Desactivar cuenta' : 'Confirmar'}
+                            </motion.button>
+                        </div>
+                    </motion.div>
+                </div>
             )}
-        </div>
+
+            {showShareModal && (
+                <div
+                    style={{
+                        position: "fixed",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: "rgba(0,0,0,0.7)",
+                        backdropFilter: "blur(5px)",
+                        zIndex: 100,
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                    }}
+                >
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        style={{
+                            backgroundColor: cardColor,
+                            borderRadius: "16px",
+                            padding: "1.5rem",
+                            width: "90%",
+                            maxWidth: "500px",
+                            border: `1px solid ${borderColor}`,
+                        }}
+                    >
+                        {/* Contenido del modal de compartir */}
+                        <div
+                            style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                marginBottom: "1rem",
+                            }}
+                        >
+                            <h3 style={{ margin: 0 }}>Compartir publicación</h3>
+                            <button
+                                onClick={() => {
+                                    setShowShareModal(false);
+                                    setShareSearchQuery("");
+                                }}
+                                style={{
+                                    background: "transparent",
+                                    border: "none",
+                                    color: textColor,
+                                    cursor: "pointer",
+                                    fontSize: "1.5rem",
+                                }}
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        {users.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: '1rem', color: lightTextColor }}>
+                                Cargando usuarios...
+                            </div>
+                        ) : (
+                            <>
+                                <div
+                                    style={{
+                                        position: "relative",
+                                        marginBottom: "1rem",
+                                    }}
+                                >
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar usuarios..."
+                                        value={shareSearchQuery}
+                                        onChange={(e) => setShareSearchQuery(e.target.value)}
+                                        style={{
+                                            width: "100%",
+                                            padding: "0.75rem 1rem 0.75rem 2.5rem",
+                                            borderRadius: "50px",
+                                            border: `1px solid ${borderColor}`,
+                                            backgroundColor: backgroundColor,
+                                            color: textColor,
+                                            outline: "none",
+                                            fontSize: "0.9rem",
+                                        }}
+                                    />
+                                    <svg
+                                        width="20"
+                                        height="20"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        style={{
+                                            position: "absolute",
+                                            left: "12px",
+                                            top: "50%",
+                                            transform: "translateY(-50%)",
+                                            color: lightTextColor,
+                                        }}
+                                    >
+                                        <path
+                                            d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3C5.91 3 3 5.91 3 9.5C3 13.09 5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5C5 7.01 7.01 5 9.5 5C11.99 5 14 7.01 14 9.5C14 11.99 11.99 14 9.5 14Z"
+                                            fill="currentColor"
+                                        />
+                                    </svg>
+                                </div>
+
+                                <div
+                                    style={{
+                                        maxHeight: "300px",
+                                        overflowY: "auto",
+                                        border: `1px solid ${borderColor}`,
+                                        borderRadius: "8px",
+                                        padding: "0.5rem",
+                                    }}
+                                >
+                                    {users
+                                        .filter(
+                                            (user) =>
+                                                user.nombreUsuario
+                                                    ?.toLowerCase()
+                                                    .includes(shareSearchQuery.toLowerCase()) ||
+                                                user.correoElectronico
+                                                    ?.toLowerCase()
+                                                    .includes(shareSearchQuery.toLowerCase())
+                                        )
+                                        .length === 0 ? (
+                                        <div style={{ textAlign: 'center', padding: '1rem', color: lightTextColor }}>
+                                            No se encontraron usuarios
+                                        </div>
+                                    ) : (
+                                        users
+                                            .filter(
+                                                (user) =>
+                                                    user.nombreUsuario
+                                                        ?.toLowerCase()
+                                                        .includes(shareSearchQuery.toLowerCase()) ||
+                                                    user.correoElectronico
+                                                        ?.toLowerCase()
+                                                        .includes(shareSearchQuery.toLowerCase())
+                                            )
+                                            .map((user) => (
+                                                <div
+                                                    key={user.id}
+                                                    style={{
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        justifyContent: "space-between",
+                                                        padding: "0.5rem",
+                                                        borderRadius: "4px",
+                                                        backgroundColor: selectedUsers.some(
+                                                            (u) => u.id === user.id
+                                                        )
+                                                            ? "rgba(255, 112, 67, 0.2)"
+                                                            : "transparent",
+                                                        marginBottom: "0.5rem",
+                                                        cursor: "pointer",
+                                                    }}
+                                                    onClick={() => toggleUserSelection(user)}
+                                                >
+                                                    <div style={{ display: "flex", alignItems: "center" }}>
+                                                        <div
+                                                            style={{
+                                                                width: "40px",
+                                                                height: "40px",
+                                                                borderRadius: "50%",
+                                                                background: primaryColor,
+                                                                marginRight: "0.5rem",
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                color: "white",
+                                                            }}
+                                                        >
+                                                            {user.nombreUsuario?.charAt(0).toUpperCase()}
+                                                        </div>
+                                                        <div>
+                                                            <div style={{ fontWeight: "bold" }}>{user.nombreUsuario}</div>
+                                                            <div
+                                                                style={{
+                                                                    fontSize: "0.8rem",
+                                                                    color: lightTextColor,
+                                                                }}
+                                                            >
+                                                                {user.correoElectronico}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    {selectedUsers.some((u) => u.id === user.id) && (
+                                                        <svg
+                                                            width="24"
+                                                            height="24"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                        >
+                                                            <path
+                                                                d="M9 16.17L4.83 12L3.41 13.41L9 19L21 7L19.59 5.59L9 16.17Z"
+                                                                fill={accentColor}
+                                                            />
+                                                        </svg>
+                                                    )}
+                                                </div>
+                                            ))
+                                    )}
+                                </div>
+
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        justifyContent: "flex-end",
+                                        paddingTop: "1rem",
+                                    }}
+                                >
+                                    <motion.button
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
+                                        onClick={handleSendShare}
+                                        style={{
+                                            background:
+                                                selectedUsers.length > 0
+                                                    ? primaryColor
+                                                    : "rgba(255, 69, 0, 0.5)",
+                                            color: "white",
+                                            borderRadius: "30px",
+                                            border: "none",
+                                            padding: "8px 24px",
+                                            cursor: selectedUsers.length > 0 ? "pointer" : "not-allowed",
+                                            fontWeight: "bold",
+                                            fontSize: "1rem",
+                                        }}
+                                        disabled={selectedUsers.length === 0}
+                                    >
+                                        Enviar ({selectedUsers.length})
+                                    </motion.button>
+                                </div>
+                            </>
+                        )}
+                    </motion.div>
+                </div>
+            )
+            }
+
+            {
+                !profileExists && (
+                    <div style={{
+                        position: "fixed",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        backgroundColor: backgroundColor,
+                        zIndex: 1000,
+                        padding: "2rem",
+                        textAlign: "center"
+                    }}>
+                        <motion.div
+                            animate={{
+                                boxShadow: hover
+                                    ? "0 0px 30px #FF4500"
+                                    : "0 4px 20px rgba(0, 0, 0, 0.3)"
+                            }}
+                            transition={{ duration: 0.3 }}
+                            style={{
+                                maxWidth: "500px",
+                                padding: "2rem",
+                                borderRadius: "12px",
+                                border: `2px solid ${primaryColor}`
+                            }}
+                        >
+                            <h2 style={{
+                                color: textColor,
+                                marginBottom: "1rem",
+                                fontSize: "1.5rem"
+                            }}>
+                                Esta cuenta no existe.
+                            </h2>
+                            <p style={{
+                                color: lightTextColor,
+                                marginBottom: "2rem",
+                                fontSize: "1rem"
+                            }}>
+                                Intenta hacer otra búsqueda.
+                            </p>
+                            <motion.button
+                                whileHover={{ backgroundColor: backgroundColor }}
+                                whileTap={{ scale: 0.98 }}
+                                onHoverStart={() => setHover(true)}
+                                onHoverEnd={() => setHover(false)}
+                                transition={{ duration: 0.2 }}
+                                style={{
+                                    backgroundColor: primaryColor,
+                                    color: "white",
+                                    border: "2px solid #FF4500",
+                                    padding: "0.5rem 1.25rem",
+                                    borderRadius: "8px",
+                                    fontSize: "1rem",
+                                    fontWeight: "500",
+                                    cursor: "pointer"
+                                }}
+                                onClick={() => navigate('/principal')}
+                            >
+                                Volver al inicio
+                            </motion.button>
+                        </motion.div>
+                    </div>
+                )
+            }
+
+            {/* Botón para mostrar barra izquierda en móviles */}
+            {
+                isMobile && !showLeftSidebar && (
+                    <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => setShowLeftSidebar(true)}
+                        style={{
+                            position: "fixed",
+                            left: "20px",
+                            top: "20px",
+                            zIndex: 50,
+                            width: "50px",
+                            height: "50px",
+                            border: "none",
+                            borderRadius: "50%",
+                            background: "transparent",
+                            color: "white",
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            cursor: "pointer"
+                        }}
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            width="1.5em"
+                            height="1.5em"
+                        >
+                            <path
+                                fill="none"
+                                stroke="currentColor"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M4 6h16M4 12h16M4 18h7"
+                            ></path>
+                        </svg>
+                    </motion.button>
+                )
+            }
+        </div >
     );
 }
 

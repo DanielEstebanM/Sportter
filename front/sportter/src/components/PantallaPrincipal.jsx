@@ -8,6 +8,7 @@ import {
   darLike,
   quitarLike,
   crearPublicacion,
+  getUsers
 } from "../services/api";
 
 function PantallaPrincipal() {
@@ -24,10 +25,10 @@ function PantallaPrincipal() {
   const [isMobile, setIsMobile] = useState(false);
   const [scrollY, setScrollY] = useState(0);
 
-  const userData =
-    location.state?.user || JSON.parse(localStorage.getItem("userData"));
+  const userData = location.state?.user || JSON.parse(localStorage.getItem("userData"));
   const userEmail = userData?.correoElectronico;
   const userName = userData?.nombreUsuario;
+  const currentUserId = userData?.id;
 
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareSearchQuery, setShareSearchQuery] = useState("");
@@ -40,14 +41,12 @@ function PantallaPrincipal() {
 
   const [showUserSearchModal, setShowUserSearchModal] = useState(false);
 
+  const [postImage, setPostImage] = useState(null);
+  const [postImagePreview, setPostImagePreview] = useState("");
+
   // Datos de ejemplo para usuarios
-  const [users, setUsers] = useState([
-    { id: 1, name: "Usuario1", email: "usuario1@example.com" },
-    { id: 2, name: "Usuario2", email: "usuario2@example.com" },
-    { id: 3, name: "Usuario3", email: "usuario3@example.com" },
-    { id: 4, name: "Usuario4", email: "usuario4@example.com" },
-    { id: 5, name: "Usuario5", email: "usuario5@example.com" },
-  ]);
+  const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
 
   // Cargar publicaciones al iniciar
   useEffect(() => {
@@ -114,6 +113,31 @@ function PantallaPrincipal() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setLoadingUsers(true);
+        const fetchedUsers = await getUsers();
+
+        // Ordenar usuarios alfabéticamente por nombreUsuario
+        const sortedUsers = fetchedUsers.sort((a, b) => {
+          const nameA = a.nombreUsuario?.toUpperCase() || ''; // Manejo seguro de valores undefined
+          const nameB = b.nombreUsuario?.toUpperCase() || '';
+          return nameA.localeCompare(nameB);
+        });
+
+        console.log("Usuarios ordenados:", sortedUsers); // Debug
+        setUsers(sortedUsers);
+      } catch (error) {
+        console.error("Error loading users:", error);
+        setUsers([]);
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+    fetchUsers();
+  }, []);
+
   const headerOpacity = Math.max(0.7, 1 - Math.min(scrollY / 100, 0.3));
 
   // Cerrar la barra lateral opuesta cuando se abre una
@@ -139,6 +163,23 @@ function PantallaPrincipal() {
   const textColor = "#e1e1e1";
   const lightTextColor = "#a0a0a0";
   const borderColor = "#2d2d2d";
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setPostImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPostImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setPostImage(null);
+    setPostImagePreview("");
+  };
 
   // Función para manejar el compartir publicación
   const handleShare = (postId) => {
@@ -366,7 +407,7 @@ function PantallaPrincipal() {
         {
           id: publicacionCreada.id,
           content: publicacionCreada.contenido,
-          user: userEmail.split("@")[0],
+          user: userEmail,
           name: userName,
           time: new Date(publicacionCreada.fechaHora),
           likes: publicacionCreada.likes || 0,
@@ -382,6 +423,8 @@ function PantallaPrincipal() {
       setNewPostContent("");
       setShowPostModal(false);
       setModalSelectedSport("General");
+      setPostImage(null);
+      setPostImagePreview("");
     } catch (error) {
       console.error("Error al crear publicación:", error);
       // Puedes mostrar un mensaje de error al usuario aquí
@@ -448,18 +491,18 @@ function PantallaPrincipal() {
   const filteredPosts =
     selectedSport === "General"
       ? posts.filter(
-          (post) =>
-            post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            post.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            post.user.toLowerCase().includes(searchQuery.toLowerCase())
-        )
+        (post) =>
+          post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          post.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          post.user.toLowerCase().includes(searchQuery.toLowerCase())
+      )
       : posts.filter(
-          (post) =>
-            post.sport === selectedSport &&
-            (post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              post.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              post.user.toLowerCase().includes(searchQuery.toLowerCase()))
-        );
+        (post) =>
+          post.sport === selectedSport &&
+          (post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            post.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            post.user.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
 
   return (
     <div
@@ -752,6 +795,9 @@ function PantallaPrincipal() {
               width: "90%",
               maxWidth: "600px",
               border: `1px solid ${borderColor}`,
+              maxHeight: "90vh",
+              display: "flex",
+              flexDirection: "column",
             }}
           >
             <div
@@ -873,7 +919,11 @@ function PantallaPrincipal() {
               <button
                 onClick={() => {
                   setShowPostModal(false);
-                  setModalSelectedSport("General"); // Resetear a General
+                  setModalSelectedSport("General");
+                  setNewPostContent("");
+                  setPostImage(null);
+                  setPostImagePreview("");
+                  setShowModalSportsMenu(false);
                 }}
                 style={{
                   background: "transparent",
@@ -887,100 +937,203 @@ function PantallaPrincipal() {
                 ×
               </button>
             </div>
-            <form onSubmit={handlePostSubmit}>
-              <div style={{ display: "flex" }}>
-                <div
-                  style={{
-                    width: "48px",
-                    height: "48px",
-                    borderRadius: "50%",
-                    background: primaryColor,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginRight: "0.75rem",
-                    flexShrink: 0,
-                  }}
-                >
-                  <svg
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                      fill="white"
-                    />
-                    <path
-                      d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                      fill="white"
-                    />
-                    <path
-                      d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                      fill="white"
-                    />
-                  </svg>
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <textarea
-                    placeholder="¿Qué está pasando? ¡Pon un # para clasificar tu contenido!"
-                    rows="4"
-                    style={{
-                      width: "100%",
-                      fontSize: "1.2rem",
-                      resize: "none",
-                      backgroundColor: "transparent",
-                      color: textColor,
-                      marginTop: "0.4rem",
-                      border: "none",
-                      outline: "none",
-                      padding: 0,
-                    }}
-                    value={newPostContent}
-                    onChange={(e) => setNewPostContent(e.target.value)}
-                    autoFocus
-                  ></textarea>
-                </div>
-              </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "right",
-                  alignItems: "center",
-                  marginTop: "1.5rem",
-                  borderTop: `1px solid ${borderColor}`,
-                  paddingTop: "1rem",
-                }}
-              >
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  type="submit"
-                  style={{
-                    background:
-                      newPostContent.trim() && selectedSport
-                        ? primaryColor
-                        : "rgba(255, 69, 0, 0.5)",
-                    color: "white",
-                    borderRadius: "30px",
-                    border: "none",
-                    padding: "8px 24px",
-                    cursor:
-                      newPostContent.trim() && selectedSport
-                        ? "pointer"
-                        : "not-allowed",
-                    fontWeight: "bold",
-                    fontSize: "1rem",
-                  }}
-                  disabled={!newPostContent.trim() || !selectedSport}
+            <div
+              style={{
+                flex: 1,
+                overflowY: "auto",
+                scrollbarWidth: "thin",
+                scrollbarColor: `${lightTextColor} ${cardColor}`,
+                "&::-webkit-scrollbar": {
+                  width: "6px",
+                },
+                "&::-webkit-scrollbar-track": {
+                  background: cardColor,
+                  borderRadius: "10px",
+                },
+                "&::-webkit-scrollbar-thumb": {
+                  backgroundColor: lightTextColor,
+                  borderRadius: "10px",
+                  border: `2px solid ${cardColor}`,
+                },
+                paddingRight: "8px",
+                marginRight: "-8px",
+              }}
+            >
+              <form onSubmit={handlePostSubmit}>
+                <div style={{ display: "flex" }}>
+                  <div
+                    style={{
+                      width: "48px",
+                      height: "48px",
+                      borderRadius: "50%",
+                      background: primaryColor,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginRight: "0.75rem",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
+                        fill="white"
+                      />
+                      <path
+                        d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
+                        fill="white"
+                      />
+                      <path
+                        d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
+                        fill="white"
+                      />
+                    </svg>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <textarea
+                      placeholder="¿Qué está pasando? ¡Pon un # para clasificar tu contenido!"
+                      rows="4"
+                      style={{
+                        width: "100%",
+                        fontSize: "1.2rem",
+                        resize: "none",
+                        backgroundColor: "transparent",
+                        color: textColor,
+                        marginTop: "0.4rem",
+                        border: "none",
+                        outline: "none",
+                        padding: 0,
+                        paddingRight: "0.5rem",
+                      }}
+                      value={newPostContent}
+                      onChange={(e) => setNewPostContent(e.target.value)}
+                      autoFocus
+                    ></textarea>
+                  </div>
+                </div>
+
+                {/* Sección para la imagen */}
+                {postImagePreview && (
+                  <div style={{
+                    marginTop: "1rem",
+                    position: "relative",
+                    width: "100%",
+                    maxHeight: "300px",
+                    borderRadius: "8px",
+                    overflow: "hidden"
+                  }}>
+                    <img
+                      src={postImagePreview}
+                      alt="Preview"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                        maxHeight: "300px"
+                      }}
+                    />
+                    <button
+                      onClick={handleRemoveImage}
+                      style={{
+                        position: "absolute",
+                        top: "8px",
+                        right: "8px",
+                        width: "30px",
+                        height: "30px",
+                        borderRadius: "50%",
+                        backgroundColor: "rgba(0,0,0,0.7)",
+                        border: "none",
+                        color: "white",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        fontSize: "1.5rem",
+                        paddingBottom: "0.32rem",
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+              </form>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginTop: "1.5rem",
+                borderTop: `1px solid ${borderColor}`,
+                paddingTop: "1rem",
+              }}
+            >
+              <label style={{
+                padding: "0.6rem",
+                borderRadius: "8px",
+                color: "#E1E1E1",
+                cursor: postImagePreview ? "not-allowed" : "pointer",
+                textAlign: "center",
+                opacity: postImagePreview ? 0.7 : 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center"
+              }}>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  width="1.7em"
+                  height="1.7em"
                 >
-                  Publicar
-                </motion.button>
-              </div>
-            </form>
+                  <path
+                    fill="currentColor"
+                    d="M21.02 5H19V2.98c0-.54-.44-.98-.98-.98h-.03c-.55 0-.99.44-.99.98V5h-2.01c-.54 0-.98.44-.99.98v.03c0 .55.44.99.99.99H17v2.01c0 .54.44.99.99.98h.03c.54 0 .98-.44.98-.98V7h2.02c.54 0 .98-.44.98-.98v-.04c0-.54-.44-.98-.98-.98M16 9.01V8h-1.01c-.53 0-1.03-.21-1.41-.58c-.37-.38-.58-.88-.58-1.44c0-.36.1-.69.27-.98H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8.28c-.3.17-.64.28-1.02.28A2 2 0 0 1 16 9.01M15.96 19H6a.5.5 0 0 1-.4-.8l1.98-2.63c.21-.28.62-.26.82.02L10 18l2.61-3.48c.2-.26.59-.27.79-.01l2.95 3.68c.26.33.03.81-.39.81"
+                  ></path>
+                </svg>
+                {!postImagePreview && (
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    style={{ display: "none" }}
+                  />
+                )}
+              </label>
+
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                type="submit"
+                style={{
+                  background:
+                    newPostContent.trim() && modalSelectedSport
+                      ? primaryColor
+                      : "rgba(255, 69, 0, 0.5)",
+                  color: "white",
+                  borderRadius: "30px",
+                  border: "none",
+                  padding: "8px 24px",
+                  cursor:
+                    newPostContent.trim() && modalSelectedSport
+                      ? "pointer"
+                      : "not-allowed",
+                  fontWeight: "bold",
+                  fontSize: "1rem",
+                }}
+                disabled={!newPostContent.trim() || !modalSelectedSport}
+                onClick={handlePostSubmit}
+              >
+                Publicar
+              </motion.button>
+            </div>
           </motion.div>
         </div>
       )}
@@ -1260,7 +1413,7 @@ function PantallaPrincipal() {
               // Efecto de transición
               document.body.style.overflow = "hidden"; // Bloquea el scroll durante la transición
               setTimeout(() => {
-                navigate("/perfil", {
+                navigate(`/perfil/${currentUserId}`, {
                   state: { user: userEmail },
                   replace: false,
                 });
@@ -1483,16 +1636,19 @@ function PantallaPrincipal() {
                 }}
               >
                 <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
                   xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  width="1.5em"
+                  height="1.5em"
                 >
                   <path
-                    d="M3 18H21V16H3V18ZM3 13H21V11H3V13ZM3 6V8H21V6H3Z"
-                    fill="currentColor"
-                  />
+                    fill="none"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M4 6h16M4 12h16M4 18h7"
+                  ></path>
                 </svg>
               </motion.button>
             )}
@@ -1623,16 +1779,15 @@ function PantallaPrincipal() {
               }}
             >
               <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
                 xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                width="1.5em"
+                height="1.5em"
               >
                 <path
-                  d="M19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3ZM19 19H5V5H19V19ZM7 12H17V14H7V12ZM7 9H17V11H7V9Z"
-                  fill="white"
-                />
+                  fill="currentColor"
+                  d="M18 3a3 3 0 0 1 2.995 2.824L21 6v12a3 3 0 0 1-2.824 2.995L18 21H6a3 3 0 0 1-2.995-2.824L3 18V6a3 3 0 0 1 2.824-2.995L6 3zm-3 2H6a1 1 0 0 0-.993.883L5 6v12a1 1 0 0 0 .883.993L6 19h9zm-3.293 4.293a1 1 0 0 1 .083 1.32l-.083.094L10.415 12l1.292 1.293a1 1 0 0 1 .083 1.32l-.083.094a1 1 0 0 1-1.32.083l-.094-.083l-2-2a1 1 0 0 1-.083-1.32l.083-.094l2-2a1 1 0 0 1 1.414 0"
+                ></path>
               </svg>
             </motion.button>
           )}
@@ -1813,7 +1968,7 @@ function PantallaPrincipal() {
                               color: lightTextColor,
                             }}
                           >
-                            @{post.user}
+                            {post.user}
                           </span>
                         </>
                       )}
@@ -1970,7 +2125,7 @@ function PantallaPrincipal() {
                           display: "flex",
                           alignItems: "center",
                         }}
-                        onClick={() => navigate(`/perfil/${post.user}`)}
+                        onClick={() => navigate(`/perfil/${post.id}`)}
                       >
                         <svg
                           width="19"
@@ -2236,33 +2391,33 @@ function PantallaPrincipal() {
                           },
                         }}
                       >
-                        {users.filter(
-                          (user) =>
-                            user.name
-                              .toLowerCase()
-                              .includes(shareSearchQuery.toLowerCase()) ||
-                            user.email
-                              .toLowerCase()
-                              .includes(shareSearchQuery.toLowerCase())
-                        ).length === 0 ? (
-                          <div
-                            style={{
-                              textAlign: "center",
-                              padding: "1rem",
-                              color: lightTextColor,
-                            }}
-                          >
+                        {users
+                          .filter(
+                            (user) =>
+                              user.nombreUsuario
+                                ?.toLowerCase()
+                                .includes(shareSearchQuery.toLowerCase()) ||
+                              user.correoElectronico
+                                ?.toLowerCase()
+                                .includes(shareSearchQuery.toLowerCase())
+                          )
+                          .length === 0 ? (
+                          <div style={{
+                            textAlign: 'center',
+                            padding: '1rem',
+                            color: lightTextColor
+                          }}>
                             No se encontraron usuarios con ese nombre
                           </div>
                         ) : (
                           users
                             .filter(
                               (user) =>
-                                user.name
-                                  .toLowerCase()
+                                user.nombreUsuario
+                                  ?.toLowerCase()
                                   .includes(shareSearchQuery.toLowerCase()) ||
-                                user.email
-                                  .toLowerCase()
+                                user.correoElectronico
+                                  ?.toLowerCase()
                                   .includes(shareSearchQuery.toLowerCase())
                             )
                             .map((user) => (
@@ -2308,37 +2463,37 @@ function PantallaPrincipal() {
                                       color: "white",
                                     }}
                                   >
-                                    {user.name.charAt(0).toUpperCase()}
+                                    {user.nombreUsuario?.charAt(0).toUpperCase() || "U"}
                                   </div>
                                   <div>
-                                    <div style={{ fontWeight: "bold" }}>
-                                      {user.name}
-                                    </div>
+                                    <div style={{ fontWeight: "bold" }}>{user.nombreUsuario || "Usuario"}</div>
                                     <div
                                       style={{
                                         fontSize: "0.8rem",
                                         color: lightTextColor,
                                       }}
                                     >
-                                      {user.email}
+                                      {user.correoElectronico}
                                     </div>
                                   </div>
                                 </div>
                                 <svg
-                                  width="24"
-                                  height="24"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
                                   xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 12 12"
+                                  width="1em"
+                                  height="1em"
                                 >
                                   <path
-                                    d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"
-                                    fill={accentColor}
-                                  />
+                                    fill="currentColor"
+                                    fillRule="evenodd"
+                                    d="M4.15 9.85a.5.5 0 0 1 0-.707l3.15-3.15l-3.15-3.15a.5.5 0 0 1 .707-.707l3.5 3.5a.5.5 0 0 1 0 .707l-3.5 3.5a.5.5 0 0 1-.707 0z"
+                                    clipRule="evenodd"
+                                  ></path>
                                 </svg>
                               </div>
                             ))
-                        )}
+                        )
+                        }
                       </div>
                     </div>
                   </motion.div>
@@ -2367,9 +2522,8 @@ function PantallaPrincipal() {
               {Object.entries(trends).map(([sport, trend]) => (
                 <div key={sport} style={{ marginBottom: "1rem" }}>
                   <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>
-                    {`Tendencia en ${
-                      sport.charAt(0).toUpperCase() + sport.slice(1)
-                    }`}
+                    {`Tendencia en ${sport.charAt(0).toUpperCase() + sport.slice(1)
+                      }`}
                   </div>
                   <div style={{ fontWeight: "bold", color: textColor }}>
                     {trend.tag}
@@ -2587,6 +2741,261 @@ function PantallaPrincipal() {
                 />
               </svg>
             </div>
+            <motion.button
+              whileHover={{ color: accentColor }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setShowUserSearchModal(true)}
+              style={{
+                background: "transparent",
+                border: "none",
+                fontWeight: "bold",
+                color: lightTextColor,
+                cursor: "pointer",
+                marginTop: "0.5rem",
+                fontSize: "0.9rem",
+                textAlign: "left",
+                padding: "0.25rem 0.5rem",
+              }}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                width="1.3em"
+                height="1.3em"
+                style={{ marginRight: "0.9rem", marginLeft: "0.15rem", marginBottom: "0.1rem" }}
+              >
+                <path
+                  fill="currentColor"
+                  d="M11.91 14h7.843a2.25 2.25 0 0 1 2.25 2.25v.905A3.75 3.75 0 0 1 20.696 20C19.13 21.345 16.89 22.002 14 22.002h-.179a1.75 1.75 0 0 0-.221-1.897l-.111-.121l-2.23-2.224a5.48 5.48 0 0 0 .65-3.76M6.5 10.5a4.5 4.5 0 0 1 3.46 7.377l2.823 2.814a.75.75 0 0 1-.975 1.134l-.085-.072l-2.903-2.896A4.5 4.5 0 1 1 6.5 10.5m0 1.5a3 3 0 1 0 0 6a3 3 0 0 0 0-6M14 2.005a5 5 0 1 1 0 10a5 5 0 0 1 0-10"
+                ></path>
+              </svg>
+              Buscar usuarios
+            </motion.button>
+
+            {/* Modal para buscar usuarios */}
+            {showUserSearchModal && (
+              <div
+                style={{
+                  position: "fixed",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: "rgba(0,0,0,0.7)",
+                  backdropFilter: "blur(5px)",
+                  zIndex: 100,
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  style={{
+                    backgroundColor: cardColor,
+                    borderRadius: "16px",
+                    padding: "1.5rem",
+                    width: "90%",
+                    maxWidth: "500px",
+                    border: `1px solid ${borderColor}`,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    <h3 style={{ margin: 0 }}>Buscar usuarios</h3>
+                    <button
+                      onClick={() => {
+                        setShowUserSearchModal(false)
+                        setShareSearchQuery("");
+                      }}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: textColor,
+                        cursor: "pointer",
+                        fontSize: "1.5rem",
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  <div style={{ marginBottom: "1rem" }}>
+                    <div
+                      style={{
+                        position: "relative",
+                        marginBottom: "1rem",
+                      }}
+                    >
+                      <input
+                        type="text"
+                        placeholder="Buscar usuarios..."
+                        value={shareSearchQuery}
+                        onChange={(e) => setShareSearchQuery(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "0.75rem 1rem 0.75rem 2.5rem",
+                          borderRadius: "50px",
+                          border: `1px solid ${borderColor}`,
+                          backgroundColor: backgroundColor,
+                          color: textColor,
+                          outline: "none",
+                          fontSize: "0.9rem",
+                        }}
+                      />
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        style={{
+                          position: "absolute",
+                          left: "12px",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          color: lightTextColor,
+                        }}
+                      >
+                        <path
+                          d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3C5.91 3 3 5.91 3 9.5C3 13.09 5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5C5 7.01 7.01 5 9.5 5C11.99 5 14 7.01 14 9.5C14 11.99 11.99 14 9.5 14Z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                    </div>
+
+                    <div
+                      style={{
+                        maxHeight: "300px",
+                        overflowY: "auto",
+                        border: `1px solid ${borderColor}`,
+                        borderRadius: "8px",
+                        padding: "0.5rem",
+                        scrollbarWidth: "thin",
+                        scrollbarColor: `${lightTextColor} ${backgroundColor}`,
+                        "&::-webkit-scrollbar": {
+                          width: "8px",
+                        },
+                        "&::-webkit-scrollbar-track": {
+                          background: backgroundColor,
+                        },
+                        "&::-webkit-scrollbar-thumb": {
+                          backgroundColor: lightTextColor,
+                          borderRadius: "10px",
+                          border: `2px solid ${backgroundColor}`,
+                        },
+                      }}
+                    >
+                      {users
+                        .filter(
+                          (user) =>
+                            user.nombreUsuario
+                              ?.toLowerCase()
+                              .includes(shareSearchQuery.toLowerCase()) ||
+                            user.correoElectronico
+                              ?.toLowerCase()
+                              .includes(shareSearchQuery.toLowerCase())
+                        )
+                        .length === 0 ? (
+                        <div style={{
+                          textAlign: 'center',
+                          padding: '1rem',
+                          color: lightTextColor
+                        }}>
+                          No se encontraron usuarios con ese nombre
+                        </div>
+                      ) : (
+                        users
+                          .filter(
+                            (user) =>
+                              user.nombreUsuario
+                                ?.toLowerCase()
+                                .includes(shareSearchQuery.toLowerCase()) ||
+                              user.correoElectronico
+                                ?.toLowerCase()
+                                .includes(shareSearchQuery.toLowerCase())
+                          )
+                          .map((user) => (
+                            <div
+                              key={user.id}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                padding: "0.5rem",
+                                borderRadius: "4px",
+                                backgroundColor: selectedUsers.some(
+                                  (u) => u.id === user.id
+                                )
+                                  ? "rgba(255, 112, 67, 0.2)"
+                                  : "transparent",
+                                marginBottom: "0.5rem",
+                                cursor: "pointer",
+                              }}
+                              onClick={() => {
+                                navigate(`/perfil/${user.id}`, {
+                                  state: { user: userData },
+                                });
+                                setShowUserSearchModal(false);
+                              }}
+                            >
+                              <div style={{ display: "flex", alignItems: "center" }}>
+                                <div
+                                  style={{
+                                    width: "40px",
+                                    height: "40px",
+                                    borderRadius: "50%",
+                                    background: primaryColor,
+                                    marginRight: "0.5rem",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    color: "white",
+                                  }}
+                                >
+                                  {user.nombreUsuario?.charAt(0).toUpperCase() || "U"}
+                                </div>
+                                <div>
+                                  <div style={{ fontWeight: "bold" }}>{user.nombreUsuario || "Usuario"}</div>
+                                  <div
+                                    style={{
+                                      fontSize: "0.8rem",
+                                      color: lightTextColor,
+                                    }}
+                                  >
+                                    {user.correoElectronico}
+                                  </div>
+                                </div>
+                              </div>
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 12 12"
+                                width="1em"
+                                height="1em"
+                              >
+                                <path
+                                  fill="currentColor"
+                                  fillRule="evenodd"
+                                  d="M4.15 9.85a.5.5 0 0 1 0-.707l3.15-3.15l-3.15-3.15a.5.5 0 0 1 .707-.707l3.5 3.5a.5.5 0 0 1 0 .707l-3.5 3.5a.5.5 0 0 1-.707 0z"
+                                  clipRule="evenodd"
+                                ></path>
+                              </svg>
+                            </div>
+                          ))
+                      )
+                      }
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            )}
           </div>
 
           <div
@@ -2609,9 +3018,8 @@ function PantallaPrincipal() {
             {Object.entries(trends).map(([sport, trend]) => (
               <div key={sport} style={{ marginBottom: "1rem" }}>
                 <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>
-                  {`Tendencia en ${
-                    sport.charAt(0).toUpperCase() + sport.slice(1)
-                  }`}
+                  {`Tendencia en ${sport.charAt(0).toUpperCase() + sport.slice(1)
+                    }`}
                 </div>
                 <div style={{ fontWeight: "bold", color: textColor }}>
                   {trend.tag}
@@ -2619,88 +3027,6 @@ function PantallaPrincipal() {
                 <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>
                   {trend.count} posts
                 </div>
-              </div>
-            ))}
-          </div>
-
-          <div
-            style={{
-              padding: "1rem",
-              borderRadius: "1rem",
-              backgroundColor: backgroundColor,
-            }}
-          >
-            <h3
-              style={{
-                fontWeight: "bold",
-                marginBottom: "1rem",
-                color: textColor,
-              }}
-            >
-              Sugerencias
-            </h3>
-            {users.slice(0, 3).map((user) => (
-              <div
-                key={user.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  marginBottom: "1rem",
-                }}
-              >
-                <div
-                  style={{
-                    width: "40px",
-                    height: "40px",
-                    borderRadius: "50%",
-                    background: primaryColor,
-                    marginRight: "0.5rem",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "white",
-                  }}
-                >
-                  {user.name.charAt(0).toUpperCase()}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      fontWeight: "bold",
-                      color: textColor,
-                    }}
-                  >
-                    {user.name}
-                  </div>
-                  <div
-                    style={{
-                      color: lightTextColor,
-                      fontSize: "0.8rem",
-                    }}
-                  >
-                    @{user.email.split("@")[1]}
-                  </div>
-                </div>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  style={{
-                    background: primaryColor,
-                    color: "white",
-                    borderRadius: "30px",
-                    border: "none",
-                    padding: "5px 15px",
-                    fontWeight: "bold",
-                    cursor: "pointer",
-                  }}
-                  onClick={() =>
-                    navigate(`/perfil/${user.id}`, {
-                      state: { user: userData },
-                    })
-                  }
-                >
-                  Visitar
-                </motion.button>
               </div>
             ))}
           </div>

@@ -35,6 +35,50 @@ function PantallaEventos() {
                 date: "2023-12-18T19:30:00",
                 location: "Pabellón Deportivo",
                 isMember: true
+            },
+            {
+                id: 3,
+                localTeam: "Los Leones",
+                visitorTeam: "Los Halcones",
+                sport: "baloncesto",
+                localImage: "https://i.imgur.com/bUwYQP3.png",
+                visitorImage: "https://i.imgur.com/bUwYQP3.png",
+                date: "2023-12-18T19:30:00",
+                location: "Pabellón Deportivo",
+                isMember: true
+            },
+            {
+                id: 4,
+                localTeam: "Los Leones",
+                visitorTeam: "Los Halcones",
+                sport: "baloncesto",
+                localImage: "https://i.imgur.com/bUwYQP3.png",
+                visitorImage: "https://i.imgur.com/bUwYQP3.png",
+                date: "2023-12-18T19:30:00",
+                location: "Pabellón Deportivo",
+                isMember: true
+            },
+            {
+                id: 5,
+                localTeam: "Los Leones",
+                visitorTeam: "Los Halcones",
+                sport: "baloncesto",
+                localImage: "https://i.imgur.com/bUwYQP3.png",
+                visitorImage: "https://i.imgur.com/bUwYQP3.png",
+                date: "2023-12-18T19:30:00",
+                location: "Pabellón Deportivo",
+                isMember: true
+            },
+            {
+                id: 6,
+                localTeam: "Los Leones",
+                visitorTeam: "Los Halcones",
+                sport: "baloncesto",
+                localImage: "https://i.imgur.com/bUwYQP3.png",
+                visitorImage: "https://i.imgur.com/bUwYQP3.png",
+                date: "2023-12-18T19:30:00",
+                location: "Pabellón Deportivo",
+                isMember: true
             }
         ],
         comunidad: [
@@ -75,9 +119,10 @@ function PantallaEventos() {
     });
 
     const navigate = useNavigate();
-    const userData = JSON.parse(localStorage.getItem('userData'));
+    const userData = location.state?.user || JSON.parse(localStorage.getItem("userData"));
     const userEmail = userData?.correoElectronico;
     const userName = userData?.nombreUsuario;
+    const currentUserId = userData?.id;
 
     // Colores con tema anaranjado-rojizo (igual que PantallaInicio)
     const primaryColor = "#FF4500";
@@ -148,7 +193,11 @@ function PantallaEventos() {
     }, []);
 
     const handleLogout = () => {
-        navigate('/');
+        // 1. Limpiar datos de autenticación
+        localStorage.removeItem("userData");
+
+        // 2. Redirigir al login (con replace para evitar volver atrás)
+        navigate("/", { replace: true });
     };
 
     const filteredEvents = searchQuery
@@ -413,7 +462,7 @@ function PantallaEventos() {
                             // Efecto de transición
                             document.body.style.overflow = "hidden"; // Bloquea el scroll durante la transición
                             setTimeout(() => {
-                                navigate('/perfil', {
+                                navigate(`/perfil/${currentUserId}`, {
                                     state: { user: userEmail },
                                     replace: false
                                 });
@@ -617,12 +666,27 @@ function PantallaEventos() {
                 {/* Lista de eventos */}
                 <div style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", // Tarjetas más anchas
+                    gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
                     gap: "1.5rem",
                     padding: "1.5rem",
                     overflowY: "auto",
                     maxHeight: "calc(100vh - 200px)",
-                    alignContent: "flex-start"
+                    alignContent: "flex-start",
+                    /* Estilos personalizados para el scroll */
+                    scrollbarWidth: "thin",
+                    scrollbarColor: `${lightTextColor} ${backgroundColor}`,
+                    '&::-webkit-scrollbar': {
+                        width: "8px"
+                    },
+                    '&::-webkit-scrollbar-track': {
+                        background: backgroundColor,
+                        borderRadius: "10px"
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                        backgroundColor: primaryColor,
+                        borderRadius: "10px",
+                        border: `2px solid ${backgroundColor}`
+                    }
                 }}>
                     {filteredEvents && filteredEvents.map(event => (
                         <motion.div
@@ -1066,7 +1130,7 @@ function PantallaEventos() {
                                     </h4>
                                 </div>
 
-                                {/* VS - SIN CÍRCULO */}
+                                {/* VS */}
                                 <div style={{
                                     fontSize: "2rem",
                                     fontWeight: "bold",
@@ -1281,8 +1345,20 @@ function PantallaEventos() {
                         cursor: "pointer"
                     }}
                 >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M3 18H21V16H3V18ZM3 13H21V11H3V13ZM3 6V8H21V6H3Z" fill="white" />
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        width="1.5em"
+                        height="1.5em"
+                    >
+                        <path
+                            fill="none"
+                            stroke="currentColor"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M4 6h16M4 12h16M4 18h7"
+                        ></path>
                     </svg>
                 </motion.button>
             )}
