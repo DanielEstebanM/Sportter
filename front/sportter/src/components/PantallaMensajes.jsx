@@ -25,10 +25,10 @@ function PantallaMensajes() {
   const [availableUsers, setAvailableUsers] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [webSocketReady, setWebSocketReady] = useState(false);
-`
-`
-  const currentUserId = userData?.id;
+  `
+`;
   const userData = JSON.parse(localStorage.getItem("userDataMessages"));
+  const currentUserId = userData?.id;
   const userId = userData?.id;
   const userEmail = userData?.correoElectronico;
   const userName = userData?.nombreUsuario;
@@ -211,224 +211,257 @@ function PantallaMensajes() {
 
   // Enviar mensaje
   const handleSendMessage = async (e) => {
-  e.preventDefault();
-  if (!newMessage.trim() || !selectedUser || !userId) return;
+    e.preventDefault();
+    if (!newMessage.trim() || !selectedUser || !userId) return;
 
-  console.log("✉️ Enviando mensaje...");
+    console.log("✉️ Enviando mensaje...");
 
-  const tempId = Date.now();
-  const mensajeDTO = {
-    contenido: newMessage,
-    remitenteId: userId,
-    destinatarioId: selectedUser.destinatarioId,
-    conversacionId: selectedUser.id,
-  };
+    const tempId = Date.now();
+    const mensajeDTO = {
+      contenido: newMessage,
+      remitenteId: userId,
+      destinatarioId: selectedUser.destinatarioId,
+      conversacionId: selectedUser.id,
+    };
 
-  // Mensaje optimista
-  const mensajeOptimista = {
-    id: tempId,
-    content: newMessage,
-    time: "Justo ahora",
-    sender: userName,
-    isUser: true,
-  };
+    // Mensaje optimista
+    const mensajeOptimista = {
+      id: tempId,
+      content: newMessage,
+      time: "Justo ahora",
+      sender: userName,
+      isUser: true,
+    };
 
-  // Actualización optimista
-  setSelectedUser(prev => ({
-    ...prev,
-    messages: [...prev.messages, mensajeOptimista],
-    lastMessage: newMessage,
-    time: "Justo ahora"
-  }));
-
-  setConversations(prev => prev.map(conv => 
-    conv.id === selectedUser.id ? {
-      ...conv,
+    // Actualización optimista
+    setSelectedUser((prev) => ({
+      ...prev,
+      messages: [...prev.messages, mensajeOptimista],
       lastMessage: newMessage,
       time: "Justo ahora",
-      messages: [...conv.messages, mensajeOptimista]
-    } : conv
-  ));
+    }));
 
-  setNewMessage("");
-
-  try {
-    // Enviar por WebSocket
-    if (stompClientRef.current?.connected) {
-      console.log("📤 Enviando mensaje por WebSocket");
-      sendMessageWebSocket(stompClientRef.current, selectedUser.id, mensajeDTO);
-    } else {
-      console.warn("WebSocket no conectado, enviando solo por HTTP");
-    }
-
-    // Enviar por HTTP
-    console.log("📤 Enviando mensaje por HTTP");
-    const response = await mensajeService.enviarMensaje(mensajeDTO);
-    const mensajeReal = response.data;
-
-    // Actualizar con ID real
-    setSelectedUser(prev => ({
-      ...prev,
-      messages: prev.messages.map(msg => 
-        msg.id === tempId ? {
-          ...msg,
-          id: mensajeReal.id,
-          time: formatearFecha(mensajeReal.fechaHora)
-        } : msg
+    setConversations((prev) =>
+      prev.map((conv) =>
+        conv.id === selectedUser.id
+          ? {
+              ...conv,
+              lastMessage: newMessage,
+              time: "Justo ahora",
+              messages: [...conv.messages, mensajeOptimista],
+            }
+          : conv
       )
-    }));
+    );
 
-    setConversations(prev => prev.map(conv => 
-      conv.id === selectedUser.id ? {
-        ...conv,
-        messages: conv.messages.map(msg => 
-          msg.id === tempId ? {
-            ...msg,
-            id: mensajeReal.id,
-            time: formatearFecha(mensajeReal.fechaHora)
-          } : msg
+    setNewMessage("");
+
+    try {
+      // Enviar por WebSocket
+      if (stompClientRef.current?.connected) {
+        console.log("📤 Enviando mensaje por WebSocket");
+        sendMessageWebSocket(
+          stompClientRef.current,
+          selectedUser.id,
+          mensajeDTO
+        );
+      } else {
+        console.warn("WebSocket no conectado, enviando solo por HTTP");
+      }
+
+      // Enviar por HTTP
+      console.log("📤 Enviando mensaje por HTTP");
+      const response = await mensajeService.enviarMensaje(mensajeDTO);
+      const mensajeReal = response.data;
+
+      // Actualizar con ID real
+      setSelectedUser((prev) => ({
+        ...prev,
+        messages: prev.messages.map((msg) =>
+          msg.id === tempId
+            ? {
+                ...msg,
+                id: mensajeReal.id,
+                time: formatearFecha(mensajeReal.fechaHora),
+              }
+            : msg
+        ),
+      }));
+
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === selectedUser.id
+            ? {
+                ...conv,
+                messages: conv.messages.map((msg) =>
+                  msg.id === tempId
+                    ? {
+                        ...msg,
+                        id: mensajeReal.id,
+                        time: formatearFecha(mensajeReal.fechaHora),
+                      }
+                    : msg
+                ),
+              }
+            : conv
         )
-      } : conv
-    ));
+      );
 
-    console.log("✅ Mensaje enviado correctamente");
-  } catch (error) {
-    console.error("❌ Error al enviar mensaje:", error);
-    // Revertir en caso de error
-    setSelectedUser(prev => ({
-      ...prev,
-      messages: prev.messages.filter(msg => msg.id !== tempId)
-    }));
-    setConversations(prev => prev.map(conv => 
-      conv.id === selectedUser.id ? {
-        ...conv,
-        messages: conv.messages.filter(msg => msg.id !== tempId)
-      } : conv
-    ));
-  }
-};
-
-// En tu componente React
-const [stompClient, setStompClient] = useState(null);
-
-useEffect(() => {
-  if (!conversations.length) return;
-
-  const ids = conversations.map(c => c.id);
-  const client = setupWebSocketMultiple(
-    ids,
-    (message) => {
-      console.log("Mensaje entrante:", message);
-      // Actualiza el estado aquí
-      setConversations(prev => updateConversations(prev, message));
-    },
-    (error) => {
-      console.error("Error WebSocket:", error);
-    }
-  );
-
-  setStompClient(client);
-
-  return () => {
-    if (client) {
-      console.log("🔌 Desconectando WebSocket...");
-      client.deactivate();
+      console.log("✅ Mensaje enviado correctamente");
+    } catch (error) {
+      console.error("❌ Error al enviar mensaje:", error);
+      // Revertir en caso de error
+      setSelectedUser((prev) => ({
+        ...prev,
+        messages: prev.messages.filter((msg) => msg.id !== tempId),
+      }));
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === selectedUser.id
+            ? {
+                ...conv,
+                messages: conv.messages.filter((msg) => msg.id !== tempId),
+              }
+            : conv
+        )
+      );
     }
   };
-}, [conversations]);
 
-// Función para actualizar conversaciones
-const updateConversations = (conversations, message) => {
-  return conversations.map(conv => {
-    if (conv.id !== message.conversacionId) return conv;
-    
-    return {
-      ...conv,
-      messages: [...conv.messages, message],
-      lastMessage: message.contenido,
-      time: "Justo ahora",
-      unread: selectedUser?.id !== message.conversacionId
+  // En tu componente React
+  const [stompClient, setStompClient] = useState(null);
+
+  useEffect(() => {
+    if (!conversations.length) return;
+
+    const ids = conversations.map((c) => c.id);
+    const client = setupWebSocketMultiple(
+      ids,
+      (message) => {
+        console.log("Mensaje entrante:", message);
+        // Actualiza el estado aquí
+        setConversations((prev) => updateConversations(prev, message));
+      },
+      (error) => {
+        console.error("Error WebSocket:", error);
+      }
+    );
+
+    setStompClient(client);
+
+    return () => {
+      if (client) {
+        console.log("🔌 Desconectando WebSocket...");
+        client.deactivate();
+      }
     };
-  });
-};
+  }, [conversations]);
 
+  // Función para actualizar conversaciones
+  const updateConversations = (conversations, message) => {
+    return conversations.map((conv) => {
+      if (conv.id !== message.conversacionId) return conv;
 
-useEffect(() => {
-  if (!stompClientRef.current) return;
+      return {
+        ...conv,
+        messages: [...conv.messages, message],
+        lastMessage: message.contenido,
+        time: "Justo ahora",
+        unread: selectedUser?.id !== message.conversacionId,
+      };
+    });
+  };
 
-  const interval = setInterval(() => {
-    if (!stompClientRef.current?.connected) {
-      console.log("🔌 WebSocket desconectado, intentando reconectar...");
-      setWebSocketReady(false);
-      setTimeout(() => setWebSocketReady(true), 2000);
-    }
-  }, 10000);
+  useEffect(() => {
+    if (!stompClientRef.current) return;
 
-  return () => clearInterval(interval);
-}, [stompClientRef.current]);
+    const interval = setInterval(() => {
+      if (!stompClientRef.current?.connected) {
+        console.log("🔌 WebSocket desconectado, intentando reconectar...");
+        setWebSocketReady(false);
+        setTimeout(() => setWebSocketReady(true), 2000);
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [stompClientRef.current]);
 
   const processIncomingMessage = (message) => {
-  const isFromMe = message.remitenteId === userId;
-  const isCurrentConversation = selectedUser?.id === message.conversacionId;
+    const isFromMe = message.remitenteId === userId;
+    const isCurrentConversation = selectedUser?.id === message.conversacionId;
 
-  console.log(`💬 Procesando mensaje (De mí: ${isFromMe}, Conversación actual: ${isCurrentConversation})`);
+    console.log(
+      `💬 Procesando mensaje (De mí: ${isFromMe}, Conversación actual: ${isCurrentConversation})`
+    );
 
-  // Actualizar lista de conversaciones
-  setConversations(prev => prev.map(conv => {
-    if (conv.id !== message.conversacionId) return conv;
+    // Actualizar lista de conversaciones
+    setConversations((prev) =>
+      prev.map((conv) => {
+        if (conv.id !== message.conversacionId) return conv;
 
-    console.log("🔄 Actualizando conversación en lista");
-    return {
-      ...conv,
-      messages: [...conv.messages, {
-        id: message.id,
-        content: message.contenido,
-        time: formatearFecha(message.fechaHora),
-        sender: isFromMe ? userName : conv.user,
-        isUser: isFromMe
-      }],
-      lastMessage: message.contenido,
-      time: "Justo ahora",
-      unread: !isCurrentConversation && !isFromMe
-    };
-  }));
+        console.log("🔄 Actualizando conversación en lista");
+        return {
+          ...conv,
+          messages: [
+            ...conv.messages,
+            {
+              id: message.id,
+              content: message.contenido,
+              time: formatearFecha(message.fechaHora),
+              sender: isFromMe ? userName : conv.user,
+              isUser: isFromMe,
+            },
+          ],
+          lastMessage: message.contenido,
+          time: "Justo ahora",
+          unread: !isCurrentConversation && !isFromMe,
+        };
+      })
+    );
 
-  // Actualizar conversación seleccionada si es la activa
-  if (isCurrentConversation) {
-    console.log("🔄 Actualizando conversación seleccionada");
-    setSelectedUser(prev => ({
-      ...prev,
-      messages: [...prev.messages, {
-        id: message.id,
-        content: message.contenido,
-        time: formatearFecha(message.fechaHora),
-        sender: isFromMe ? userName : prev.user,
-        isUser: isFromMe
-      }],
-      lastMessage: message.contenido,
-      time: "Justo ahora",
-      unread: false
-    }));
-  }
-};
+    // Actualizar conversación seleccionada si es la activa
+    if (isCurrentConversation) {
+      console.log("🔄 Actualizando conversación seleccionada");
+      setSelectedUser((prev) => ({
+        ...prev,
+        messages: [
+          ...prev.messages,
+          {
+            id: message.id,
+            content: message.contenido,
+            time: formatearFecha(message.fechaHora),
+            sender: isFromMe ? userName : prev.user,
+            isUser: isFromMe,
+          },
+        ],
+        lastMessage: message.contenido,
+        time: "Justo ahora",
+        unread: false,
+      }));
+    }
+  };
 
   // Al seleccionar una conversación
-const handleSelectConversation = (conversation) => {
-  // Buscar la versión más actualizada en el estado
-  const updatedConv = conversations.find(c => c.id === conversation.id) || conversation;
-  setSelectedUser(updatedConv);
-  
-  // Marcar como leído
-  if (updatedConv.unread) {
-    mensajeService.marcarMensajesLeidos(updatedConv.id, userId)
-      .then(() => {
-        setConversations(prev => prev.map(c => 
-          c.id === updatedConv.id ? {...c, unread: false} : c
-        ));
-      })
-      .catch(console.error);
-  }
-};
+  const handleSelectConversation = (conversation) => {
+    // Buscar la versión más actualizada en el estado
+    const updatedConv =
+      conversations.find((c) => c.id === conversation.id) || conversation;
+    setSelectedUser(updatedConv);
+
+    // Marcar como leído
+    if (updatedConv.unread) {
+      mensajeService
+        .marcarMensajesLeidos(updatedConv.id, userId)
+        .then(() => {
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === updatedConv.id ? { ...c, unread: false } : c
+            )
+          );
+        })
+        .catch(console.error);
+    }
+  };
 
   // Marcar mensajes como leídos
   useEffect(() => {
@@ -446,10 +479,10 @@ const handleSelectConversation = (conversation) => {
 
   const handleLogout = () => {
     // 1. Limpiar datos de autenticación
-        localStorage.removeItem("userData");
+    localStorage.removeItem("userData");
 
-        // 2. Redirigir al login (con replace para evitar volver atrás)
-        navigate("/", { replace: true });
+    // 2. Redirigir al login (con replace para evitar volver atrás)
+    navigate("/", { replace: true });
   };
 
   const filteredConversations = searchQuery
@@ -505,6 +538,7 @@ const handleSelectConversation = (conversation) => {
         position: "relative",
       }}
     >
+      {/* Barra lateral izquierda */}
       {/* Barra lateral izquierda */}
       <motion.div
         initial={{ x: isMobile ? -250 : 0 }}
@@ -789,17 +823,16 @@ const handleSelectConversation = (conversation) => {
               setActiveTab("perfil");
               isMobile && setShowLeftSidebar(false);
 
-              // Efecto de transición idéntico al de PantallaPrincipal
               document.body.style.overflow = "hidden"; // Bloquea el scroll durante la transición
               setTimeout(() => {
-                navigate("/perfil", {
+                navigate(`/perfil/${currentUserId}`, {
                   state: { user: userData },
                   replace: false,
                 });
                 document.body.style.overflow = ""; // Restaura el scroll
               }, 300);
             }}
-          ></motion.button>
+          >
             <motion.div
               initial={false}
               animate={{
@@ -831,6 +864,7 @@ const handleSelectConversation = (conversation) => {
               </svg>
             </motion.div>
             Perfil
+          </motion.button>
         </div>
 
         <div
@@ -986,204 +1020,18 @@ const handleSelectConversation = (conversation) => {
               >
                 Mensajes
               </h2>
-                    <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            marginBottom: "1rem",
-                            color: activeTab === "explorar" ? accentColor : textColor,
-                            backgroundColor: "transparent",
-                            border: "none",
-                            fontSize: "1.2rem",
-                            textAlign: "left",
-                            padding: "0.5rem"
-                        }}
-                        onClick={() => {
-                            setActiveTab("explorar");
-                            isMobile && setShowLeftSidebar(false);
 
-                            // Efecto de transición
-                            document.body.style.overflow = "hidden"; // Bloquea el scroll durante la transición
-                            setTimeout(() => {
-                                navigate('/equipos', {
-                                    state: { user: userEmail },
-                                    replace: false
-                                });
-                                document.body.style.overflow = ""; // Restaura el scroll
-                            }, 300);
-                        }}
-                    >
-                        <motion.div
-                            initial={false}
-                            animate={{
-                                rotate: activeTab === "explorar" ? 10 : 0,  // Mismo efecto de inclinación de 10 grados
-                                scale: activeTab === "explorar" ? 1.1 : 1    // Mismo escalado del 10%
-                            }}
-                            transition={{ type: "spring", stiffness: 500 }} // Misma animación spring
-                            style={{ marginBottom: "0.20rem" }}
-                        >
-                            <svg width="24" height="24" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "0.75rem" }}>
-                                <path
-                                    fill="currentColor"
-                                    d="M14.754 10c.966 0 1.75.784 1.75 1.75v4.749a4.501 4.501 0 0 1-9.002 0V11.75c0-.966.783-1.75 1.75-1.75zm0 1.5H9.252a.25.25 0 0 0-.25.25v4.749a3.001 3.001 0 0 0 6.002 0V11.75a.25.25 0 0 0-.25-.25M3.75 10h3.381a2.74 2.74 0 0 0-.618 1.5H3.75a.25.25 0 0 0-.25.25v3.249a2.5 2.5 0 0 0 3.082 2.433c.085.504.24.985.453 1.432Q6.539 18.999 6 19a4 4 0 0 1-4-4.001V11.75c0-.966.784-1.75 1.75-1.75m13.125 0h3.375c.966 0 1.75.784 1.75 1.75V15a4 4 0 0 1-5.03 3.866c.214-.448.369-.929.455-1.433q.277.066.575.067a2.5 2.5 0 0 0 2.5-2.5v-3.25a.25.25 0 0 0-.25-.25h-2.757a2.74 2.74 0 0 0-.618-1.5M12 3a3 3 0 1 1 0 6a3 3 0 0 1 0-6m6.5 1a2.5 2.5 0 1 1 0 5a2.5 2.5 0 0 1 0-5m-13 0a2.5 2.5 0 1 1 0 5a2.5 2.5 0 0 1 0-5m6.5.5a1.5 1.5 0 1 0 0 3a1.5 1.5 0 0 0 0-3m6.5 1a1 1 0 1 0 0 2a1 1 0 0 0 0-2m-13 0a1 1 0 1 0 0 2a1 1 0 0 0 0-2"
-                                ></path>
-                            </svg>
-                        </motion.div>
-                        Equipos
-                    </motion.button>
-
-                    <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            marginBottom: "1rem",
-                            color: activeTab === "eventos" ? accentColor : textColor,
-                            backgroundColor: "transparent",
-                            border: "none",
-                            fontSize: "1.2rem",
-                            textAlign: "left",
-                            padding: "0.5rem"
-                        }}
-                        onClick={() => {
-                            setActiveTab("eventos");
-                            isMobile && setShowLeftSidebar(false);
-
-                            // Efecto de transición idéntico al de PantallaPrincipal
-                            document.body.style.overflow = "hidden"; // Bloquea el scroll durante la transición
-                            setTimeout(() => {
-                                navigate('/eventos', {
-                                    state: { user: userData },
-                                    replace: false
-                                });
-                                document.body.style.overflow = ""; // Restaura el scroll
-                            }, 300);
-                        }}
-                    >
-                        <motion.div
-                            initial={false}
-                            animate={{
-                                rotate: activeTab === "eventos" ? 10 : 0,  // Mismo efecto de inclinación de 10 grados
-                                scale: activeTab === "eventos" ? 1.1 : 1    // Mismo escalado del 10%
-                            }}
-                            transition={{ type: "spring", stiffness: 500 }} // Misma animación spring
-                            style={{ marginBottom: "0.20rem" }}
-                        >
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "0.75rem" }}>
-                                <path d="M16 10H8c-.55 0-1 .45-1 1s.45 1 1 1h8c.55 0 1-.45 1-1s-.45-1-1-1m3-7h-1V2c0-.55-.45-1-1-1s-1 .45-1 1v1H8V2c0-.55-.45-1-1-1s-1 .45-1 1v1H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m-1 16H6c-.55 0-1-.45-1-1V8h14v10c0 .55-.45 1-1 1m-5-5H8c-.55 0-1 .45-1 1s.45 1 1 1h5c.55 0 1-.45 1-1s-.45-1-1-1" fill={activeTab === "eventos" ? accentColor : textColor} />
-                            </svg>
-                        </motion.div>
-                        Eventos
-                    </motion.button>
-
-                    <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            marginBottom: "1rem",
-                            color: activeTab === "mensajes" ? accentColor : textColor,
-                            backgroundColor: "rgba(255, 112, 67, 0.1)",
-                            border: "none",
-                            fontSize: "1.2rem",
-                            textAlign: "left",
-                            padding: "0.5rem",
-                            borderRadius: "8px"
-                        }}
-                        onClick={() => {
-                            setActiveTab("mensajes");
-                            isMobile && setShowLeftSidebar(false);
-
-                            // Efecto de transición
-                            document.body.style.overflow = "hidden"; // Bloquea el scroll durante la transición
-                            setTimeout(() => {
-                                navigate('/mensajes', {
-                                    state: { user: userEmail },
-                                    replace: false
-                                });
-                                document.body.style.overflow = ""; // Restaura el scroll
-                            }, 300);
-                        }}
-                    >
-                        <motion.div
-                            style={{ marginRight: "0.75rem" }}
-                        >
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                    d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zm-8-7H7m10 4H7"
-                                ></path>
-                            </svg>
-                        </motion.div>
-                        Mensajes
-                    </motion.button>
-
-                    <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            marginBottom: "1rem",
-                            color: activeTab === "perfil" ? accentColor : textColor,
-                            backgroundColor: "transparent",
-                            border: "none",
-                            fontSize: "1.2rem",
-                            textAlign: "left",
-                            padding: "0.5rem"
-                        }}
-                        onClick={() => {
-                            setActiveTab("perfil");
-                            isMobile && setShowLeftSidebar(false);
-
-                            document.body.style.overflow = "hidden"; // Bloquea el scroll durante la transición
-                            setTimeout(() => {
-                                navigate(`/perfil/${currentUserId}`, {
-                                    state: { user: userData },
-                                    replace: false
-                                });
-                                document.body.style.overflow = ""; // Restaura el scroll
-                            }, 300);
-                        }}
-                    >
-                        <motion.div
-                            initial={false}
-                            animate={{
-                                rotate: activeTab === "perfil" ? 10 : 0,  // Mismo efecto de inclinación de 10 grados
-                                scale: activeTab === "perfil" ? 1.1 : 1    // Mismo escalado del 10%
-                            }}
-                            transition={{ type: "spring", stiffness: 500 }} // Misma animación spring
-                            style={{ marginBottom: "0.20rem" }}
-                        >
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "0.75rem" }}>
-                                <g
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                >
-                                    <path d="M18 20a6 6 0 0 0-12 0"></path>
-                                    <circle cx="12" cy="10" r="4"></circle>
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                </g>
-                            </svg>
-                        </motion.div>
-                        Perfil
-                    </motion.button>
-                </div>
-
-                <div style={{
-                    marginTop: "auto",
-                    marginBottom: "1rem",
+              {!isMobile && (
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setShowAddUserPopup(true)}
+                  style={{
+                    background: primaryColor,
+                    border: "none",
+                    borderRadius: "50%",
+                    width: "32px",
+                    height: "32px",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -1204,6 +1052,8 @@ const handleSelectConversation = (conversation) => {
                       fill="white"
                     />
                   </svg>
+                </motion.button>
+              )}
             </div>
 
             {/* Botón de nueva conversación en móvil */}
@@ -1443,23 +1293,22 @@ const handleSelectConversation = (conversation) => {
                       padding: "0.5rem",
                       marginRight: "0.5rem",
                     }}
-                  onClick={() => setSelectedUser(null)}
-
-                >
+                    onClick={() => setSelectedUser(null)}
+                  >
                     <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        width="1.5em"
-                        height="1.5em"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      width="1.5em"
+                      height="1.5em"
                     >
-                        <path
-                            fill="none"
-                            stroke="currentColor"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M4 6h16M4 12h16M4 18h7"
-                        ></path>
+                      <path
+                        fill="none"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M4 6h16M4 12h16M4 18h7"
+                      ></path>
                     </svg>
                   </motion.button>
                 )}

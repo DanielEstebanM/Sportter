@@ -133,5 +133,14 @@ public class UsuarioController {
         Usuario usuario = usuarioRepository.findById(id).orElseThrow();
         return ResponseEntity.ok(convertirAUsuarioDTO(usuario));
     }
+    
+    @GetMapping("/usuarios")
+    public ResponseEntity<List<Usuario>> getAllUsuarios() {
+        List<Usuario> usuarios = usuarioRepository.findAll();
+
+        usuarios.forEach(u -> u.setContrasena(null));
+
+        return ResponseEntity.ok(usuarios);
+    }
   
 }
