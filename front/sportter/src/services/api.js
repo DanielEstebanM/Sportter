@@ -3,11 +3,10 @@ import axios from "axios";
 
 export const loginUser = async (credentials) => {
   try {
-    console.log("Enviando credenciales:", credentials);
     const response = await axios.post(
       "http://localhost:8080/api/login",
       {
-        correoElectronico: credentials.correoElectronico, // ← Cambiado a guión bajo
+        correoElectronico: credentials.correoElectronico,
         contrasena: credentials.contrasena,
       },
       {
@@ -18,9 +17,9 @@ export const loginUser = async (credentials) => {
     );
     return response.data;
   } catch (error) {
-    console.error("Error completo:", error.response);
+    // Lanzamos un error con el mensaje específico
     throw new Error(
-      error.response?.data?.message || "Credenciales incorrectas"
+      error.response?.data?.message || "Usuario o contraseña incorrectos"
     );
   }
 };
@@ -109,7 +108,7 @@ export const actualizarContrasena = async (email, nuevaContrasena) => {
     if (!response.ok) {
       throw new Error(
         data?.message ||
-          "Error al actualizar la contraseña. Código: " + response.status
+        "Error al actualizar la contraseña. Código: " + response.status
       );
     }
 
@@ -118,7 +117,7 @@ export const actualizarContrasena = async (email, nuevaContrasena) => {
     console.error("Error al actualizar contraseña:", error);
     throw new Error(
       error.message ||
-        "No se pudo conectar con el servidor para actualizar la contraseña"
+      "No se pudo conectar con el servidor para actualizar la contraseña"
     );
   }
 };
@@ -162,7 +161,7 @@ export const loadPosts = async () => {
         // Si es un timestamp en segundos
         if (typeof post.fechaHora === 'number') {
           postDate = new Date(post.fechaHora * 1000);
-        } 
+        }
         // Si es un string ISO (como "2023-10-05T12:00:00Z")
         else if (typeof post.fechaHora === 'string') {
           postDate = new Date(post.fechaHora);
@@ -172,7 +171,7 @@ export const loadPosts = async () => {
           postDate = post.fechaHora;
         }
       }
-      
+
       // Si no se pudo parsear, usa la fecha actual
       if (!postDate || isNaN(postDate.getTime())) {
         console.warn(`Fecha inválida para post ${post.id}, usando fecha actual`);
@@ -266,5 +265,170 @@ export const crearPublicacion = async (publicacionData) => {
   } catch (error) {
     console.error('Error al crear publicación:', error);
     throw error;
+  }
+};
+
+//Obtener todos los usuarios
+export const getUsers = async () => {
+  try {
+    const response = await axios.get("http://localhost:8080/api/usuarios");
+    console.log("Usuarios recibidos:", response.data);
+    return response.data || [];
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    return [];
+  }
+};
+
+// Añade estas funciones al final de tu api.js
+
+/**
+ * Obtiene los datos de un usuario por su ID
+ * @param {number} userId - ID del usuario
+ * @returns {Promise<Object>} Datos del usuario
+ */
+export const getUserById = async (userId) => {
+  try {
+    const response = await axios.get(`http://localhost:8080/api/usuarios/${userId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error al obtener usuario:", error);
+    throw new Error(error.response?.data?.message || "Error al obtener datos del usuario");
+  }
+};
+
+/**
+ * Obtiene las publicaciones de un usuario específico
+ * @param {number} userId - ID del usuario
+ * @returns {Promise<Array>} Lista de publicaciones
+ */
+export const getUserPosts = async (userId) => {
+  try {
+    const response = await axios.get(`http://localhost:8080/api/publicaciones/usuario/${userId}`);
+    const posts = response.data;
+
+    const userData = JSON.parse(localStorage.getItem("userData"));
+    const userEmail = userData?.correoElectronico;
+
+    return posts.map(post => ({
+      id: post.id,
+      contenido: post.contenido,
+      fechaHora: new Date(post.fechaHora),
+      likes: post.likes || 0,
+      comments: post.comentarios || 0,
+      shares: post.compartidos || 0,
+      categoriaDeporteId: post.categoriaDeporte?.nombre?.toLowerCase() || "general",
+      name: post.usuario?.nombreUsuario || "Anónimo",
+      userUsername: post.usuario?.correoElectronico || "anonimo@example.com",
+      isLiked: post.isLiked || false,
+    }));
+  } catch (error) {
+    console.error("Error fetching user posts:", error);
+    return [];
+  }
+};
+
+// Obtener todas las publicaciones (para feed)
+export const getAllPosts = async () => {
+  try {
+    const response = await fetch('/api/posts');
+    const data = await response.json();
+    return data.posts.map(post => ({
+      id: post.id,
+      contenido: post.content,
+      fechaHora: post.created_at,
+      likes: post.likes_count,
+      comments: post.comments_count,
+      shares: post.shares_count,
+      isLiked: post.is_liked,
+      categoriaDeporteId: post.sport_category || "General",
+      name: post.author_name,
+      userUsername: post.author_username,
+      authorImage: post.author_image
+    }));
+  } catch (error) {
+    console.error("Error fetching posts:", error);
+    return [];
+  }
+};
+
+export const getUserTeams = async (userId) => {
+  try {
+    const response = await axios.get(`http://localhost:8080/api/equipos/usuario/${userId}`);
+    return response.data || [];
+  } catch (error) {
+    console.error("Error fetching user teams:", error);
+    return [];
+  }
+};
+
+export const getAllTeams = async (userId) => {
+  try {
+    const response = await axios.get(`http://localhost:8080/api/equipos/comunidad/${userId}`);
+    return response.data || [];
+  } catch (error) {
+    console.error("Error fetching all teams:", error);
+    return [];
+  }
+};
+
+export const createTeam = async (teamData) => {
+  try {
+    const response = await axios.post('http://localhost:8080/api/equipos', teamData);
+    return response.data;
+  } catch (error) {
+    console.error("Error creating team:", error);
+    throw error;
+  }
+};
+
+/**
+ * Actualiza los datos del perfil de un usuario
+ * @param {number} userId - ID del usuario
+ * @param {Object} profileData - Datos del perfil a actualizar
+ * @returns {Promise<Object>} Respuesta del servidor
+ */
+export const updateProfile = async (userId, profileData) => {
+  try {
+    const response = await axios.put(
+      `http://localhost:8080/api/usuarios/${userId}/perfil`,
+      profileData,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error al actualizar perfil:", error);
+    throw new Error(error.response?.data?.message || "Error al actualizar el perfil");
+  }
+};
+
+/**
+ * Sube una imagen de perfil
+ * @param {number} userId - ID del usuario
+ * @param {File} imageFile - Archivo de imagen
+ * @returns {Promise<Object>} Respuesta del servidor
+ */
+export const uploadProfileImage = async (userId, imageFile) => {
+  try {
+    const formData = new FormData();
+    formData.append("image", imageFile);
+
+    const response = await axios.post(
+      `http://localhost:8080/api/usuarios/${userId}/imagen-perfil`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error al subir imagen de perfil:", error);
+    throw new Error(error.response?.data?.message || "Error al subir la imagen");
   }
 };

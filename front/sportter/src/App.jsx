@@ -22,7 +22,7 @@ function App() {
           <Route path="/publicacion/:id" element={<ProtectedRoute><PublicacionDetalle /></ProtectedRoute>} />
           <Route path="/equipos" element={<ProtectedRoute><PantallaEquipos /></ProtectedRoute>} />
           <Route path="/eventos" element={<ProtectedRoute><PantallaEventos /></ProtectedRoute>} />
-          <Route path="/perfil" element={<ProtectedRoute><PantallaPerfil /></ProtectedRoute>} />
+          <Route path="/perfil/:id" element={<ProtectedRoute><PantallaPerfil /></ProtectedRoute>} />
           <Route path="/mensajes" element={<ProtectedRoute><PantallaMensajes /></ProtectedRoute>} />
           <Route path="/infoEquipo" element={<ProtectedRoute><PantallaInfoEquipo /></ProtectedRoute>} />
         </Routes>

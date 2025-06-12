@@ -216,11 +216,11 @@ function PantallaInfoEquipo() {
 
     const handleDeleteTeam = () => {
         const handleDeleteTeam = () => {
-    // Aquí normalmente iría una llamada a la API para eliminar el equipo
-    // Por ahora simulamos la eliminación navegando a la lista de equipos
-    navigate('/equipos', { replace: true });
-    setShowConfirmationModal(false);
-};;
+            // Aquí normalmente iría una llamada a la API para eliminar el equipo
+            // Por ahora simulamos la eliminación navegando a la lista de equipos
+            navigate('/equipos', { replace: true });
+            setShowConfirmationModal(false);
+        };;
     };
 
     // Manejar creación de evento
@@ -295,7 +295,11 @@ function PantallaInfoEquipo() {
     }, [showMemberOptions]);
 
     const handleLogout = () => {
-        navigate('/');
+        // 1. Limpiar datos de autenticación
+        localStorage.removeItem("userData");
+
+        // 2. Redirigir al login (con replace para evitar volver atrás)
+        navigate("/", { replace: true });
     };
 
     return (
@@ -2080,8 +2084,20 @@ function PantallaInfoEquipo() {
                         cursor: "pointer"
                     }}
                 >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M3 18H21V16H3V18ZM3 13H21V11H3V13ZM3 6V8H21V6H3Z" fill="white" />
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        width="1.5em"
+                        height="1.5em"
+                    >
+                        <path
+                            fill="none"
+                            stroke="currentColor"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M4 6h16M4 12h16M4 18h7"
+                        ></path>
                     </svg>
                 </motion.button>
             )}

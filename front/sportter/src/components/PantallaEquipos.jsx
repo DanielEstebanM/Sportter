@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Tooltip as ReactTooltip } from 'react-tooltip';
 import 'react-tooltip/dist/react-tooltip.css';
+import { getUserTeams, getAllTeams, createTeam } from '../services/api';
 
 function PantallaEquipos() {
     const [activeTab, setActiveTab] = useState("paraTi");
@@ -28,66 +29,16 @@ function PantallaEquipos() {
 
     // Datos de ejemplo para equipos
     const [teams, setTeams] = useState({
-        paraTi: [
-            {
-                id: 1,
-                name: "Los Tigres",
-                sport: "fútbol",
-                members: 12,
-                image: "https://images2.minutemediacdn.com/image/upload/c_crop,w_3531,h_1986,x_0,y_232/c_fill,w_720,ar_16:9,f_auto,q_auto,g_auto/images/GettyImages/mmsport/90min_es_international_web/01j5c0e6nzzxe7vxjnzk.jpg",
-                isMember: true
-            },
-            {
-                id: 2,
-                name: "Las Águilas",
-                sport: "baloncesto",
-                members: 8,
-                image: "https://i.imgur.com/vVkxceM.png",
-                isMember: true
-            }
-        ],
-        comunidad: [
-            {
-                id: 3,
-                name: "Los Leones",
-                sport: "fútbol",
-                members: 15,
-                image: "https://i.imgur.com/vVkxceM.png",
-                isMember: false
-            },
-            {
-                id: 4,
-                name: "Los Halcones",
-                sport: "tenis",
-                members: 4,
-                image: "https://i.imgur.com/vVkxceM.png",
-                isMember: false
-            },
-            {
-                id: 5,
-                name: "Los Osos",
-                sport: "baloncesto",
-                members: 10,
-                image: "https://i.imgur.com/vVkxceM.png",
-                isMember: false
-            },
-            {
-                id: 6,
-                name: "Los Tiburones",
-                sport: "natación",
-                members: 7,
-                image: "https://i.imgur.com/vVkxceM.png",
-                isMember: false
-            }
-        ]
+        paraTi: [],
+        comunidad: []
     });
 
     const navigate = useNavigate();
-    const userData = JSON.parse(localStorage.getItem('userData'));
+    const userData = location.state?.user || JSON.parse(localStorage.getItem("userData"));
     const userEmail = userData?.correoElectronico;
     const userName = userData?.nombreUsuario;
+    const currentUserId = userData?.id;
 
-    // Colores con tema anaranjado-rojizo (igual que PantallaInicio)
     const primaryColor = "#FF4500";
     const accentColor = "#FF7043";
     const backgroundColor = "#121212";
@@ -152,30 +103,41 @@ function PantallaEquipos() {
         setSelectedMembers(selectedMembers.filter(m => m.id !== memberId));
     };
 
-    const handleCreateTeam = () => {
+    const handleCreateTeam = async () => {
         if (teamName.trim() && teamDescription.trim()) {
-            const newTeam = {
-                id: teams.paraTi.length + teams.comunidad.length + 1,
-                name: teamName,
-                sport: teamSport,
-                members: selectedMembers.length + 1, // +1 para el creador
-                image: teamImagePreview || "https://i.imgur.com/vVkxceM.png",
-                isMember: true
-            };
+            try {
+                const newTeam = {
+                    nombre: teamName,
+                    deporte: teamSport,
+                    descripcion: teamDescription,
+                    imagen: teamImagePreview || "https://i.imgur.com/vVkxceM.png",
+                    creadorId: currentUserId
+                };
 
-            setTeams({
-                ...teams,
-                paraTi: [...teams.paraTi, newTeam]
-            });
+                const createdTeam = await createTeam(newTeam);
 
-            // Reset form
-            setTeamName("");
-            setTeamDescription("");
-            setTeamSport("fútbol");
-            setTeamImage(null);
-            setTeamImagePreview("");
-            setSelectedMembers([]);
-            setShowCreateTeamModal(false);
+                // Actualizar la lista de equipos
+                const [updatedUserTeams, updatedAllTeams] = await Promise.all([
+                    getUserTeams(currentUserId),
+                    getAllTeams(currentUserId)
+                ]);
+
+                setTeams({
+                    paraTi: updatedUserTeams,
+                    comunidad: updatedAllTeams
+                });
+
+                // Reset form
+                setTeamName("");
+                setTeamDescription("");
+                setTeamSport("fútbol");
+                setTeamImage(null);
+                setTeamImagePreview("");
+                setSelectedMembers([]);
+                setShowCreateTeamModal(false);
+            } catch (error) {
+                console.error("Error creating team:", error);
+            }
         }
     };
 
@@ -207,11 +169,38 @@ function PantallaEquipos() {
         };
         handleResize();
         window.addEventListener('resize', handleResize);
+
+        // Cargar equipos
+        const loadTeams = async () => {
+            if (currentUserId) {
+                try {
+                    const [userTeams, communityTeams] = await Promise.all([
+                        getUserTeams(currentUserId),
+                        axios.get(`http://localhost:8080/api/equipos/comunidad/${currentUserId}`)
+                            .then(res => res.data)
+                    ]);
+
+                    setTeams({
+                        paraTi: userTeams,
+                        comunidad: communityTeams
+                    });
+                } catch (error) {
+                    console.error("Error loading teams:", error);
+                }
+            }
+        };
+
+        loadTeams();
+
         return () => window.removeEventListener('resize', handleResize);
-    }, []);
+    }, [currentUserId]);
 
     const handleLogout = () => {
-        navigate('/');
+        // 1. Limpiar datos de autenticación
+        localStorage.removeItem("userData");
+
+        // 2. Redirigir al login (con replace para evitar volver atrás)
+        navigate("/", { replace: true });
     };
 
     const filteredTeams = searchQuery
@@ -485,7 +474,7 @@ function PantallaEquipos() {
                             // Efecto de transición
                             document.body.style.overflow = "hidden"; // Bloquea el scroll durante la transición
                             setTimeout(() => {
-                                navigate('/perfil', {
+                                navigate(`/perfil/${currentUserId}`, {
                                     state: { user: userEmail },
                                     replace: false,
                                 });
@@ -702,7 +691,7 @@ function PantallaEquipos() {
                     maxHeight: "calc(100vh - 200px)", // Ajusta según la altura de tus elementos superiores
                     // Estilos personalizados para el scroll (igual que en PantallaMensajes)
                     scrollbarWidth: "thin",
-                    scrollbarColor: `${lightTextColor} ${cardColor}`,
+                    scrollbarColor: `${lightTextColor} ${backgroundColor}`,
                     '&::-webkit-scrollbar': {
                         width: "8px"
                     },
@@ -716,7 +705,7 @@ function PantallaEquipos() {
                         border: `2px solid ${cardColor}`
                     }
                 }}>
-                    {filteredTeams && filteredTeams.map(team => (
+                    {filteredTeams.map(team => (
                         <motion.div
                             key={team.id}
                             whileHover={{ y: -5, boxShadow: `0 5px 15px rgba(255, 69, 0, 0.2)` }}
@@ -730,64 +719,33 @@ function PantallaEquipos() {
                             }}
                         >
                             {/* Imagen del equipo */}
-                            <div style={{
-                                height: "150px",
-                                backgroundColor: "rgba(150, 133, 127, 0.1)",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                position: "relative"
-                            }}>
-                                <img
-                                    src={team.image}
-                                    alt={team.name}
-                                    style={{
-                                        width: "100%",
-                                        height: "100%",
-                                        objectFit: "cover"
-                                    }}
-                                />
-                                <div style={{
-                                    position: "absolute",
-                                    top: "10px",
-                                    right: "10px",
-                                    backgroundColor: "rgba(0, 0, 0, 0.7)",
-                                    color: "white",
-                                    padding: "0.25rem 0.25rem",
-                                    borderRadius: "50px",
-                                    fontSize: "0.8rem",
-                                    display: "flex",
-                                    alignItems: "center"
-                                }}>
-                                    <SportIcon sport={team.sport} style={{
-                                        width: "25px",
-                                        height: "25px",
-                                        color: "white"
-                                    }} />
-                                </div>
+                            <div style={{ position: 'relative' }}>
+                                <img src={team.imagen} alt={team.nombre} />
+                                {team.esAdmin && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: '10px',
+                                        left: '10px',
+                                        backgroundColor: 'rgba(0,0,0,0.7)',
+                                        color: 'white',
+                                        padding: '0.25rem 0.5rem',
+                                        borderRadius: '4px',
+                                        fontSize: '0.8rem'
+                                    }}>
+                                        Admin
+                                    </div>
+                                )}
                             </div>
 
                             {/* Información del equipo */}
-                            <div style={{ padding: "1rem" }}>
-                                <h3 style={{
-                                    margin: "0 0 0.5rem 0",
-                                    fontSize: "1.2rem",
-                                    fontWeight: "bold"
-                                }}>
-                                    {team.name}
-                                </h3>
-                                <div style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    color: lightTextColor,
-                                    marginBottom: "1rem",
-                                    fontSize: "0.9rem"
-                                }}>
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "0.5rem", marginTop: "0.4rem" }}>
-                                        <path d="M0 7a7 7 0 1 0 14 0A7 7 0 1 0 0 7" fill="currentColor" />
-                                    </svg>
-                                    {team.members} {team.members === 1 ? "miembro" : "miembros"}
+                            <div style={{ padding: '1rem' }}>
+                                <h3>{team.nombre}</h3>
+                                <p>{team.descripcion}</p>
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span>{team.deporte}</span>
+                                    <span>{team.cantidadMiembros} miembros</span>
                                 </div>
+                                <div>Creado por: {team.creadorNombre}</div>
                             </div>
                         </motion.div>
                     ))}
@@ -795,351 +753,419 @@ function PantallaEquipos() {
             </div>
 
             {/* Botón flotante para crear equipo */}
-            {!showCreateTeamModal && (
-                <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => setShowCreateTeamModal(true)}
-                    style={{
-                        position: "fixed",
-                        right: "20px",
-                        bottom: "20px",
-                        zIndex: 50,
-                        width: "60px",
-                        height: "60px",
-                        borderRadius: "50%",
-                        background: primaryColor,
-                        border: "none",
-                        color: "white",
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        cursor: "pointer",
-                        boxShadow: "0 2px 10px rgba(0,0,0,0.3)"
-                    }}
-                >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M19 13H13V19H11V13H5V11H11V5H13V11H19V13Z" fill="white" />
-                    </svg>
-                </motion.button>
-            )}
-
-            {/* Modal para crear equipo */}
-            {showCreateTeamModal && (
-                <div style={{
-                    position: "fixed",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: "rgba(0,0,0,0.7)",
-                    backdropFilter: "blur(5px)",
-                    zIndex: 100,
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center"
-                }}>
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
+            {
+                !showCreateTeamModal && (
+                    <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => setShowCreateTeamModal(true)}
                         style={{
-                            backgroundColor: cardColor,
-                            borderRadius: "16px",
-                            padding: "1.5rem",
-                            width: "90%",
-                            maxWidth: "600px",
-                            border: `1px solid ${borderColor}`,
-                            maxHeight: "90vh",
-                            overflowY: "auto",
-
-                            // Estilos personalizados para el scroll del popup
-                            scrollbarWidth: "thin",
-                            scrollbarColor: `${lightTextColor} ${cardColor}`,
-                            '&::-webkit-scrollbar': {
-                                width: "8px"
-                            },
-                            '&::-webkit-scrollbar-track': {
-                                background: cardColor,
-                                borderRadius: "10px"
-                            },
-                            '&::-webkit-scrollbar-thumb': {
-                                backgroundColor: lightTextColor,
-                                borderRadius: "10px",
-                                border: `2px solid ${cardColor}`
-                            }
+                            position: "fixed",
+                            right: "20px",
+                            bottom: "20px",
+                            zIndex: 50,
+                            width: "60px",
+                            height: "60px",
+                            borderRadius: "50%",
+                            background: primaryColor,
+                            border: "none",
+                            color: "white",
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            cursor: "pointer",
+                            boxShadow: "0 2px 10px rgba(0,0,0,0.3)"
                         }}
                     >
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M19 13H13V19H11V13H5V11H11V5H13V11H19V13Z" fill="white" />
+                        </svg>
+                    </motion.button>
+                )
+            }
 
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                            <h3 style={{ margin: 0, color: textColor }}>Crear nuevo equipo</h3>
-                            <button
-                                onClick={() => setShowCreateTeamModal(false)}
-                                style={{
-                                    background: "transparent",
-                                    border: "none",
-                                    color: textColor,
-                                    cursor: "pointer",
-                                    fontSize: "1.5rem"
-                                }}
-                            >
-                                ×
-                            </button>
-                        </div>
+            {/* Modal para crear equipo */}
+            {
+                showCreateTeamModal && (
+                    <div style={{
+                        position: "fixed",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: "rgba(0,0,0,0.7)",
+                        backdropFilter: "blur(5px)",
+                        zIndex: 100,
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center"
+                    }}>
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            style={{
+                                backgroundColor: cardColor,
+                                borderRadius: "16px",
+                                padding: "1.5rem",
+                                width: "90%",
+                                maxWidth: "600px",
+                                border: `1px solid ${borderColor}`,
+                                maxHeight: "90vh",
+                                overflowY: "auto",
 
-                        <div style={{ marginBottom: "1rem" }}>
-                            <label style={{ display: "block", marginBottom: "0.5rem", color: textColor }}>Nombre del equipo</label>
-                            <input
-                                type="text"
-                                value={teamName}
-                                onChange={(e) => setTeamName(e.target.value)}
-                                maxLength={50}
-                                style={{
-                                    width: "100%",
-                                    padding: "0.75rem",
-                                    borderRadius: "8px",
-                                    border: `1px solid ${borderColor}`,
-                                    backgroundColor: backgroundColor,
-                                    color: textColor,
-                                    outline: "none"
-                                }}
-                                placeholder="Nombre del equipo"
-                            />
-                        </div>
+                                // Estilos personalizados para el scroll del popup
+                                scrollbarWidth: "thin",
+                                scrollbarColor: `${lightTextColor} ${cardColor}`,
+                                '&::-webkit-scrollbar': {
+                                    width: "8px"
+                                },
+                                '&::-webkit-scrollbar-track': {
+                                    background: cardColor,
+                                    borderRadius: "10px"
+                                },
+                                '&::-webkit-scrollbar-thumb': {
+                                    backgroundColor: lightTextColor,
+                                    borderRadius: "10px",
+                                    border: `2px solid ${cardColor}`
+                                }
+                            }}
+                        >
 
-                        <div style={{ marginBottom: "1rem" }}>
-                            <label style={{ display: "block", marginBottom: "0.5rem", color: textColor }}>Descripción</label>
-                            <textarea
-                                value={teamDescription}
-                                onChange={(e) => setTeamDescription(e.target.value)}
-                                rows="3" maxLength={500}
-                                style={{
-                                    width: "100%",
-                                    padding: "0.75rem",
-                                    borderRadius: "8px",
-                                    border: `1px solid ${borderColor}`,
-                                    backgroundColor: backgroundColor,
-                                    color: textColor,
-                                    outline: "none",
-                                    resize: "vertical",
-                                    minHeight: "100px",
-                                    maxHeight: "250px",
-
-                                    // Estilos personalizados para el scroll del textarea
-                                    scrollbarWidth: "thin",
-                                    scrollbarColor: `${lightTextColor} ${backgroundColor}`,
-                                    '&::-webkit-scrollbar': {
-                                        width: "6px"
-                                    },
-                                    '&::-webkit-scrollbar-track': {
-                                        background: backgroundColor,
-                                        borderRadius: "10px"
-                                    },
-                                    '&::-webkit-scrollbar-thumb': {
-                                        backgroundColor: lightTextColor,
-                                        borderRadius: "10px",
-                                        border: `2px solid ${backgroundColor}`
-                                    }
-                                }}
-                                placeholder="Descripción del equipo"
-                            />
-                        </div>
-
-                        <div style={{ marginBottom: "1rem" }}>
-                            <label style={{ display: "block", marginBottom: "0.5rem", color: textColor }}>Deporte</label>
-                            <div style={{ position: "relative" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                                <h3 style={{ margin: 0, color: textColor }}>Crear nuevo equipo</h3>
                                 <button
-                                    onClick={() => setShowSportsMenu(!showSportsMenu)}
+                                    onClick={() => setShowCreateTeamModal(false)}
                                     style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "space-between",
+                                        background: "transparent",
+                                        border: "none",
+                                        color: textColor,
+                                        cursor: "pointer",
+                                        fontSize: "1.5rem"
+                                    }}
+                                >
+                                    ×
+                                </button>
+                            </div>
+
+                            <div style={{ marginBottom: "1rem" }}>
+                                <label style={{ display: "block", marginBottom: "0.5rem", color: textColor }}>Nombre del equipo</label>
+                                <input
+                                    type="text"
+                                    value={teamName}
+                                    onChange={(e) => setTeamName(e.target.value)}
+                                    maxLength={50}
+                                    style={{
                                         width: "100%",
                                         padding: "0.75rem",
                                         borderRadius: "8px",
                                         border: `1px solid ${borderColor}`,
                                         backgroundColor: backgroundColor,
                                         color: textColor,
-                                        cursor: "pointer"
+                                        outline: "none"
                                     }}
-                                >
-                                    <div style={{ display: "flex", alignItems: "center" }}>
-                                        <SportIcon sport={teamSport} style={{ width: "20px", height: "20px", marginRight: "0.5rem" }} />
-                                        {teamSport.charAt(0).toUpperCase() + teamSport.slice(1)}
-                                    </div>
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M7 10L12 15L17 10H7Z" fill={textColor} />
-                                    </svg>
-                                </button>
-
-                                {showSportsMenu && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: -10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        style={{
-                                            position: "absolute",
-                                            top: "100%",
-                                            left: 0,
-                                            right: 0,
-                                            backgroundColor: cardColor,
-                                            borderRadius: "8px",
-                                            border: `1px solid ${borderColor}`,
-                                            zIndex: 10,
-                                            marginTop: "0.25rem",
-                                            overflow: "hidden"
-                                        }}
-                                    >
-                                        {["fútbol", "baloncesto", "volleyball", "tenis", "ciclismo"].map((sport) => (
-                                            <button
-                                                key={sport}
-                                                onClick={() => {
-                                                    setTeamSport(sport);
-                                                    setShowSportsMenu(false);
-                                                }}
-                                                style={{
-                                                    width: "100%",
-                                                    padding: "0.75rem",
-                                                    textAlign: "left",
-                                                    backgroundColor: "transparent",
-                                                    border: "none",
-                                                    color: textColor,
-                                                    cursor: "pointer",
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    ":hover": {
-                                                        backgroundColor: "rgba(255,255,255,0.1)"
-                                                    }
-                                                }}
-                                            >
-                                                <SportIcon sport={sport} style={{ width: "20px", height: "20px", marginRight: "0.5rem" }} />
-                                                {sport.charAt(0).toUpperCase() + sport.slice(1)}
-                                            </button>
-                                        ))}
-                                    </motion.div>
-                                )}
+                                    placeholder="Nombre del equipo"
+                                />
                             </div>
-                        </div>
 
-                        <div style={{ marginBottom: "1rem" }}>
-                            <label style={{ display: "block", marginBottom: "0.5rem", color: textColor }}>Imagen del equipo</label>
-                            <div style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "1rem",
-                                position: "relative"
-                            }}>
-                                <label style={{
-                                    padding: "0.6rem",
-                                    borderRadius: "8px",
-                                    backgroundColor: teamImagePreview ? "rgba(255, 112, 67, 0.5)" : primaryColor,
-                                    color: "white",
-                                    cursor: teamImagePreview ? "default" : "pointer",
-                                    textAlign: "center",
-                                    flexShrink: 0,
-                                    opacity: teamImagePreview ? 0.7 : 1
-                                }}>
-                                    Seleccionar imagen
-                                    {!teamImagePreview && (
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={handleImageChange}
-                                            style={{ display: "none" }}
-                                        />
-                                    )}
-                                </label>
-                                {teamImagePreview && (
-                                    <div style={{
-                                        width: "80px",
-                                        height: "80px",
-                                        borderRadius: "8px",
-                                        overflow: "hidden",
-                                        position: "relative"
-                                    }}>
-                                        <img
-                                            src={teamImagePreview}
-                                            alt="Preview"
-                                            style={{
-                                                width: "100%",
-                                                height: "100%",
-                                                objectFit: "cover"
-                                            }}
-                                        />
-                                        <button
-                                            onClick={handleRemoveImage}
-                                            style={{
-                                                position: "absolute",
-                                                top: "5px",
-                                                right: "5px",
-                                                width: "24px",
-                                                height: "24px",
-                                                borderRadius: "50%",
-                                                backgroundColor: "rgba(0,0,0,0.7)",
-                                                border: "none",
-                                                color: "white",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                justifyContent: "center",
-                                                cursor: "pointer",
-                                                padding: 0
-                                            }}
-                                        >
-                                            ×
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div style={{ marginBottom: "1rem" }}>
-                            <label style={{ display: "block", marginBottom: "0.5rem", color: textColor }}>Añadir miembros</label>
-                            <div style={{
-                                position: "relative",
-                                marginBottom: "0.5rem"
-                            }}>
-                                <input
-                                    type="text"
-                                    placeholder="Buscar usuarios..."
-                                    value={searchMemberQuery}
-                                    onChange={(e) => setSearchMemberQuery(e.target.value)}
+                            <div style={{ marginBottom: "1rem" }}>
+                                <label style={{ display: "block", marginBottom: "0.5rem", color: textColor }}>Descripción</label>
+                                <textarea
+                                    value={teamDescription}
+                                    onChange={(e) => setTeamDescription(e.target.value)}
+                                    rows="3" maxLength={500}
                                     style={{
                                         width: "100%",
-                                        padding: "0.75rem 1rem 0.75rem 2.5rem",
-                                        borderRadius: "50px",
+                                        padding: "0.75rem",
+                                        borderRadius: "8px",
                                         border: `1px solid ${borderColor}`,
                                         backgroundColor: backgroundColor,
                                         color: textColor,
                                         outline: "none",
-                                        fontSize: "0.9rem"
+                                        resize: "vertical",
+                                        minHeight: "100px",
+                                        maxHeight: "250px",
+
+                                        // Estilos personalizados para el scroll del textarea
+                                        scrollbarWidth: "thin",
+                                        scrollbarColor: `${lightTextColor} ${backgroundColor}`,
+                                        '&::-webkit-scrollbar': {
+                                            width: "6px"
+                                        },
+                                        '&::-webkit-scrollbar-track': {
+                                            background: backgroundColor,
+                                            borderRadius: "10px"
+                                        },
+                                        '&::-webkit-scrollbar-thumb': {
+                                            backgroundColor: lightTextColor,
+                                            borderRadius: "10px",
+                                            border: `2px solid ${backgroundColor}`
+                                        }
                                     }}
+                                    placeholder="Descripción del equipo"
                                 />
-                                <svg
-                                    width="20"
-                                    height="20"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    style={{
-                                        position: "absolute",
-                                        left: "12px",
-                                        top: "50%",
-                                        transform: "translateY(-50%)",
-                                        color: lightTextColor
-                                    }}
-                                >
-                                    <path d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3C5.91 3 3 5.91 3 9.5C3 13.09 5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5C5 7.01 7.01 5 9.5 5C11.99 5 14 7.01 14 9.5C14 11.99 11.99 14 9.5 14Z" fill="currentColor" />
-                                </svg>
                             </div>
 
-                            {searchMemberQuery && (
+                            <div style={{ marginBottom: "1rem" }}>
+                                <label style={{ display: "block", marginBottom: "0.5rem", color: textColor }}>Deporte</label>
+                                <div style={{ position: "relative" }}>
+                                    <button
+                                        onClick={() => setShowSportsMenu(!showSportsMenu)}
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "space-between",
+                                            width: "100%",
+                                            padding: "0.75rem",
+                                            borderRadius: "8px",
+                                            border: `1px solid ${borderColor}`,
+                                            backgroundColor: backgroundColor,
+                                            color: textColor,
+                                            cursor: "pointer"
+                                        }}
+                                    >
+                                        <div style={{ display: "flex", alignItems: "center" }}>
+                                            <SportIcon sport={teamSport} style={{ width: "20px", height: "20px", marginRight: "0.5rem" }} />
+                                            {teamSport.charAt(0).toUpperCase() + teamSport.slice(1)}
+                                        </div>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M7 10L12 15L17 10H7Z" fill={textColor} />
+                                        </svg>
+                                    </button>
+
+                                    {showSportsMenu && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: -10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            style={{
+                                                position: "absolute",
+                                                top: "100%",
+                                                left: 0,
+                                                right: 0,
+                                                backgroundColor: cardColor,
+                                                borderRadius: "8px",
+                                                border: `1px solid ${borderColor}`,
+                                                zIndex: 10,
+                                                marginTop: "0.25rem",
+                                                overflow: "hidden"
+                                            }}
+                                        >
+                                            {["fútbol", "baloncesto", "volleyball", "tenis", "ciclismo"].map((sport) => (
+                                                <button
+                                                    key={sport}
+                                                    onClick={() => {
+                                                        setTeamSport(sport);
+                                                        setShowSportsMenu(false);
+                                                    }}
+                                                    style={{
+                                                        width: "100%",
+                                                        padding: "0.75rem",
+                                                        textAlign: "left",
+                                                        backgroundColor: "transparent",
+                                                        border: "none",
+                                                        color: textColor,
+                                                        cursor: "pointer",
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        ":hover": {
+                                                            backgroundColor: "rgba(255,255,255,0.1)"
+                                                        }
+                                                    }}
+                                                >
+                                                    <SportIcon sport={sport} style={{ width: "20px", height: "20px", marginRight: "0.5rem" }} />
+                                                    {sport.charAt(0).toUpperCase() + sport.slice(1)}
+                                                </button>
+                                            ))}
+                                        </motion.div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div style={{ marginBottom: "1rem" }}>
+                                <label style={{ display: "block", marginBottom: "0.5rem", color: textColor }}>Imagen del equipo</label>
+                                <div style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "1rem",
+                                    position: "relative"
+                                }}>
+                                    <label style={{
+                                        padding: "0.6rem",
+                                        borderRadius: "8px",
+                                        backgroundColor: teamImagePreview ? "rgba(255, 112, 67, 0.5)" : primaryColor,
+                                        color: "white",
+                                        cursor: teamImagePreview ? "default" : "pointer",
+                                        textAlign: "center",
+                                        flexShrink: 0,
+                                        opacity: teamImagePreview ? 0.7 : 1
+                                    }}>
+                                        Seleccionar imagen
+                                        {!teamImagePreview && (
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handleImageChange}
+                                                style={{ display: "none" }}
+                                            />
+                                        )}
+                                    </label>
+                                    {teamImagePreview && (
+                                        <div style={{
+                                            width: "80px",
+                                            height: "80px",
+                                            borderRadius: "8px",
+                                            overflow: "hidden",
+                                            position: "relative"
+                                        }}>
+                                            <img
+                                                src={teamImagePreview}
+                                                alt="Preview"
+                                                style={{
+                                                    width: "100%",
+                                                    height: "100%",
+                                                    objectFit: "cover"
+                                                }}
+                                            />
+                                            <button
+                                                onClick={handleRemoveImage}
+                                                style={{
+                                                    position: "absolute",
+                                                    top: "5px",
+                                                    right: "5px",
+                                                    width: "24px",
+                                                    height: "24px",
+                                                    borderRadius: "50%",
+                                                    backgroundColor: "rgba(0,0,0,0.7)",
+                                                    border: "none",
+                                                    color: "white",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                    cursor: "pointer",
+                                                    padding: 0
+                                                }}
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div style={{ marginBottom: "1rem" }}>
+                                <label style={{ display: "block", marginBottom: "0.5rem", color: textColor }}>Añadir miembros</label>
+                                <div style={{
+                                    position: "relative",
+                                    marginBottom: "0.5rem"
+                                }}>
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar usuarios..."
+                                        value={searchMemberQuery}
+                                        onChange={(e) => setSearchMemberQuery(e.target.value)}
+                                        style={{
+                                            width: "100%",
+                                            padding: "0.75rem 1rem 0.75rem 2.5rem",
+                                            borderRadius: "50px",
+                                            border: `1px solid ${borderColor}`,
+                                            backgroundColor: backgroundColor,
+                                            color: textColor,
+                                            outline: "none",
+                                            fontSize: "0.9rem"
+                                        }}
+                                    />
+                                    <svg
+                                        width="20"
+                                        height="20"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        style={{
+                                            position: "absolute",
+                                            left: "12px",
+                                            top: "50%",
+                                            transform: "translateY(-50%)",
+                                            color: lightTextColor
+                                        }}
+                                    >
+                                        <path d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3C5.91 3 3 5.91 3 9.5C3 13.09 5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5C5 7.01 7.01 5 9.5 5C11.99 5 14 7.01 14 9.5C14 11.99 11.99 14 9.5 14Z" fill="currentColor" />
+                                    </svg>
+                                </div>
+
+                                {searchMemberQuery && (
+                                    <div style={{
+                                        backgroundColor: backgroundColor,
+                                        borderRadius: "8px",
+                                        border: `1px solid ${borderColor}`,
+                                        maxHeight: "200px",
+                                        overflowY: "auto",
+                                        marginBottom: "1rem",
+
+                                        // Estilos personalizados para el scroll
+                                        scrollbarWidth: "thin",
+                                        scrollbarColor: `${lightTextColor} ${cardColor}`,
+                                        '&::-webkit-scrollbar': {
+                                            width: "8px"
+                                        },
+                                        '&::-webkit-scrollbar-track': {
+                                            background: cardColor,
+                                            borderRadius: "10px"
+                                        },
+                                        '&::-webkit-scrollbar-thumb': {
+                                            backgroundColor: lightTextColor,
+                                            borderRadius: "10px",
+                                            border: `2px solid ${cardColor}`
+                                        }
+                                    }}>
+                                        {availableMembers
+                                            .filter(member =>
+                                                member.name.toLowerCase().includes(searchMemberQuery.toLowerCase()) ||
+                                                member.email.toLowerCase().includes(searchMemberQuery.toLowerCase())
+                                            )
+                                            .filter(member => !selectedMembers.some(m => m.id === member.id))
+                                            .map(member => (
+                                                <div key={member.id} style={{
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "space-between",
+                                                    padding: "0.75rem",
+                                                    borderBottom: `1px solid ${borderColor}`,
+                                                    ":last-child": {
+                                                        borderBottom: "none"
+                                                    }
+                                                }}>
+                                                    <div>
+                                                        <div style={{ fontWeight: "bold", color: textColor }}>{member.name}</div>
+                                                        <div style={{ fontSize: "0.8rem", color: lightTextColor }}>{member.email}</div>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleAddMember(member)}
+                                                        style={{
+                                                            background: primaryColor,
+                                                            color: "white",
+                                                            border: "none",
+                                                            borderRadius: "4px",
+                                                            padding: "0.25rem 0.5rem",
+                                                            cursor: "pointer",
+                                                            fontSize: "0.8rem"
+                                                        }}
+                                                    >
+                                                        Añadir
+                                                    </button>
+                                                </div>
+                                            ))}
+                                    </div>
+                                )}
+
                                 <div style={{
                                     backgroundColor: backgroundColor,
                                     borderRadius: "8px",
                                     border: `1px solid ${borderColor}`,
+                                    padding: "0.75rem",
+                                    minHeight: "100px",
                                     maxHeight: "200px",
                                     overflowY: "auto",
-                                    marginBottom: "1rem",
 
-                                    // Estilos personalizados para el scroll
+                                    // Estilos personalizados para el scroll de miembros seleccionados
                                     scrollbarWidth: "thin",
                                     scrollbarColor: `${lightTextColor} ${cardColor}`,
                                     '&::-webkit-scrollbar': {
@@ -1155,198 +1181,148 @@ function PantallaEquipos() {
                                         border: `2px solid ${cardColor}`
                                     }
                                 }}>
-                                    {availableMembers
-                                        .filter(member =>
-                                            member.name.toLowerCase().includes(searchMemberQuery.toLowerCase()) ||
-                                            member.email.toLowerCase().includes(searchMemberQuery.toLowerCase())
-                                        )
-                                        .filter(member => !selectedMembers.some(m => m.id === member.id))
-                                        .map(member => (
-                                            <div key={member.id} style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                justifyContent: "space-between",
-                                                padding: "0.75rem",
-                                                borderBottom: `1px solid ${borderColor}`,
-                                                ":last-child": {
-                                                    borderBottom: "none"
-                                                }
-                                            }}>
-                                                <div>
-                                                    <div style={{ fontWeight: "bold", color: textColor }}>{member.name}</div>
-                                                    <div style={{ fontSize: "0.8rem", color: lightTextColor }}>{member.email}</div>
-                                                </div>
-                                                <button
-                                                    onClick={() => handleAddMember(member)}
-                                                    style={{
-                                                        background: primaryColor,
-                                                        color: "white",
-                                                        border: "none",
-                                                        borderRadius: "4px",
-                                                        padding: "0.25rem 0.5rem",
-                                                        cursor: "pointer",
-                                                        fontSize: "0.8rem"
-                                                    }}
-                                                >
-                                                    Añadir
-                                                </button>
-                                            </div>
-                                        ))}
-                                </div>
-                            )}
-
-                            <div style={{
-                                backgroundColor: backgroundColor,
-                                borderRadius: "8px",
-                                border: `1px solid ${borderColor}`,
-                                padding: "0.75rem",
-                                minHeight: "100px",
-                                maxHeight: "200px",
-                                overflowY: "auto",
-
-                                // Estilos personalizados para el scroll de miembros seleccionados
-                                scrollbarWidth: "thin",
-                                scrollbarColor: `${lightTextColor} ${cardColor}`,
-                                '&::-webkit-scrollbar': {
-                                    width: "8px"
-                                },
-                                '&::-webkit-scrollbar-track': {
-                                    background: cardColor,
-                                    borderRadius: "10px"
-                                },
-                                '&::-webkit-scrollbar-thumb': {
-                                    backgroundColor: lightTextColor,
-                                    borderRadius: "10px",
-                                    border: `2px solid ${cardColor}`
-                                }
-                            }}>
-                                <h4 style={{ margin: "0 0 0.5rem 0", color: textColor }}>Miembros seleccionados</h4>
-                                {selectedMembers.length === 0 ? (
-                                    <p style={{ color: lightTextColor, margin: 0 }}>No hay miembros seleccionados</p>
-                                ) : (
-                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-                                        {selectedMembers.map(member => (
-                                            <div key={member.id} style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                backgroundColor: "rgba(255, 112, 67, 0.2)",
-                                                borderRadius: "50px",
-                                                padding: "0.25rem 0.5rem 0.25rem 0.25rem"
-                                            }}>
-                                                <div style={{
-                                                    width: "24px",
-                                                    height: "24px",
-                                                    borderRadius: "50%",
-                                                    background: primaryColor,
-                                                    marginRight: "0.25rem",
+                                    <h4 style={{ margin: "0 0 0.5rem 0", color: textColor }}>Miembros seleccionados</h4>
+                                    {selectedMembers.length === 0 ? (
+                                        <p style={{ color: lightTextColor, margin: 0 }}>No hay miembros seleccionados</p>
+                                    ) : (
+                                        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+                                            {selectedMembers.map(member => (
+                                                <div key={member.id} style={{
                                                     display: "flex",
                                                     alignItems: "center",
-                                                    justifyContent: "center"
+                                                    backgroundColor: "rgba(255, 112, 67, 0.2)",
+                                                    borderRadius: "50px",
+                                                    padding: "0.25rem 0.5rem 0.25rem 0.25rem"
                                                 }}>
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                        <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z" fill="white" />
-                                                        <path d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z" fill="white" />
-                                                        <path d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z" fill="white" />
-                                                    </svg>
+                                                    <div style={{
+                                                        width: "24px",
+                                                        height: "24px",
+                                                        borderRadius: "50%",
+                                                        background: primaryColor,
+                                                        marginRight: "0.25rem",
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        justifyContent: "center"
+                                                    }}>
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                            <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z" fill="white" />
+                                                            <path d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z" fill="white" />
+                                                            <path d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z" fill="white" />
+                                                        </svg>
+                                                    </div>
+                                                    <span style={{ color: textColor, fontSize: "0.8rem" }}>{member.name}</span>
+                                                    <button
+                                                        onClick={() => handleRemoveMember(member.id)}
+                                                        style={{
+                                                            background: "transparent",
+                                                            border: "none",
+                                                            color: textColor,
+                                                            cursor: "pointer",
+                                                            marginLeft: "0.25rem",
+                                                            fontSize: "0.8rem"
+                                                        }}
+                                                    >
+                                                        ×
+                                                    </button>
                                                 </div>
-                                                <span style={{ color: textColor, fontSize: "0.8rem" }}>{member.name}</span>
-                                                <button
-                                                    onClick={() => handleRemoveMember(member.id)}
-                                                    style={{
-                                                        background: "transparent",
-                                                        border: "none",
-                                                        color: textColor,
-                                                        cursor: "pointer",
-                                                        marginLeft: "0.25rem",
-                                                        fontSize: "0.8rem"
-                                                    }}
-                                                >
-                                                    ×
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
 
-                        <div style={{
-                            display: "flex",
-                            justifyContent: "flex-end",
-                            marginTop: "1rem",
-                            gap: "0.5rem"
-                        }}>
-                            <motion.button
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => setShowCreateTeamModal(false)}
-                                style={{
-                                    background: "transparent",
-                                    color: textColor,
-                                    borderRadius: "30px",
-                                    border: `1px solid ${borderColor}`,
-                                    padding: "8px 24px",
-                                    cursor: "pointer",
-                                    fontWeight: "bold",
-                                    fontSize: "1rem"
-                                }}
-                            >
-                                Cancelar
-                            </motion.button>
-                            <motion.button
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => {
-                                    handleCreateTeam();
-                                }}
-                                disabled={!teamName.trim() || !teamDescription.trim()}
-                                style={{
-                                    background: teamName.trim() && teamDescription.trim() ? primaryColor : "rgba(255, 69, 0, 0.5)",
-                                    color: "white",
-                                    borderRadius: "30px",
-                                    border: "none",
-                                    padding: "8px 24px",
-                                    cursor: teamName.trim() && teamDescription.trim() ? "pointer" : "not-allowed",
-                                    fontWeight: "bold",
-                                    fontSize: "1rem"
-                                }}
-                            >
-                                Crear equipo
-                            </motion.button>
-                        </div>
-                    </motion.div>
-                </div>
-            )}
+                            <div style={{
+                                display: "flex",
+                                justifyContent: "flex-end",
+                                marginTop: "1rem",
+                                gap: "0.5rem"
+                            }}>
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => setShowCreateTeamModal(false)}
+                                    style={{
+                                        background: "transparent",
+                                        color: textColor,
+                                        borderRadius: "30px",
+                                        border: `1px solid ${borderColor}`,
+                                        padding: "8px 24px",
+                                        cursor: "pointer",
+                                        fontWeight: "bold",
+                                        fontSize: "1rem"
+                                    }}
+                                >
+                                    Cancelar
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => {
+                                        handleCreateTeam();
+                                    }}
+                                    disabled={!teamName.trim() || !teamDescription.trim()}
+                                    style={{
+                                        background: teamName.trim() && teamDescription.trim() ? primaryColor : "rgba(255, 69, 0, 0.5)",
+                                        color: "white",
+                                        borderRadius: "30px",
+                                        border: "none",
+                                        padding: "8px 24px",
+                                        cursor: teamName.trim() && teamDescription.trim() ? "pointer" : "not-allowed",
+                                        fontWeight: "bold",
+                                        fontSize: "1rem"
+                                    }}
+                                >
+                                    Crear equipo
+                                </motion.button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )
+            }
 
             {/* Botón para mostrar barra izquierda en móviles */}
-            {isMobile && !showLeftSidebar && (
-                <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => setShowLeftSidebar(true)}
-                    style={{
-                        position: "fixed",
-                        left: "20px",
-                        top: "20px",
-                        zIndex: 50,
-                        width: "50px",
-                        height: "50px",
-                        border: "none",
-                        borderRadius: "50%",
-                        background: "transparent",
-                        color: "white",
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        cursor: "pointer"
-                    }}
-                >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M3 18H21V16H3V18ZM3 13H21V11H3V13ZM3 6V8H21V6H3Z" fill="white" />
-                    </svg>
-                </motion.button>
-            )}
-        </div>
+            {
+                isMobile && !showLeftSidebar && (
+                    <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => setShowLeftSidebar(true)}
+                        style={{
+                            position: "fixed",
+                            left: "20px",
+                            top: "20px",
+                            zIndex: 50,
+                            width: "50px",
+                            height: "50px",
+                            border: "none",
+                            borderRadius: "50%",
+                            background: "transparent",
+                            color: "white",
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            cursor: "pointer"
+                        }}
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            width="1.5em"
+                            height="1.5em"
+                        >
+                            <path
+                                fill="none"
+                                stroke="currentColor"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M4 6h16M4 12h16M4 18h7"
+                            ></path>
+                        </svg>
+                    </motion.button>
+                )
+            }
+        </div >
     );
 }
 
