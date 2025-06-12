@@ -1,89 +1,129 @@
 package com.example.sportter.controller;
 
-import java.security.Principal;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.messaging.handler.annotation.DestinationVariable;
-import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RestController;
+import com.example.sportter.dto.MensajeDTO;
 
 import com.example.sportter.model.Mensaje;
 import com.example.sportter.model.Usuario;
 import com.example.sportter.repository.MensajeRepository;
+import com.example.sportter.repository.ConversacionRepository;
 import com.example.sportter.repository.UsuarioRepository;
-import com.example.sportter.dto.ConversacionDTO;
+import com.example.sportter.websocket.MensajeWebSocketController;
+
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.handler.annotation.DestinationVariable;
+import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.web.bind.annotation.*;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
+@RequestMapping("/api/mensajes")
 public class MensajeController {
 
+    @Autowired
+    private MensajeRepository mensajeRepository;
+    
+
+    @Autowired
+    private ConversacionRepository conversacionRepository;
+
+    @Autowired
+    private UsuarioRepository usuarioRepository;
+    
+    private final SimpMessagingTemplate messagingTemplate;
+    
+    
+
+    public MensajeController(SimpMessagingTemplate messagingTemplate) {
+        this.messagingTemplate = messagingTemplate;
+    }
+    
+	@PostMapping
+    public ResponseEntity<?> enviarMensaje(@RequestBody MensajeDTO mensajeDTO) {
+        // Validaciones explícitas
+    	if (mensajeDTO.getDestinatarioId() == null) {
+            return ResponseEntity.badRequest().body(
+                "Destinatario no especificado. Datos recibidos: " + mensajeDTO.toString()
+            );
+        }
+        try {
+            Usuario remitente = usuarioRepository.findById(mensajeDTO.getRemitenteId())
+                .orElseThrow(() -> new IllegalArgumentException("Remitente no encontrado con ID: " + mensajeDTO.getRemitenteId()));
+            
+            Usuario destinatario = usuarioRepository.findById(mensajeDTO.getDestinatarioId())
+                .orElseThrow(() -> new IllegalArgumentException("Destinatario no encontrado con ID: " + mensajeDTO.getDestinatarioId()));
+
+            Mensaje mensaje = new Mensaje();
+            mensaje.setContenido(mensajeDTO.getContenido());
+            mensaje.setFechaHora(LocalDateTime.now());
+            mensaje.setLeido(false);
+            mensaje.setRemitente(remitente);
+            mensaje.setDestinatario(destinatario);
+            mensaje.setConversacionId(mensajeDTO.getConversacionId());
+            
+            Mensaje mensajeGuardado = mensajeRepository.save(mensaje);
+            
+            return ResponseEntity.ok(convertirAMensajeDTO(mensajeGuardado));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+	
 	@Autowired
-	private SimpMessagingTemplate messagingTemplate;
+	private ConfigurableApplicationContext context;
 
-	@Autowired
-	private MensajeRepository mensajeRepository;
-
-	@Autowired
-	private UsuarioRepository usuarioRepository;
-
-	@MessageMapping("/chat/{conversacionId}")
-	public void enviarMensaje(@DestinationVariable String conversacionId, Mensaje mensaje, Principal principal) {
-		// Corregido: usar usuarioRepository (minúscula) y findByCorreoElectronico
-		Usuario remitente = usuarioRepository.findByCorreoElectronico(principal.getName())
-				.orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-
-		Usuario destinatario = usuarioRepository.findById(mensaje.getDestinatario().getId())
-				.orElseThrow(() -> new RuntimeException("Destinatario no encontrado"));
-
-		mensaje.setRemitente(remitente);
-		mensaje.setDestinatario(destinatario);
-		mensaje.setFechaHora(LocalDateTime.now());
-		mensaje.setLeido(false);
-		mensaje.setConversacionId(conversacionId);
-
-		Mensaje mensajeGuardado = mensajeRepository.save(mensaje);
-
-		// Enviar a ambos participantes de la conversación
-		messagingTemplate.convertAndSend("/topic/mensajes/" + conversacionId, mensajeGuardado);
-		messagingTemplate.convertAndSendToUser(destinatario.getId().toString(), "/queue/notificaciones",
-				mensajeGuardado);
+	@GetMapping("/ws-controller-check")
+	public ResponseEntity<String> checkWebSocketController() {
+	    boolean exists = context.getBeansOfType(MensajeWebSocketController.class).size() > 0;
+	    return ResponseEntity.ok("¿MensajeWebSocketController registrado?: " + exists);
 	}
+	
+	
 
-	@GetMapping("/conversaciones")
-	public ResponseEntity<List<ConversacionDTO>> obtenerConversaciones(Principal principal) {
-		// Corregido: usar usuarioRepository (minúscula) y findByCorreoElectronico
-		Usuario usuario = usuarioRepository.findByCorreoElectronico(principal.getName())
-				.orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+    @GetMapping("/conversacion/{conversacionId}")
+    public ResponseEntity<List<MensajeDTO>> obtenerMensajesPorConversacion(@PathVariable String conversacionId) {
+        List<Mensaje> mensajes = mensajeRepository.findByConversacionIdOrderByFechaHoraAsc(conversacionId);
+        List<MensajeDTO> mensajesDTO = mensajes.stream()
+            .map(this::convertirAMensajeDTO)
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(mensajesDTO);
+    }
 
-		// Aquí continuaría la lógica para obtener conversaciones...
-		return ResponseEntity.ok(null); // Reemplazar con implementación real
-	}
+    @GetMapping("/usuario/{usuarioId}")
+    public ResponseEntity<List<MensajeDTO>> obtenerConversacionesUsuario(@PathVariable Long usuarioId) {
+        List<Mensaje> mensajes = mensajeRepository.findByRemitenteIdOrDestinatarioIdOrderByFechaHoraDesc(usuarioId, usuarioId);
+        List<MensajeDTO> mensajesDTO = mensajes.stream()
+            .map(this::convertirAMensajeDTO)
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(mensajesDTO);
+    }
 
-	@GetMapping("/mensajes/{conversacionId}")
-	public ResponseEntity<List<Mensaje>> obtenerMensajesConversacion(@PathVariable String conversacionId,
-			Principal principal) {
+    @PutMapping("/marcar-leidos/{conversacionId}/{usuarioId}")
+    public ResponseEntity<Void> marcarMensajesComoLeidos(@PathVariable String conversacionId, @PathVariable Long usuarioId) {
+        List<Mensaje> mensajesNoLeidos = mensajeRepository.findByConversacionIdAndLeidoFalseAndDestinatarioId(conversacionId, usuarioId);
+        mensajesNoLeidos.forEach(mensaje -> {
+            mensaje.setLeido(true);
+            mensajeRepository.save(mensaje);
+        });
+        return ResponseEntity.ok().build();
+    }
 
-		// Corrección en el nombre del método (findByCorreoElectronico)
-		Usuario usuario = usuarioRepository.findByCorreoElectronico(principal.getName())
-				.orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-
-		// Corrección en la validación (faltaba paréntesis de cierre)
-		if (!mensajeRepository.existsByConversacionIdAndParticipant(conversacionId, usuario.getId())) {
-			return ResponseEntity.status(403).build();
-		}
-
-		// Corrección en el nombre del campo (fechaHora en lugar de fechahora)
-		List<Mensaje> mensajes = mensajeRepository.findByConversacionIdOrderByFechaHoraAsc(conversacionId);
-
-		// Corrección en el nombre del método (marcarMensajesComoLeidos)
-		mensajeRepository.marcarMensajesComoLeidos(conversacionId, usuario.getId());
-
-		return ResponseEntity.ok(mensajes);
-	}
+    private MensajeDTO convertirAMensajeDTO(Mensaje mensaje) {
+        MensajeDTO dto = new MensajeDTO();
+        dto.setId(mensaje.getId());
+        dto.setContenido(mensaje.getContenido());
+        dto.setFechaHora(mensaje.getFechaHora());
+        dto.setLeido(mensaje.isLeido());
+        dto.setRemitenteId(mensaje.getRemitente().getId());
+        dto.setRemitenteNombre(mensaje.getRemitente().getNombreUsuario());
+        dto.setDestinatarioId(mensaje.getDestinatario().getId());
+        dto.setDestinatarioNombre(mensaje.getDestinatario().getNombreUsuario());
+        dto.setConversacionId(mensaje.getConversacionId());
+        return dto;
+    }
 }

@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.sportter.dto.PublicacionDTO;
 import com.example.sportter.model.Publicacion;
 import com.example.sportter.model.Usuario;
 import com.example.sportter.repository.PublicacionRepository;
@@ -48,6 +49,8 @@ public class PublicacionController {
 					System.out.println("Usuario: NULL");
 				}
 			});
+			
+		//publicacionRepository.actualizarConteoDeComentarios();
 
 			return ResponseEntity.ok(publicaciones);
 		} catch (Exception e) {
@@ -55,6 +58,45 @@ public class PublicacionController {
 					.body("Error al obtener publicaciones: " + e.getMessage());
 		}
 	}
+	
+	@GetMapping("/{id}")
+	public ResponseEntity<?> obtenerPublicacion(@PathVariable Long id) {
+	    try {
+	        // FORMA CORRECTA de usar orElseThrow
+	        Publicacion publicacion = publicacionRepository.findById(id)
+	            .orElseThrow(() -> new RuntimeException("Publicación no encontrada"));
+	        
+	        return ResponseEntity.ok(publicacion);
+	        
+	    } catch (RuntimeException e) {
+	        return ResponseEntity.notFound().build();
+	    } catch (Exception e) {
+	        return ResponseEntity.internalServerError()
+	            .body("Error al obtener publicación: " + e.getMessage());
+	    }
+	}
+
+    private PublicacionDTO convertirADTO(Publicacion publicacion) {
+        PublicacionDTO dto = new PublicacionDTO(null, null, null, null, null);
+        dto.setId(publicacion.getId());
+        dto.setContenido(publicacion.getContenido());
+        dto.setFechaHora(publicacion.getFechaHora());
+        dto.setLikes(publicacion.getLikes());
+        
+        // Mapear usuario si existe
+        if (publicacion.getUsuario() != null) {
+            dto.setUsuarioId(publicacion.getUsuario().getId());
+            dto.setUsuarioNombre(publicacion.getUsuario().getNombreUsuario());
+            dto.setUsuarioCorreo(publicacion.getUsuario().getCorreoElectronico());
+        }
+        
+        // Mapear categoría si existe
+        if (publicacion.getCategoriaDeporte() != null) {
+            dto.setCategoriaDeporte(publicacion.getCategoriaDeporte().getNombre());
+        }
+        
+        return dto;
+    }
 
 	@PostMapping("/{publicacionId}/like")
 	public ResponseEntity<?> darLike(@PathVariable Long publicacionId, @RequestBody Map<String, String> request) {

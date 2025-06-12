@@ -1,6 +1,7 @@
 package com.example.sportter.controller;
 
 import com.example.sportter.dto.CambioContrasenaRequest;
+import com.example.sportter.dto.UsuarioDTO;
 import com.example.sportter.model.LoginRequest;
 import com.example.sportter.model.Usuario;
 import com.example.sportter.repository.UsuarioRepository;
@@ -10,8 +11,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
@@ -106,5 +109,29 @@ public class UsuarioController {
 
 		return ResponseEntity.ok().build();
 	}
+	
+	@GetMapping("/buscar")
+    public ResponseEntity<List<UsuarioDTO>> buscarUsuarios(@RequestParam String query) {
+        List<Usuario> usuarios = usuarioRepository.findByNombreUsuarioContainingIgnoreCaseOrCorreoElectronicoContainingIgnoreCase(query, query);
+        List<UsuarioDTO> usuariosDTO = usuarios.stream()
+            .map(this::convertirAUsuarioDTO)
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(usuariosDTO);
+    }
 
+    private UsuarioDTO convertirAUsuarioDTO(Usuario usuario) {
+        UsuarioDTO dto = new UsuarioDTO();
+        dto.setId(usuario.getId());
+        dto.setNombre(usuario.getNombreUsuario());
+        dto.setNombreUsuario(usuario.getNombreUsuario());
+        dto.setEmail(usuario.getCorreoElectronico());
+        return dto;
+    }
+    
+    @GetMapping("/usuarios/{id}")
+    public ResponseEntity<UsuarioDTO> obtenerUsuario(@PathVariable Long id) {
+        Usuario usuario = usuarioRepository.findById(id).orElseThrow();
+        return ResponseEntity.ok(convertirAUsuarioDTO(usuario));
+    }
+  
 }

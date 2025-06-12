@@ -91,8 +91,8 @@ public class Mensaje {
 		return conversacionId;
 	}
 
-	public void setConversacionId(String conversacionId) {
-		this.conversacionId = conversacionId;
+	public void setConversacionId(String string) {
+		this.conversacionId = string;
 	}
     
 }

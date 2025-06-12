@@ -1,14 +1,17 @@
 package com.example.sportter.model;
 
+import java.util.ArrayList;
 import java.util.List;
 
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.persistence.*;
 
 @Entity
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Table(name = "usuario")
 public class Usuario {
 
@@ -17,9 +20,9 @@ public class Usuario {
     private Long id;
     
     
-    @OneToMany(mappedBy = "usuario", fetch = FetchType.LAZY)
-    @JsonIgnore // Evita recursión infinita
-    private List<Publicacion> publicaciones;
+    @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore 
+    private List<Publicacion> publicaciones = new ArrayList<>();
     
     
     @JsonProperty("nombreUsuario")
@@ -68,4 +71,10 @@ public class Usuario {
     public void setContrasena(String contrasena) {
         this.contrasena = contrasena;
     }
+
+	public Object getUsername() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 }

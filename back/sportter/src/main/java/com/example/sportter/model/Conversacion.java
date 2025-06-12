@@ -7,7 +7,8 @@ import java.time.LocalDateTime;
 @Table(name = "conversacion")
 public class Conversacion {
     @Id
-    private String id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY) // Para MySQL autoincremental
+    private Long id;
     
     @Column(name = "usuario1_id", nullable = false)
     private Long usuario1Id;
@@ -19,8 +20,8 @@ public class Conversacion {
     private LocalDateTime fechaCreacion;
     
     // Getters y Setters
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
     public Long getUsuario1Id() { return usuario1Id; }
     public void setUsuario1Id(Long usuario1Id) { this.usuario1Id = usuario1Id; }
     public Long getUsuario2Id() { return usuario2Id; }

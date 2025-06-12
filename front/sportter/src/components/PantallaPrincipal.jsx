@@ -513,7 +513,7 @@ function PantallaPrincipal() {
               <h3 style={{ margin: 0 }}>Compartir publicación</h3>
               <button
                 onClick={() => {
-                  setShowShareModal(false)
+                  setShowShareModal(false);
                   setShareSearchQuery("");
                 }}
                 style={{
@@ -594,22 +594,22 @@ function PantallaPrincipal() {
                   },
                 }}
               >
-                {users
-                  .filter(
-                    (user) =>
-                      user.name
-                        .toLowerCase()
-                        .includes(shareSearchQuery.toLowerCase()) ||
-                      user.email
-                        .toLowerCase()
-                        .includes(shareSearchQuery.toLowerCase())
-                  )
-                  .length === 0 ? (
-                  <div style={{
-                    textAlign: 'center',
-                    padding: '1rem',
-                    color: lightTextColor
-                  }}>
+                {users.filter(
+                  (user) =>
+                    user.name
+                      .toLowerCase()
+                      .includes(shareSearchQuery.toLowerCase()) ||
+                    user.email
+                      .toLowerCase()
+                      .includes(shareSearchQuery.toLowerCase())
+                ).length === 0 ? (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "1rem",
+                      color: lightTextColor,
+                    }}
+                  >
                     No se encontraron usuarios con ese nombre
                   </div>
                 ) : (
@@ -659,7 +659,9 @@ function PantallaPrincipal() {
                             {user.name.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <div style={{ fontWeight: "bold" }}>{user.name}</div>
+                            <div style={{ fontWeight: "bold" }}>
+                              {user.name}
+                            </div>
                             <div
                               style={{
                                 fontSize: "0.8rem",
@@ -686,8 +688,7 @@ function PantallaPrincipal() {
                         )}
                       </div>
                     ))
-                )
-                }
+                )}
               </div>
             </div>
 
@@ -1750,13 +1751,7 @@ function PantallaPrincipal() {
                     borderBottom: `1px solid ${borderColor}`,
                     display: "flex",
                     backgroundColor: cardColor,
-                    cursor: "pointer",
                   }}
-                  onClick={() =>
-                    navigate(`/publicacion/${post.id}`, {
-                      state: { user: userData },
-                    })
-                  }
                 >
                   <div
                     style={{
@@ -1853,7 +1848,13 @@ function PantallaPrincipal() {
                         marginBottom: "0.5rem",
                         color: textColor,
                         wordBreak: "break-word",
+                        cursor: "pointer",
                       }}
+                      onClick={() =>
+                        navigate(`/publicaciones/${post.id}`, {
+                          state: { user: userData },
+                        })
+                      }
                     >
                       {post.content}
                     </p>
@@ -1876,6 +1877,11 @@ function PantallaPrincipal() {
                           display: "flex",
                           alignItems: "center",
                         }}
+                        onClick={() =>
+                        navigate(`/publicaciones/${post.id}`, {
+                          state: { user: userData },
+                        })
+                      }
                       >
                         <svg
                           width="20"
@@ -1891,6 +1897,7 @@ function PantallaPrincipal() {
                             clipRule="evenodd"
                           ></path>
                         </svg>
+                        
                         <span>{post.comments}</span>
                       </motion.button>
                       <motion.button
@@ -2094,7 +2101,11 @@ function PantallaPrincipal() {
                   viewBox="0 0 24 24"
                   width="1.3em"
                   height="1.3em"
-                  style={{ marginRight: "0.9rem", marginLeft: "0.15rem", marginBottom: "0.1rem" }}
+                  style={{
+                    marginRight: "0.9rem",
+                    marginLeft: "0.15rem",
+                    marginBottom: "0.1rem",
+                  }}
                 >
                   <path
                     fill="currentColor"
@@ -2144,7 +2155,7 @@ function PantallaPrincipal() {
                       <h3 style={{ margin: 0 }}>Buscar usuarios</h3>
                       <button
                         onClick={() => {
-                          setShowUserSearchModal(false)
+                          setShowUserSearchModal(false);
                           setShareSearchQuery("");
                         }}
                         style={{
@@ -2225,22 +2236,22 @@ function PantallaPrincipal() {
                           },
                         }}
                       >
-                        {users
-                          .filter(
-                            (user) =>
-                              user.name
-                                .toLowerCase()
-                                .includes(shareSearchQuery.toLowerCase()) ||
-                              user.email
-                                .toLowerCase()
-                                .includes(shareSearchQuery.toLowerCase())
-                          )
-                          .length === 0 ? (
-                          <div style={{
-                            textAlign: 'center',
-                            padding: '1rem',
-                            color: lightTextColor
-                          }}>
+                        {users.filter(
+                          (user) =>
+                            user.name
+                              .toLowerCase()
+                              .includes(shareSearchQuery.toLowerCase()) ||
+                            user.email
+                              .toLowerCase()
+                              .includes(shareSearchQuery.toLowerCase())
+                        ).length === 0 ? (
+                          <div
+                            style={{
+                              textAlign: "center",
+                              padding: "1rem",
+                              color: lightTextColor,
+                            }}
+                          >
                             No se encontraron usuarios con ese nombre
                           </div>
                         ) : (
@@ -2278,7 +2289,12 @@ function PantallaPrincipal() {
                                   setShowUserSearchModal(false);
                                 }}
                               >
-                                <div style={{ display: "flex", alignItems: "center" }}>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                  }}
+                                >
                                   <div
                                     style={{
                                       width: "40px",
@@ -2295,7 +2311,9 @@ function PantallaPrincipal() {
                                     {user.name.charAt(0).toUpperCase()}
                                   </div>
                                   <div>
-                                    <div style={{ fontWeight: "bold" }}>{user.name}</div>
+                                    <div style={{ fontWeight: "bold" }}>
+                                      {user.name}
+                                    </div>
                                     <div
                                       style={{
                                         fontSize: "0.8rem",
@@ -2319,13 +2337,13 @@ function PantallaPrincipal() {
                                   />
                                 </svg>
                               </div>
-                            )))}
+                            ))
+                        )}
                       </div>
                     </div>
                   </motion.div>
                 </div>
               )}
-
             </div>
 
             <div
