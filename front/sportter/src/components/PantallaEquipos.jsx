@@ -3,7 +3,8 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Tooltip as ReactTooltip } from 'react-tooltip';
 import 'react-tooltip/dist/react-tooltip.css';
-import { getUserTeams, getAllTeams, createTeam } from '../services/api';
+import { getUserTeams, getAllTeams, createTeam, getUsers } from '../services/api';
+import axios from "axios";
 
 function PantallaEquipos() {
     const [activeTab, setActiveTab] = useState("paraTi");
@@ -19,13 +20,10 @@ function PantallaEquipos() {
     const [teamImage, setTeamImage] = useState(null);
     const [teamImagePreview, setTeamImagePreview] = useState("");
     const [searchMemberQuery, setSearchMemberQuery] = useState("");
-    const [availableMembers, setAvailableMembers] = useState([
-        { id: 1, name: "Usuario1", email: "usuario1@example.com" },
-        { id: 2, name: "Usuario2", email: "usuario2@example.com" },
-        { id: 3, name: "Usuario3", email: "usuario3@example.com" },
-    ]);
     const [selectedMembers, setSelectedMembers] = useState([]);
     const [showSportsMenu, setShowSportsMenu] = useState(false);
+    const [users, setUsers] = useState([]);
+    const [loadingUsers, setLoadingUsers] = useState(true);
 
     // Datos de ejemplo para equipos
     const [teams, setTeams] = useState({
@@ -93,34 +91,55 @@ function PantallaEquipos() {
         }
     };
 
-    const handleAddMember = (member) => {
-        if (!selectedMembers.some(m => m.id === member.id)) {
-            setSelectedMembers([...selectedMembers, member]);
+    const handleAddMember = (user) => {
+        if (!selectedMembers.some(m => m.id === user.id)) {
+            setSelectedMembers([...selectedMembers, user]);
         }
     };
 
-    const handleRemoveMember = (memberId) => {
-        setSelectedMembers(selectedMembers.filter(m => m.id !== memberId));
+    const handleRemoveMember = (userId) => {
+        setSelectedMembers(selectedMembers.filter(m => m.id !== userId));
     };
 
     const handleCreateTeam = async () => {
         if (teamName.trim() && teamDescription.trim()) {
             try {
-                const newTeam = {
-                    nombre: teamName,
-                    deporte: teamSport,
-                    descripcion: teamDescription,
-                    imagen: teamImagePreview || "https://i.imgur.com/vVkxceM.png",
-                    creadorId: currentUserId
+                // Map sport names to category IDs (adjust these IDs based on your database)
+                const sportToCategoryId = {
+                    "fútbol": 1,
+                    "baloncesto": 2,
+                    "volleyball": 3,
+                    "tenis": 4,
+                    "ciclismo": 5
                 };
 
-                const createdTeam = await createTeam(newTeam);
+                const newTeam = {
+                    nombre: teamName,
+                    categoriaDeporteId: sportToCategoryId[teamSport],
+                    descripcion: teamDescription,
+                    imagenUrl: teamImagePreview || "https://i.imgur.com/vVkxceM.png"
+                };
 
-                // Actualizar la lista de equipos
-                const [updatedUserTeams, updatedAllTeams] = await Promise.all([
-                    getUserTeams(currentUserId),
-                    getAllTeams(currentUserId)
-                ]);
+                console.log("Creando equipo con datos:", newTeam);
+                const createdTeam = await createTeam(newTeam, currentUserId);
+                console.log("Equipo creado:", createdTeam);
+
+                // Añadir miembros seleccionados al equipo
+                for (const member of selectedMembers) {
+                    try {
+                        await addTeamMember(createdTeam.id, member.id);
+                        console.log(`Miembro ${member.nombreUsuario} añadido al equipo`);
+                    } catch (error) {
+                        console.error(`Error añadiendo miembro ${member.nombreUsuario}:`, error);
+                    }
+                }
+
+                // Update team lists
+                const updatedUserTeams = await getUserTeams(currentUserId);
+                const updatedAllTeams = await getAllTeams(currentUserId);
+
+                console.log("Equipos actualizados - Para ti:", updatedUserTeams);
+                console.log("Equipos actualizados - Comunidad:", updatedAllTeams);
 
                 setTeams({
                     paraTi: updatedUserTeams,
@@ -135,9 +154,29 @@ function PantallaEquipos() {
                 setTeamImagePreview("");
                 setSelectedMembers([]);
                 setShowCreateTeamModal(false);
+
+                // Show success message
+                alert("Equipo creado exitosamente!");
+
             } catch (error) {
                 console.error("Error creating team:", error);
+                let errorMessage = "Error al crear el equipo";
+
+                if (error.response) {
+                    errorMessage = error.response.data?.message ||
+                        error.response.data?.error ||
+                        error.response.data ||
+                        errorMessage;
+                } else if (error.request) {
+                    errorMessage = "No se recibió respuesta del servidor";
+                } else {
+                    errorMessage = error.message || errorMessage;
+                }
+
+                alert(errorMessage);
             }
+        } else {
+            alert("Por favor completa todos los campos requeridos");
         }
     };
 
@@ -158,8 +197,8 @@ function PantallaEquipos() {
         setTeamImagePreview("");
     };
 
-    // Detectar si es móvil o tablet
     useEffect(() => {
+        // Detectar si es móvil o tablet
         const handleResize = () => {
             const mobile = window.innerWidth < 1024;
             setIsMobile(mobile);
@@ -172,28 +211,54 @@ function PantallaEquipos() {
 
         // Cargar equipos
         const loadTeams = async () => {
-            if (currentUserId) {
-                try {
-                    const [userTeams, communityTeams] = await Promise.all([
-                        getUserTeams(currentUserId),
-                        axios.get(`http://localhost:8080/api/equipos/comunidad/${currentUserId}`)
-                            .then(res => res.data)
-                    ]);
+            try {
+                console.log("Cargando equipos para usuario:", currentUserId);
+                const userTeams = await getUserTeams(currentUserId);
+                const communityTeams = await getAllTeams(currentUserId);
 
-                    setTeams({
-                        paraTi: userTeams,
-                        comunidad: communityTeams
-                    });
-                } catch (error) {
-                    console.error("Error loading teams:", error);
-                }
+                console.log("Equipos del usuario:", userTeams);
+                console.log("Equipos de la comunidad:", communityTeams);
+
+                setTeams({
+                    paraTi: userTeams,
+                    comunidad: communityTeams
+                });
+            } catch (error) {
+                console.error("Error loading teams:", error);
             }
         };
 
-        loadTeams();
+        if (currentUserId) {
+            loadTeams();
+        }
 
         return () => window.removeEventListener('resize', handleResize);
     }, [currentUserId]);
+
+    useEffect(() => {
+        const fetchUsers = async () => {
+            try {
+                setLoadingUsers(true);
+                const fetchedUsers = await getUsers();
+
+                // Ordenar usuarios alfabéticamente por nombreUsuario
+                const sortedUsers = fetchedUsers.sort((a, b) => {
+                    const nameA = a.nombreUsuario?.toUpperCase() || '';
+                    const nameB = b.nombreUsuario?.toUpperCase() || '';
+                    return nameA.localeCompare(nameB);
+                });
+
+                console.log("Usuarios ordenados:", sortedUsers);
+                setUsers(sortedUsers);
+            } catch (error) {
+                console.error("Error loading users:", error);
+                setUsers([]);
+            } finally {
+                setLoadingUsers(false);
+            }
+        };
+        fetchUsers();
+    }, []);
 
     const handleLogout = () => {
         // 1. Limpiar datos de autenticación
@@ -688,10 +753,9 @@ function PantallaEquipos() {
                     gap: "1rem",
                     padding: "1rem",
                     overflowY: "auto",
-                    maxHeight: "calc(100vh - 200px)", // Ajusta según la altura de tus elementos superiores
-                    // Estilos personalizados para el scroll (igual que en PantallaMensajes)
+                    maxHeight: "calc(100vh - 200px)",
                     scrollbarWidth: "thin",
-                    scrollbarColor: `${lightTextColor} ${backgroundColor}`,
+                    scrollbarColor: `${lightTextColor} ${cardColor}`,
                     '&::-webkit-scrollbar': {
                         width: "8px"
                     },
@@ -705,47 +769,103 @@ function PantallaEquipos() {
                         border: `2px solid ${cardColor}`
                     }
                 }}>
-                    {filteredTeams.map(team => (
+                    {filteredTeams && filteredTeams.map(team => (
                         <motion.div
                             key={team.id}
-                            whileHover={{ y: -5, boxShadow: `0 5px 15px rgba(255, 69, 0, 0.2)` }}
+                            whileHover={{
+                                y: -5,
+                                boxShadow: `0 5px 15px rgba(255, 69, 0, 0.35)`
+                            }}
                             style={{
                                 backgroundColor: cardColor,
                                 borderRadius: "12px",
                                 overflow: "hidden",
                                 border: `1px solid ${borderColor}`,
                                 display: "flex",
-                                flexDirection: "column"
+                                flexDirection: "column",
+                                cursor: "pointer",
+                                transition: "all 0.1s ease"
                             }}
+                            onClick={() => navigate(`/equipo/${team.id}`)}
                         >
-                            {/* Imagen del equipo */}
-                            <div style={{ position: 'relative' }}>
-                                <img src={team.imagen} alt={team.nombre} />
-                                {team.esAdmin && (
-                                    <div style={{
-                                        position: 'absolute',
-                                        top: '10px',
-                                        left: '10px',
-                                        backgroundColor: 'rgba(0,0,0,0.7)',
-                                        color: 'white',
-                                        padding: '0.25rem 0.5rem',
-                                        borderRadius: '4px',
-                                        fontSize: '0.8rem'
-                                    }}>
-                                        Admin
-                                    </div>
-                                )}
+                            {/* Imagen del equipo con badge de deporte */}
+                            <div style={{
+                                height: "140px",
+                                backgroundColor: "rgba(0, 0, 0, 0.28)",
+                                position: "relative",
+                                overflow: "hidden"
+                            }}>
+                                <img
+                                    src={team.imagen || "https://i.imgur.com/vVkxceM.png"} // Imagen por defecto
+                                    alt={team.nombre}
+                                    style={{
+                                        width: "100%",
+                                        height: "100%",
+                                        objectFit: "cover"
+                                    }}
+                                />
+
+                                {/* Badge del deporte */}
+                                <div style={{
+                                    position: "absolute",
+                                    bottom: "10px",
+                                    left: "10px",
+                                    backgroundColor: "rgba(0, 0, 0, 0.7)",
+                                    color: "white",
+                                    padding: "0.25rem 0.75rem",
+                                    borderRadius: "50px",
+                                    fontSize: "0.8rem",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "0.5rem"
+                                }}>
+                                    <SportIcon
+                                        sport={team.deporte.toLowerCase()}
+                                        style={{ width: "16px", height: "16px" }}
+                                    />
+                                    <span>{team.deporte}</span>
+                                </div>
                             </div>
 
                             {/* Información del equipo */}
-                            <div style={{ padding: '1rem' }}>
-                                <h3>{team.nombre}</h3>
-                                <p>{team.descripcion}</p>
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <span>{team.deporte}</span>
-                                    <span>{team.cantidadMiembros} miembros</span>
+                            <div style={{
+                                padding: "1rem",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "0.5rem"
+                            }}>
+                                <h3 style={{
+                                    margin: 0,
+                                    fontSize: "1.1rem",
+                                    fontWeight: "600",
+                                    color: textColor,
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis"
+                                }}>
+                                    {team.nombre}
+                                </h3>
+
+                                <div style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    color: lightTextColor,
+                                    fontSize: "0.85rem"
+                                }}>
+                                    <svg
+                                        width="16"
+                                        height="16"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        style={{ marginRight: "0.5rem" }}
+                                    >
+                                        <path
+                                            d="M12 4a4 4 0 0 1 4 4c0 3-4 6-4 6s-4-3-4-6a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2c0 1 .5 2 2 4 1.5-2 2-3 2-4a2 2 0 0 0-2-2zm0 11c-2.67 0-8 1.33-8 4v1h16v-1c0-2.67-5.33-4-8-4zm0 2c2.38 0 6.13 1.27 6 3v1H6v-1c-.13-1.73 3.62-3 6-3z"
+                                            fill="currentColor"
+                                        />
+                                    </svg>
+                                    {team.cantidadMiembros} {team.cantidadMiembros === 1 ? 'miembro' : 'miembros'}
                                 </div>
-                                <div>Creado por: {team.creadorNombre}</div>
                             </div>
                         </motion.div>
                     ))}
@@ -1099,8 +1219,6 @@ function PantallaEquipos() {
                                         maxHeight: "200px",
                                         overflowY: "auto",
                                         marginBottom: "1rem",
-
-                                        // Estilos personalizados para el scroll
                                         scrollbarWidth: "thin",
                                         scrollbarColor: `${lightTextColor} ${cardColor}`,
                                         '&::-webkit-scrollbar': {
@@ -1116,29 +1234,51 @@ function PantallaEquipos() {
                                             border: `2px solid ${cardColor}`
                                         }
                                     }}>
-                                        {availableMembers
-                                            .filter(member =>
-                                                member.name.toLowerCase().includes(searchMemberQuery.toLowerCase()) ||
-                                                member.email.toLowerCase().includes(searchMemberQuery.toLowerCase())
+                                        {users
+                                            .filter(user =>
+                                                user.nombreUsuario?.toLowerCase().includes(searchMemberQuery.toLowerCase()) ||
+                                                user.correoElectronico?.toLowerCase().includes(searchMemberQuery.toLowerCase())
                                             )
-                                            .filter(member => !selectedMembers.some(m => m.id === member.id))
-                                            .map(member => (
-                                                <div key={member.id} style={{
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    justifyContent: "space-between",
-                                                    padding: "0.75rem",
-                                                    borderBottom: `1px solid ${borderColor}`,
-                                                    ":last-child": {
-                                                        borderBottom: "none"
-                                                    }
-                                                }}>
-                                                    <div>
-                                                        <div style={{ fontWeight: "bold", color: textColor }}>{member.name}</div>
-                                                        <div style={{ fontSize: "0.8rem", color: lightTextColor }}>{member.email}</div>
+                                            .filter(user => !selectedMembers.some(m => m.id === user.id))
+                                            .map(user => (
+                                                <div
+                                                    key={user.id}
+                                                    style={{
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        justifyContent: "space-between",
+                                                        padding: "0.75rem",
+                                                        cursor: "pointer",
+                                                        ":hover": {
+                                                            backgroundColor: "rgba(255,255,255,0.1)"
+                                                        }
+                                                    }}
+                                                    onClick={() => handleAddMember(user)}
+                                                >
+                                                    <div style={{ display: "flex", alignItems: "center" }}>
+                                                        <div style={{
+                                                            width: "40px",
+                                                            height: "40px",
+                                                            borderRadius: "50%",
+                                                            background: primaryColor,
+                                                            marginRight: "0.5rem",
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
+                                                            color: "white"
+                                                        }}>
+                                                            {user.nombreUsuario?.charAt(0).toUpperCase() || "U"}
+                                                        </div>
+                                                        <div>
+                                                            <div style={{ fontWeight: "bold", color: textColor }}>{user.nombreUsuario || "Usuario"}</div>
+                                                            <div style={{ fontSize: "0.8rem", color: lightTextColor }}>{user.correoElectronico}</div>
+                                                        </div>
                                                     </div>
                                                     <button
-                                                        onClick={() => handleAddMember(member)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleAddMember(user);
+                                                        }}
                                                         style={{
                                                             background: primaryColor,
                                                             color: "white",
@@ -1164,8 +1304,6 @@ function PantallaEquipos() {
                                     minHeight: "100px",
                                     maxHeight: "200px",
                                     overflowY: "auto",
-
-                                    // Estilos personalizados para el scroll de miembros seleccionados
                                     scrollbarWidth: "thin",
                                     scrollbarColor: `${lightTextColor} ${cardColor}`,
                                     '&::-webkit-scrollbar': {
@@ -1204,13 +1342,9 @@ function PantallaEquipos() {
                                                         alignItems: "center",
                                                         justifyContent: "center"
                                                     }}>
-                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                            <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z" fill="white" />
-                                                            <path d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z" fill="white" />
-                                                            <path d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z" fill="white" />
-                                                        </svg>
+                                                        {member.nombreUsuario?.charAt(0).toUpperCase() || "U"}
                                                     </div>
-                                                    <span style={{ color: textColor, fontSize: "0.8rem" }}>{member.name}</span>
+                                                    <span style={{ color: textColor, fontSize: "0.8rem" }}>{member.nombreUsuario || "Usuario"}</span>
                                                     <button
                                                         onClick={() => handleRemoveMember(member.id)}
                                                         style={{
@@ -1240,7 +1374,7 @@ function PantallaEquipos() {
                                 <motion.button
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
-                                    onClick={() => setShowCreateTeamModal(false)}
+                                    onClick={() => {setShowCreateTeamModal(false); handleCancel()}}
                                     style={{
                                         background: "transparent",
                                         color: textColor,

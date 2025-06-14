@@ -111,7 +111,7 @@ export const actualizarContrasena = async (email, nuevaContrasena) => {
     if (!response.ok) {
       throw new Error(
         data?.message ||
-          "Error al actualizar la contraseña. Código: " + response.status
+        "Error al actualizar la contraseña. Código: " + response.status
       );
     }
 
@@ -120,7 +120,7 @@ export const actualizarContrasena = async (email, nuevaContrasena) => {
     console.error("Error al actualizar contraseña:", error);
     throw new Error(
       error.message ||
-        "No se pudo conectar con el servidor para actualizar la contraseña"
+      "No se pudo conectar con el servidor para actualizar la contraseña"
     );
   }
 };
@@ -164,7 +164,7 @@ export const loadPosts = async () => {
         // Si es un timestamp en segundos
         if (typeof post.fechaHora === 'number') {
           postDate = new Date(post.fechaHora * 1000);
-        } 
+        }
         // Si es un string ISO (como "2023-10-05T12:00:00Z")
         else if (typeof post.fechaHora === 'string') {
           postDate = new Date(post.fechaHora);
@@ -174,7 +174,7 @@ export const loadPosts = async () => {
           postDate = post.fechaHora;
         }
       }
-      
+
       // Si no se pudo parsear, usa la fecha actual
       if (!postDate || isNaN(postDate.getTime())) {
         console.warn(`Fecha inválida para post ${post.id}, usando fecha actual`);
@@ -187,7 +187,7 @@ export const loadPosts = async () => {
         user: usuario.correoElectronico || "anonimo@example.com",
         name: usuario.nombreUsuario || "Anónimo",
         content: post.contenido || "",
-        time: postDate, 
+        time: postDate,
         comments: post.comentarios || 0,
         likes: post.likes || 0,
         shares: post.compartidos || 0,
@@ -280,11 +280,11 @@ const BASE_URL = 'http://localhost:8080';
 export const getComentarios = async (publicacionId) => {
   try {
     const response = await axios.get(`${BASE_URL}/api/comentarios/publicaciones/${publicacionId}`);
-    
+
     if (!response.data || !Array.isArray(response.data)) {
       return [];
     }
-      console.log("Respuesta de la API:", response.data);
+    console.log("Respuesta de la API:", response.data);
 
 
     return response.data.map(comment => processComment(comment));
@@ -295,7 +295,7 @@ export const getComentarios = async (publicacionId) => {
 };
 
 export const processComment = (comment) => {
-   const usuario = {
+  const usuario = {
     id: comment.usuarioId || 0,
     nombreUsuario: comment.usuarioNombre || "Anónimo",
     correoElectronico: comment.usuarioCorreo || "anonimo@example.com",
@@ -312,7 +312,7 @@ export const processComment = (comment) => {
       commentDate = comment.fechaHora;
     }
   }
-  
+
   if (!commentDate || isNaN(commentDate.getTime())) {
     commentDate = new Date();
   }
@@ -340,8 +340,8 @@ export const crearComentario = async (comentarioData) => {
     });
 
     // Mapea la respuesta al formato esperado
-   return {
-         id: response.data.id,
+    return {
+      id: response.data.id,
       contenido: response.data.contenido,
       usuario: {
         id: response.data.usuarioId,
@@ -352,7 +352,7 @@ export const crearComentario = async (comentarioData) => {
       fechaHora: response.data.fechaHora,
       likes: 0,
       isLiked: false
-      };
+    };
   } catch (error) {
     console.error('Error al crear comentario:', error);
     throw error;
@@ -405,7 +405,7 @@ export const getPublicacion = async (postId) => {
         postDate = post.fechaHora;
       }
     }
-    
+
     if (!postDate || isNaN(postDate.getTime())) {
       console.warn(`Fecha inválida para post ${post.id}, usando fecha actual`);
       postDate = new Date();
@@ -435,27 +435,27 @@ export const getPublicacion = async (postId) => {
 // Funciones para manejar likes en comentarios
 // NO SE ESTA USANDO, NO FUNCIONA, SE PUEDE MODIFICAR PARA QUE FUNCIONE
 export const darLikeComent = async (comentarioId, userEmail) => {
-    const response = await axios.post(
-        `http://localhost:8080/api/comentarios/${comentarioId}/like`,
-        { userEmail }
-    );
-    return response.data;
+  const response = await axios.post(
+    `http://localhost:8080/api/comentarios/${comentarioId}/like`,
+    { userEmail }
+  );
+  return response.data;
 };
 
 export const quitarLikeComent = async (comentarioId, userEmail) => {
-    const response = await axios.post(
-        `http://localhost:8080/api/comentarios/${comentarioId}/unlike`,
-        { userEmail }
-    );
-    return response.data;
+  const response = await axios.post(
+    `http://localhost:8080/api/comentarios/${comentarioId}/unlike`,
+    { userEmail }
+  );
+  return response.data;
 };
 
 export const checkLikeStatusComent = async (comentarioId, userEmail) => {
-    const response = await axios.get(
-        `http://localhost:8080/api/comentarios/${comentarioId}/check-like`,
-        { params: { userEmail } }
-    );
-    return response.data;
+  const response = await axios.get(
+    `http://localhost:8080/api/comentarios/${comentarioId}/check-like`,
+    { params: { userEmail } }
+  );
+  return response.data;
 };
 
 
@@ -543,32 +543,126 @@ export const getAllPosts = async () => {
   }
 };
 
+// api.js
 export const getUserTeams = async (userId) => {
-  try {
-    const response = await axios.get(`http://localhost:8080/api/equipos/usuario/${userId}`);
-    return response.data || [];
-  } catch (error) {
-    console.error("Error fetching user teams:", error);
-    return [];
-  }
+    try {
+        const response = await axios.get(
+            `http://localhost:8080/api/equipos/usuario-con-miembros/${userId}`
+        );
+        return response.data.map(team => ({
+            id: team.id,
+            nombre: team.nombre,
+            descripcion: team.descripcion,
+            deporte: team.deporte,
+            imagen: team.imagenUrl || "https://i.imgur.com/vVkxceM.png",
+            cantidadMiembros: team.cantidadMiembros
+        }));
+    } catch (error) {
+        console.error("Error fetching user teams:", error);
+        return [];
+    }
 };
 
 export const getAllTeams = async (userId) => {
+    try {
+        const response = await axios.get(
+            `http://localhost:8080/api/equipos/comunidad-con-miembros/${userId}`
+        );
+        return response.data.map(team => ({
+            id: team.id,
+            nombre: team.nombre,
+            descripcion: team.descripcion,
+            deporte: team.deporte,
+            imagen: team.imagenUrl || "https://i.imgur.com/vVkxceM.png",
+            cantidadMiembros: team.cantidadMiembros
+        }));
+    } catch (error) {
+        console.error("Error fetching all teams:", error);
+        return [];
+    }
+};
+
+export const createTeam = async (teamData, creadorId) => {
+    try {
+        const response = await axios.post(
+            `http://localhost:8080/api/equipos?creadorId=${creadorId}`, 
+            teamData, 
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            }
+        );
+        return response.data;
+    } catch (error) {
+        console.error("Error creating team:", error);
+        throw error;
+    }
+};
+
+export const addTeamMember = async (teamId, userId) => {
+    try {
+        const response = await axios.post(
+            `http://localhost:8080/api/equipos/${teamId}/miembros?usuarioId=${userId}`,
+            {},
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            }
+        );
+        return response.data;
+    } catch (error) {
+        console.error("Error adding team member:", error);
+        throw error;
+    }
+};
+
+// Obtener información detallada de un equipo
+export const getTeamDetails = async (teamId) => {
   try {
-    const response = await axios.get(`http://localhost:8080/api/equipos/comunidad/${userId}`);
-    return response.data || [];
+    const response = await axios.get(`http://localhost:8080/api/equipos/${teamId}`);
+    return response.data;
   } catch (error) {
-    console.error("Error fetching all teams:", error);
-    return [];
+    console.error("Error fetching team details:", error);
+    throw error;
   }
 };
 
-export const createTeam = async (teamData) => {
+// Actualizar un equipo
+export const updateTeam = async (teamId, teamData) => {
   try {
-    const response = await axios.post('http://localhost:8080/api/equipos', teamData);
+    const response = await axios.put(
+      `http://localhost:8080/api/equipos/${teamId}`,
+      teamData
+    );
     return response.data;
   } catch (error) {
-    console.error("Error creating team:", error);
+    console.error("Error updating team:", error);
+    throw error;
+  }
+};
+
+// Eliminar un equipo
+export const deleteTeam = async (teamId) => {
+  try {
+    const response = await axios.delete(`http://localhost:8080/api/equipos/${teamId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting team:", error);
+    throw error;
+  }
+};
+
+// Eliminar miembro de un equipo
+export const removeTeamMember = async (teamId, userId) => {
+  try {
+    const response = await axios.delete(
+      `http://localhost:8080/api/equipos/${teamId}/miembros/${userId}`
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error removing team member:", error);
     throw error;
   }
 };
@@ -691,14 +785,14 @@ export const setupWebSocket = (conversacionId, onMessageReceived, onError) => {
 
 export const sendMessageWebSocket = (stompClient, conversacionId, mensajeDTO) => {
   if (stompClient && stompClient.active) {
-  stompClient.publish({
-    destination: `/app/chat/${conversacionId}`,
-    body: JSON.stringify(mensajeDTO),
-  });
-  console.log('✉️ Mensaje enviado:', mensajeDTO);
-} else {
-  console.error('⚠️ No se pudo enviar - WebSocket no activo');
-}
+    stompClient.publish({
+      destination: `/app/chat/${conversacionId}`,
+      body: JSON.stringify(mensajeDTO),
+    });
+    console.log('✉️ Mensaje enviado:', mensajeDTO);
+  } else {
+    console.error('⚠️ No se pudo enviar - WebSocket no activo');
+  }
 };
 
 export const setupWebSocketMultiple = (conversationIds, onMessageReceived, onError) => {
