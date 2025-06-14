@@ -769,7 +769,57 @@ function PantallaEquipos() {
                         border: `2px solid ${cardColor}`
                     }
                 }}>
-                    {filteredTeams && filteredTeams.map(team => (
+                    {filteredTeams.length === 0 && (
+                        <div style={{
+                            gridColumn: "1 / -1",
+                            textAlign: "center",
+                            padding: "2rem",
+                            color: lightTextColor
+                        }}>
+                            <div style={{
+                                fontSize: "1.5rem",
+                                marginBottom: "1rem",
+                                color: textColor
+                            }}>
+                                {activeTab === "paraTi"
+                                    ? "No tienes ningún equipo todavía"
+                                    : "No hay equipos en la comunidad"}
+                            </div>
+                            <p style={{ marginBottom: "1.5rem" }}>
+                                {activeTab === "paraTi"
+                                    ? "Crea o únete a un equipo y empieza a jugar con tus amigos"
+                                    : "Sé el primero en crear un equipo"}
+                            </p>
+                            {activeTab === "paraTi" && (
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => setShowCreateTeamModal(true)}
+                                    style={{
+                                        backgroundColor: primaryColor,
+                                        color: "white",
+                                        border: "none",
+                                        borderRadius: "50px",
+                                        padding: "0.75rem 1.5rem",
+                                        fontSize: "1rem",
+                                        fontWeight: "bold",
+                                        cursor: "pointer",
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "0.5rem"
+                                    }}
+                                >
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M19 13H13V19H11V13H5V11H11V5H13V11H19V13Z" fill="white" />
+                                    </svg>
+                                    Crear equipo
+                                </motion.button>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Mostrar equipos si existen */}
+                    {filteredTeams.length > 0 && filteredTeams.map(team => (
                         <motion.div
                             key={team.id}
                             whileHover={{
@@ -853,16 +903,22 @@ function PantallaEquipos() {
                                     fontSize: "0.85rem"
                                 }}>
                                     <svg
-                                        width="16"
-                                        height="16"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        style={{ marginRight: "0.5rem" }}
+                                        style={{ marginRight: '0.5rem' }}
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 22 22"
+                                        width="1.2em"
+                                        height="1.2em"
                                     >
-                                        <path
-                                            d="M12 4a4 4 0 0 1 4 4c0 3-4 6-4 6s-4-3-4-6a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2c0 1 .5 2 2 4 1.5-2 2-3 2-4a2 2 0 0 0-2-2zm0 11c-2.67 0-8 1.33-8 4v1h16v-1c0-2.67-5.33-4-8-4zm0 2c2.38 0 6.13 1.27 6 3v1H6v-1c-.13-1.73 3.62-3 6-3z"
-                                            fill="currentColor"
-                                        />
+                                        <g
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth="2"
+                                        >
+                                            <circle cx="12" cy="5" r="1"></circle>
+                                            <path d="m9 20l3-6l3 6M6 8l6 2l6-2m-6 2v4"></path>
+                                        </g>
                                     </svg>
                                     {team.cantidadMiembros} {team.cantidadMiembros === 1 ? 'miembro' : 'miembros'}
                                 </div>
@@ -1374,7 +1430,7 @@ function PantallaEquipos() {
                                 <motion.button
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
-                                    onClick={() => {setShowCreateTeamModal(false); handleCancel()}}
+                                    onClick={() => { setShowCreateTeamModal(false); handleCancel() }}
                                     style={{
                                         background: "transparent",
                                         color: textColor,

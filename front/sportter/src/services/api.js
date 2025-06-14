@@ -547,7 +547,7 @@ export const getAllPosts = async () => {
 export const getUserTeams = async (userId) => {
     try {
         const response = await axios.get(
-            `http://localhost:8080/api/equipos/usuario-con-miembros/${userId}`
+            `http://localhost:8080/api/equipos/usuario/${userId}`
         );
         return response.data.map(team => ({
             id: team.id,
@@ -566,7 +566,7 @@ export const getUserTeams = async (userId) => {
 export const getAllTeams = async (userId) => {
     try {
         const response = await axios.get(
-            `http://localhost:8080/api/equipos/comunidad-con-miembros/${userId}`
+            `http://localhost:8080/api/equipos/comunidad/${userId}`
         );
         return response.data.map(team => ({
             id: team.id,

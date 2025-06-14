@@ -36,7 +36,9 @@ public class Usuario {
     @JsonProperty("contrasena")
     @Column(name = "contrasena") // Añadida anotación @Column
     private String contrasena;
-   
+    
+    @Column(name = "imagen_perfil", columnDefinition = "LONGTEXT")
+    private String imagen_perfil; 
 
     // Getters y Setters
     public Long getId() {
@@ -72,9 +74,20 @@ public class Usuario {
         this.contrasena = contrasena;
     }
 
-	public Object getUsername() {
-		// TODO Auto-generated method stub
-		return null;
+	public List<Publicacion> getPublicaciones() {
+		return publicaciones;
+	}
+
+	public void setPublicaciones(List<Publicacion> publicaciones) {
+		this.publicaciones = publicaciones;
+	}
+
+	public String getImagen_perfil() {
+		return imagen_perfil;
+	}
+
+	public void setImagen_perfil(String imagen_perfil) {
+		this.imagen_perfil = imagen_perfil;
 	}
 
 }

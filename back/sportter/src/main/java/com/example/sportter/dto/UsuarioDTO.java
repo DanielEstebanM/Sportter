@@ -5,7 +5,7 @@ public class UsuarioDTO {
     private String nombre;
     private String nombreUsuario;
     private String email;
-    private String avatar;
+    private String imagen_perfil;
 
  
 	// Getters y Setters
@@ -17,6 +17,6 @@ public class UsuarioDTO {
     public void setNombreUsuario(String nombreUsuario) { this.nombreUsuario = nombreUsuario; }
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
-    public String getAvatar() { return avatar; }
-    public void setAvatar(String avatar) { this.avatar = avatar; }
+    public String getAvatar() { return imagen_perfil; }
+    public void setAvatar(String imagen_perfil) { this.imagen_perfil = imagen_perfil; }
 }

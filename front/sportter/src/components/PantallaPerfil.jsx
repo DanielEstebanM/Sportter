@@ -31,7 +31,7 @@ function PantallaPerfil() {
     const [tempBio, setTempBio] = useState(bio);
     const [name, setName] = useState("");
     const [tempName, setTempName] = useState(name);
-    const [profileImage, setProfileImage] = useState("https://i.imgur.com/bUwYQP3.png");
+    const [profileImage, setProfileImage] = useState();
     const [teams, setTeams] = useState([]);
     const [profilePosts, setProfilePosts] = useState([]);
     const [loadingPosts, setLoadingPosts] = useState(false);
@@ -42,7 +42,7 @@ function PantallaPerfil() {
         nombre_usuario: "",
         email: "",
         bio: "",
-        imagen: "https://i.imgur.com/bUwYQP3.png",
+        imagen: "",
         equipos: []
     });
     const [currentSharedPost, setCurrentSharedPost] = useState(null);
@@ -53,6 +53,7 @@ function PantallaPerfil() {
     const currentUserId = userData?.id;
     const userEmail = userData?.correoElectronico;
     const userName = userData?.nombreUsuario || userData?.nombre_usuario;
+    const imageProfile = userData?.avatar || "https://i.imgur.com/bUwYQP3.png";
 
     // Colores con tema anaranjado-rojizo
     const primaryColor = "#FF4500";
@@ -130,28 +131,30 @@ function PantallaPerfil() {
                     return;
                 }
 
+                const defaultImage = "https://i.imgur.com/bUwYQP3.png";
+                const userAvatar = data.avatar
+                    ? (data.avatar.startsWith('data:image') ? data.avatar : `data:image/jpeg;base64,${data.avatar}`)
+                    : defaultImage;
+
                 setProfileExists(true);
                 setUserProfile({
-                    nombre_usuario: data.nombreUsuario || "",
-                    email: data.correoElectronico || "",
+                    nombre_usuario: data.nombreUsuario || data.nombre || "",
+                    email: data.email || data.correoElectronico || "",
                     bio: data.bio || "Este usuario no tiene biografía.",
-                    imagen: data.imagenPerfil || "https://i.imgur.com/bUwYQP3.png",
+                    imagen: userAvatar,
                     equipos: data.equipos || []
                 });
 
-                // Asegurarse de cargar los valores iniciales para edición
-                setName(data.nombreUsuario || "");
+                setName(data.nombreUsuario || data.nombre || "");
                 setBio(data.bio || "");
-                setTempName(data.nombreUsuario || "");
+                setTempName(data.nombreUsuario || data.nombre || "");
                 setTempBio(data.bio || "");
-                setProfileImage(data.imagenPerfil || "https://i.imgur.com/bUwYQP3.png");
-
+                setProfileImage(userAvatar);
             } catch (err) {
                 console.error("Error al cargar el perfil:", err);
                 setProfileExists(false);
             }
         };
-
         fetchData();
     }, [id]);
 
@@ -371,12 +374,12 @@ function PantallaPerfil() {
         if (file && isCurrentUser) {
             try {
                 const response = await uploadProfileImage(currentUserId, file);
-                setProfileImage(response.imagenUrl);
+                setProfileImage(response.avatar);
 
                 // Actualizar imagen en localStorage si es el usuario actual
                 const updatedUserData = {
                     ...userData,
-                    imagenPerfil: response.imagenUrl
+                    avatar: response.avatar
                 };
                 localStorage.setItem('userData', JSON.stringify(updatedUserData));
             } catch (error) {
@@ -891,7 +894,7 @@ function PantallaPerfil() {
                         height: "100px",
                         borderRadius: "50%",
                         border: `4px solid ${cardColor}`,
-                        backgroundColor: accentColor,
+                        backgroundColor: backgroundColor,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -900,12 +903,15 @@ function PantallaPerfil() {
                         {editMode ? (
                             <label htmlFor="profile-image-upload" style={{ cursor: "pointer" }}>
                                 <img
-                                    src={profileImage}
+                                    src={userProfile.imagen}
                                     alt="Perfil"
                                     style={{
                                         width: "100%",
                                         height: "100%",
                                         objectFit: "cover"
+                                    }}
+                                    onError={(e) => {
+                                        e.target.src = "https://i.imgur.com/bUwYQP3.png";
                                     }}
                                 />
                                 <input
@@ -918,12 +924,15 @@ function PantallaPerfil() {
                             </label>
                         ) : (
                             <img
-                                src={profileImage}
+                                src={userProfile.imagen}
                                 alt="Perfil"
                                 style={{
                                     width: "100%",
                                     height: "100%",
                                     objectFit: "cover"
+                                }}
+                                onError={(e) => {
+                                    e.target.src = "https://i.imgur.com/bUwYQP3.png";
                                 }}
                             />
                         )}
@@ -1399,7 +1408,7 @@ function PantallaPerfil() {
                                                 }}
                                             >
                                                 <img
-                                                    src={profileImage}
+                                                    src={userProfile.imagen.startsWith('data:image') ? userProfile.imagen : `data:image/jpeg;base64,${userProfile.imagen}`}
                                                     alt="Perfil"
                                                     style={{
                                                         width: "100%",
