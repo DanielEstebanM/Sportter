@@ -403,6 +403,31 @@ function PantallaInicio() {
           .join(", ");
         formIsValid = false;
       }
+
+      if (formIsValid) {
+        try {
+          console.log("Verificando si el email ya existe...");
+          const emailExiste = await verificarEmail(formData.email, "registro");
+
+          if (emailExiste) {
+            setErrors({ email: "Este correo ya está registrado" });
+            console.log("El correo ya está registrado");
+            return;
+          }
+
+          const code = generateRandomCode();
+          const emailSent = await sendVerificationEmail(formData.email, code);
+
+          if (emailSent) {
+            setVerificationSent(true);
+            setSuccessMessage(`Código enviado a ${formData.email}`);
+            setGeneratedCode(code);
+          }
+        } catch (error) {
+          newErrors.general = "Error al verificar el correo electrónico";
+        }
+        return;
+      }
     } else if (!isLogin && verificationSent && !formData.verificationCode) {
       newErrors.verificationCode = "Código de verificación requerido";
       formIsValid = false;
@@ -489,43 +514,54 @@ function PantallaInicio() {
           console.log("Inicio de sesión exitoso:", userData);
 
           // 1. Guardar datos de usuario en localStorage
-          localStorage.setItem("userData", JSON.stringify({
-            ...userData,
-            // Asegurar que los datos críticos estén presentes
-            correoElectronico: formData.email,
-            timestamp: new Date().getTime() // Para manejar expiración
-          }));
-
+          localStorage.setItem(
+            "userData",
+            JSON.stringify({
+              ...userData,
+              // Asegurar que los datos críticos estén presentes
+              correoElectronico: formData.email,
+              timestamp: new Date().getTime(), // Para manejar expiración
+            })
+          );
 
           // 2. Redirigir a la ruta solicitada originalmente o a /principal por defecto
           const redirectTo = location.state?.from?.pathname || "/principal";
 
           navigate(redirectTo, {
             state: {
-              user: userData // Envía todos los datos del usuario
+              user: userData, // Envía todos los datos del usuario
             },
-            replace: true // Evita que el usuario vuelva al login con el botón "atrás"
+            replace: true, // Evita que el usuario vuelva al login con el botón "atrás"
           });
         } catch (error) {
-
           console.error("Error en el login:", error);
 
-          // Manejo específico de errores
-          if (error.response) {
-            // Error del servidor (4xx, 5xx)
+          // Limpiar errores previos
+          setErrors({
+            name: "",
+            email: "",
+            password: "",
+            general: "",
+          });
+
+          // Manejar error específico de credenciales
+          if (error.response && error.response.status === 401) {
             setErrors({
-              email: "Usuario o contraseña incorrectos",
-              password: "Usuario o contraseña incorrectos",
+              email: "Correo electrónico o contraseña incorrectos",
+              general: "Credenciales inválidas. Por favor, inténtalo de nuevo.",
             });
-          } else if (error.request) {
-            // La solicitud fue hecha pero no hubo respuesta
+          }
+          // Manejar otros errores de red/server
+          else if (error.response) {
             setErrors({
-              general: "Problema de conexión con el servidor",
+              general: error.response.data.message || "Error del servidor",
             });
-          } else {
-            // Error al configurar la solicitud
+          }
+          // Manejar errores de conexión
+          else {
             setErrors({
-              general: "Error inesperado",
+              general:
+                "Error de conexión. Verifica tu red e inténtalo de nuevo.",
             });
           }
         }
@@ -624,7 +660,7 @@ function PantallaInicio() {
           width: "100%",
           maxWidth: "450px",
           overflow: "hidden",
-          background: "transparent"
+          background: "transparent",
         }}
       >
         <AnimatePresence mode="wait">
@@ -717,13 +753,13 @@ function PantallaInicio() {
                     ? passwordResetStep === 1
                       ? "Recuperar contraseña"
                       : passwordResetStep === 2
-                        ? "Verificar código"
-                        : "Nueva contraseña"
+                      ? "Verificar código"
+                      : "Nueva contraseña"
                     : isLogin
-                      ? "Iniciar Sesión"
-                      : verificationSent
-                        ? "Verificar Código"
-                        : "Registrarse"}
+                    ? "Iniciar Sesión"
+                    : verificationSent
+                    ? "Verificar Código"
+                    : "Registrarse"}
                 </h2>
               </motion.div>
 
@@ -745,7 +781,9 @@ function PantallaInicio() {
                         </label>
                         <motion.input
                           whileFocus={{
-                            borderBottom: `2px solid ${errors.email ? errorColor : accentColor}`
+                            borderBottom: `2px solid ${
+                              errors.email ? errorColor : accentColor
+                            }`,
                           }}
                           type="email"
                           name="email"
@@ -797,8 +835,9 @@ function PantallaInicio() {
                         </label>
                         <motion.input
                           whileFocus={{
-                            borderBottom: `2px solid ${errors.verificationCode ? errorColor : accentColor
-                              }`,
+                            borderBottom: `2px solid ${
+                              errors.verificationCode ? errorColor : accentColor
+                            }`,
                           }}
                           type="text"
                           name="verificationCode"
@@ -816,7 +855,7 @@ function PantallaInicio() {
                             WebkitBoxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
                             WebkitTextFillColor: "rgba(255, 255, 255, 0.7)",
                             boxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
-                            transition: "background-color 5000s ease-in-out 0s"
+                            transition: "background-color 5000s ease-in-out 0s",
                           }}
                         />
                         {errors.verificationCode && (
@@ -868,8 +907,9 @@ function PantallaInicio() {
                           <div style={{ position: "relative" }}>
                             <motion.input
                               whileFocus={{
-                                borderBottom: `2px solid ${errors.password ? errorColor : accentColor
-                                  }`,
+                                borderBottom: `2px solid ${
+                                  errors.password ? errorColor : accentColor
+                                }`,
                               }}
                               type={showPassword ? "text" : "password"}
                               name="password"
@@ -884,10 +924,12 @@ function PantallaInicio() {
                                 backgroundColor: "rgb(0, 0, 0)",
                                 color: "white",
                                 paddingLeft: "0px",
-                                WebkitBoxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
+                                WebkitBoxShadow:
+                                  "0 0 0 1000px rgba(0, 0, 0) inset",
                                 WebkitTextFillColor: "rgba(255, 255, 255, 0.7)",
                                 boxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
-                                transition: "background-color 5000s ease-in-out 0s"
+                                transition:
+                                  "background-color 5000s ease-in-out 0s",
                               }}
                             />
                             <button
@@ -993,10 +1035,11 @@ function PantallaInicio() {
                           </label>
                           <motion.input
                             whileFocus={{
-                              borderBottom: `2px solid ${errors.passwordConfirm
-                                ? errorColor
-                                : accentColor
-                                }`,
+                              borderBottom: `2px solid ${
+                                errors.passwordConfirm
+                                  ? errorColor
+                                  : accentColor
+                              }`,
                             }}
                             type={showPassword ? "text" : "password"}
                             name="passwordConfirm"
@@ -1011,10 +1054,12 @@ function PantallaInicio() {
                               backgroundColor: "rgb(0, 0, 0)",
                               color: "white",
                               paddingLeft: "0px",
-                              WebkitBoxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
+                              WebkitBoxShadow:
+                                "0 0 0 1000px rgba(0, 0, 0) inset",
                               WebkitTextFillColor: "rgba(255, 255, 255, 0.7)",
                               boxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
-                              transition: "background-color 5000s ease-in-out 0s"
+                              transition:
+                                "background-color 5000s ease-in-out 0s",
                             }}
                           />
                           {errors.passwordConfirm && (
@@ -1048,8 +1093,9 @@ function PantallaInicio() {
                         </label>
                         <motion.input
                           whileFocus={{
-                            borderBottom: `2px solid ${errors.name ? errorColor : accentColor
-                              }`,
+                            borderBottom: `2px solid ${
+                              errors.name ? errorColor : accentColor
+                            }`,
                           }}
                           type="text"
                           name="name"
@@ -1067,7 +1113,7 @@ function PantallaInicio() {
                             WebkitBoxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
                             WebkitTextFillColor: "rgba(255, 255, 255, 0.7)",
                             boxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
-                            transition: "background-color 5000s ease-in-out 0s"
+                            transition: "background-color 5000s ease-in-out 0s",
                           }}
                         />
                         {errors.name && (
@@ -1097,7 +1143,8 @@ function PantallaInicio() {
                         </label>
                         <motion.input
                           whileFocus={{
-                            borderBottom: `2px solid ${errors.email ? errorColor : accentColor}`,
+                            borderBottom: `2px solid
+                              ${errors.email ? errorColor : accentColor}`,
                           }}
                           type="email"
                           name="email"
@@ -1146,8 +1193,9 @@ function PantallaInicio() {
                         <div style={{ position: "relative" }}>
                           <motion.input
                             whileFocus={{
-                              borderBottom: `2px solid ${errors.password ? errorColor : accentColor
-                                }`,
+                              borderBottom: `2px solid ${
+                                errors.password ? errorColor : accentColor
+                              }`,
                             }}
                             type={showPassword ? "text" : "password"}
                             name="password"
@@ -1162,10 +1210,12 @@ function PantallaInicio() {
                               backgroundColor: "rgb(0, 0, 0)",
                               color: "white",
                               paddingLeft: "0px",
-                              WebkitBoxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
+                              WebkitBoxShadow:
+                                "0 0 0 1000px rgba(0, 0, 0) inset",
                               WebkitTextFillColor: "rgba(255, 255, 255, 0.7)",
                               boxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
-                              transition: "background-color 5000s ease-in-out 0s"
+                              transition:
+                                "background-color 5000s ease-in-out 0s",
                             }}
                           />
                           <button
@@ -1305,10 +1355,11 @@ function PantallaInicio() {
                           </label>
                           <motion.input
                             whileFocus={{
-                              borderBottom: `2px solid ${errors.verificationCode
-                                ? errorColor
-                                : accentColor
-                                }`,
+                              borderBottom: `2px solid ${
+                                errors.verificationCode
+                                  ? errorColor
+                                  : accentColor
+                              }`,
                             }}
                             type="text"
                             name="verificationCode"
@@ -1323,10 +1374,12 @@ function PantallaInicio() {
                               backgroundColor: "rgb(0, 0, 0)",
                               color: "white",
                               paddingLeft: "0px",
-                              WebkitBoxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
+                              WebkitBoxShadow:
+                                "0 0 0 1000px rgba(0, 0, 0) inset",
                               WebkitTextFillColor: "rgba(255, 255, 255, 0.7)",
                               boxShadow: "0 0 0 1000px rgba(0, 0, 0) inset",
-                              transition: "background-color 5000s ease-in-out 0s"
+                              transition:
+                                "background-color 5000s ease-in-out 0s",
                             }}
                           />
                           {errors.verificationCode && (
@@ -1384,23 +1437,23 @@ function PantallaInicio() {
                       borderRadius: "10px",
                       border: "none",
                       fontSize: "1.1rem",
-                      cursor: isFormValid() ? "pointer" : "not-allowed"
+                      cursor: isFormValid() ? "pointer" : "not-allowed",
                     }}
                     disabled={!isFormValid() || isSendingEmail}
                   >
                     {isSendingEmail
                       ? "Enviando..."
                       : forgotPassword
-                        ? passwordResetStep === 1
-                          ? "Enviar código"
-                          : passwordResetStep === 2
-                            ? "Verificar código"
-                            : "Cambiar contraseña"
-                        : isLogin
-                          ? "Entrar"
-                          : verificationSent
-                            ? "Verificar"
-                            : "Registrarse"}
+                      ? passwordResetStep === 1
+                        ? "Enviar código"
+                        : passwordResetStep === 2
+                        ? "Verificar código"
+                        : "Cambiar contraseña"
+                      : isLogin
+                      ? "Entrar"
+                      : verificationSent
+                      ? "Verificar"
+                      : "Registrarse"}
                   </motion.button>
                 </motion.div>
               </motion.form>

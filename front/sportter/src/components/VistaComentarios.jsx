@@ -986,7 +986,7 @@ const handleLikeComentario = async (comentario) => {
                   marginRight: "0.75rem",
                   flexShrink: 0,
                 }}
-              >
+              > 
                 <svg
                   width="24"
                   height="24"
@@ -1395,37 +1395,6 @@ const handleLikeComentario = async (comentario) => {
                         maxWidth: "100%",
                       }}
                     >
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        style={{
-                          background: "transparent",
-                          border: "none",
-                          color: comentario.isLiked
-                            ? accentColor
-                            : lightTextColor,
-                          cursor: "pointer",
-                          padding: "0.5rem",
-                          display: "flex",
-                          alignItems: "center",
-                        }}
-                        //onClick={() => handleLikeComentario(comentario)}// NO FUNCIONA LA FUNCION CORRESPONDIENTE
-                      >
-                        <svg
-                          width="17"
-                          height="17"
-                          viewBox="0 0 256 256"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                          style={{ marginRight: "0.25rem" }}
-                        >
-                          <path
-                            fill="currentColor"
-                            d="M240 102c0 70-103.79 126.66-108.21 129a8 8 0 0 1-7.58 0C119.79 228.66 16 172 16 102a62.07 62.07 0 0 1 62-62c20.65 0 38.73 8.88 50 23.89C139.27 48.88 157.35 40 178 40a62.07 62.07 0 0 1 62 62"
-                          ></path>
-                        </svg>
-                        <span>{comentario.likes}</span>
-                      </motion.button>
                     </div>
                   </div>
                 </motion.div>

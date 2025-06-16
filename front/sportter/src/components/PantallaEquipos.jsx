@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import { Tooltip as ReactTooltip } from 'react-tooltip';
 import 'react-tooltip/dist/react-tooltip.css';
 import { getUserTeams, getAllTeams, createTeam, getUsers } from '../services/api';
-import axios from "axios";
 
 function PantallaEquipos() {
     const [activeTab, setActiveTab] = useState("paraTi");

@@ -36,8 +36,8 @@ public class Usuario {
     @JsonProperty("contrasena")
     @Column(name = "contrasena") // Añadida anotación @Column
     private String contrasena;
+    
    
-
     // Getters y Setters
     public Long getId() {
         return id;
@@ -71,6 +71,7 @@ public class Usuario {
     public void setContrasena(String contrasena) {
         this.contrasena = contrasena;
     }
+   
 
 	public Object getUsername() {
 		// TODO Auto-generated method stub

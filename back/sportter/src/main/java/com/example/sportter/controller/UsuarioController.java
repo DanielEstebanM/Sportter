@@ -65,9 +65,10 @@ public class UsuarioController {
 
 	@PostMapping("/registro")
 	public ResponseEntity<?> registrarUsuario(@RequestBody Usuario usuario) {
+		
 	    try {
 	        if (usuarioRepository.existsByCorreoElectronico(usuario.getCorreoElectronico())) {
-	            return ResponseEntity.badRequest().body("El correo electrónico ya está en uso");
+	            return ResponseEntity.badRequest().body(Map.of("message", "Este correo electrónico ya está registrado", "status", "error"));
 	        }
 
 	        // Hashear la contraseña antes de guardar
@@ -80,14 +81,15 @@ public class UsuarioController {
 	    }
 	}
 
-	// Verificar si el email existe
+	// Verificar si el email existe para cambiar contraseña
 	@PostMapping("/existe-email")
 	public ResponseEntity<?> verificarEmail(@RequestBody Map<String, String> request) {
 		String email = request.get("email");
 		boolean existe = usuarioRepository.existsByCorreoElectronico(email);
 
 		if (existe) {
-			return ResponseEntity.ok().build();
+			return ResponseEntity.status(HttpStatus.NOT_FOUND)
+					.body(Map.of("message", "Este correo ya esta vinculado a una cuenta"));
 		} else {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND)
 					.body(Map.of("message", "Este correo no está vinculado a ninguna cuenta"));
@@ -141,6 +143,26 @@ public class UsuarioController {
         usuarios.forEach(u -> u.setContrasena(null));
 
         return ResponseEntity.ok(usuarios);
+    }
+    
+    
+    @PostMapping("/verificar-email")
+    public ResponseEntity<?> verificarEmailRegistro(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        boolean existe = usuarioRepository.existsByCorreoElectronico(email);
+        
+        if (existe) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of(
+                        "message", "Este correo ya está registrado",
+                        "status", "error"
+                    ));
+        } else {
+            return ResponseEntity.ok(Map.of(
+                "message", "Correo disponible",
+                "status", "success"
+            ));
+        }
     }
   
 }
