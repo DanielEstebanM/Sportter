@@ -18,10 +18,16 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.sportter.dto.PublicacionDTO;
+import com.example.sportter.model.CategoriaDeporte;
 import com.example.sportter.model.Publicacion;
 import com.example.sportter.model.Usuario;
+import com.example.sportter.repository.CategoriaDeporteRepository;
 import com.example.sportter.repository.PublicacionRepository;
 import com.example.sportter.repository.UsuarioRepository;
+
+import org.springframework.web.multipart.MultipartFile;
+import java.util.Base64;
+import org.springframework.http.MediaType;
 
 @RestController
 @RequestMapping("/api/publicaciones")
@@ -32,6 +38,9 @@ public class PublicacionController {
 	
 	@Autowired
 	private UsuarioRepository usuarioRepository;
+	
+	@Autowired
+	private CategoriaDeporteRepository categoriaDeporteRepository;
 
 	@GetMapping
 	public ResponseEntity<?> getAllPublications() {
@@ -43,8 +52,13 @@ public class PublicacionController {
 			publicaciones.forEach(p -> {
 				System.out.println("Publicación ID: " + p.getId());
 				System.out.println("Contenido: " + p.getContenido());
+				System.out.println("Tiene imagen: " + (p.getImagen() != null));
+				System.out.println("Longitud imagen para post " + p.getId() + ": " 
+					    + (p.getImagen() != null ? p.getImagen().length() : "null"));
 				if (p.getUsuario() != null) {
 					System.out.println("Usuario: " + p.getUsuario().getNombreUsuario());
+					System.out.println("Imagen perfil: " + (p.getUsuario().getImagen_perfil() != null ? "Existe imagen perfil" : "No existe imagen perfil"));
+					System.out.println("Id usuario de la publicacion : " + p.getUsuarioId());
 				} else {
 					System.out.println("Usuario: NULL");
 				}
@@ -166,28 +180,63 @@ public class PublicacionController {
 		}
 	}
 	
-	@PostMapping("/crearPubli")  // Cambiado para que coincida con el frontend
-	public ResponseEntity<Publicacion> crearPublicacion(@RequestBody Publicacion publicacion) {
+	@PostMapping(value = "/crearPubli", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	public ResponseEntity<Publicacion> crearPublicacion(
+	    @RequestParam String contenido,
+	    @RequestParam Long categoriaDeporteId,
+	    @RequestParam Long usuarioId,
+	    @RequestParam(required = false) MultipartFile imagen) {
+	    
 	    try {
+	        Publicacion publicacion = new Publicacion();
+	        publicacion.setContenido(contenido);
+	        
+	        // Configurar fecha actual
 	        publicacion.setFechaHora(LocalDateTime.now());
+	        
+	        // Inicializar contadores
 	        publicacion.setLikes(0L);
 	        publicacion.setComentarios(0L);
 	        publicacion.setCompartidos(0L);
 	        
-	        // Asegúrate de que el usuario existe
-	        if (publicacion.getUsuario() != null && publicacion.getUsuario().getId() != null) {
-	            Optional<Usuario> usuario = usuarioRepository.findById(publicacion.getUsuario().getId());
-	            if (usuario.isPresent()) {
-	                publicacion.setUsuario(usuario.get());
-	            } else {
-	                return ResponseEntity.badRequest().body(null);
+	        // Buscar y asignar usuario
+	        Usuario usuario = usuarioRepository.findById(usuarioId)
+	            .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + usuarioId));
+	        publicacion.setUsuario(usuario);
+	        
+	        // Buscar y asignar categoría usando tu repositorio
+	        CategoriaDeporte categoria = categoriaDeporteRepository.findById(categoriaDeporteId)
+	            .orElseThrow(() -> new RuntimeException("Categoría no encontrada con ID: " + categoriaDeporteId));
+	        publicacion.setCategoriaDeporte(categoria);
+	        
+	        // Procesar imagen si existe
+	        if (imagen != null && !imagen.isEmpty()) {
+	            try {
+	                // Validar tipo de imagen
+	                String contentType = imagen.getContentType();
+	                if (contentType == null || !contentType.startsWith("image/")) {
+	                    return ResponseEntity.badRequest().body(null);
+	                }
+	                
+	                // Convertir a Base64
+	                String imagenBase64 = Base64.getEncoder().encodeToString(imagen.getBytes());
+	                String tipoImagen = contentType.split("/")[1];
+	                publicacion.setImagen("data:image/" + tipoImagen + ";base64," + imagenBase64);
+	            } catch (Exception e) {
+	                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+	                    .body(null);
 	            }
 	        }
 	        
+	        // Guardar y devolver la publicación
 	        Publicacion nuevaPublicacion = publicacionRepository.save(publicacion);
 	        return ResponseEntity.ok(nuevaPublicacion);
+	        
+	    } catch (RuntimeException e) {
+	        return ResponseEntity.badRequest().body(null);
 	    } catch (Exception e) {
-	        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+	        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+	            .body(null);
 	    }
 	}
 

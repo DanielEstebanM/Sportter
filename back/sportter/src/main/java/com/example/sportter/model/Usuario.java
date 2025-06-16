@@ -37,7 +37,13 @@ public class Usuario {
     @Column(name = "contrasena") // Añadida anotación @Column
     private String contrasena;
     
-   
+    @JsonProperty("bio")
+    @Column(name = "bio", length = 500)
+    private String bio;
+    
+    @Column(name = "imagen_perfil", columnDefinition = "LONGTEXT")
+    private String imagen_perfil; 
+
     // Getters y Setters
     public Long getId() {
         return id;
@@ -50,7 +56,6 @@ public class Usuario {
     public String getNombreUsuario() {
         return nombreUsuario;
     }
-    
     
     public void setNombreUsuario(String nombreUsuario) {
         this.nombreUsuario = nombreUsuario;
@@ -73,9 +78,34 @@ public class Usuario {
     }
    
 
-	public Object getUsername() {
-		// TODO Auto-generated method stub
-		return null;
+	public List<Publicacion> getPublicaciones() {
+		return publicaciones;
 	}
+
+	public void setPublicaciones(List<Publicacion> publicaciones) {
+		this.publicaciones = publicaciones;
+	}
+
+	public String getBio() {
+		return bio;
+	}
+
+	public void setBio(String bio) {
+		this.bio = bio;
+	}
+
+	public String getImagen_perfil() {
+		return imagen_perfil;
+	}
+
+	public void setImagen_perfil(String imagen_perfil) {
+		this.imagen_perfil = imagen_perfil;
+	}
+	
+	@JsonProperty("usuarioImagenPerfil")
+	public String getUsuarioImagenPerfil() {
+	    return this.imagen_perfil;
+	}
+
 
 }

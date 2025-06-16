@@ -21,7 +21,7 @@ public class Equipo {
     @Column(name = "descripcion", columnDefinition = "TEXT")
     private String descripcion;
 
-    @Column(name = "imagen_url", length = 2000)
+    @Column(name = "imagen_url", columnDefinition = "LONGTEXT")
     private String imagenUrl;
 
     @ManyToOne(fetch = FetchType.EAGER)

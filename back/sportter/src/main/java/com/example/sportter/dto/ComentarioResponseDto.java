@@ -12,6 +12,7 @@ public class ComentarioResponseDto {
 	    private Long usuarioId;
 	    private String usuarioNombre;
 	    private String usuarioCorreo;
+	    private String usuarioImagenPerfil;
 	    private Long likes;
 	    
 		public Long getId() {
@@ -56,6 +57,13 @@ public class ComentarioResponseDto {
 		public void setUsuarioCorreo(String usuarioCorreo) {
 			this.usuarioCorreo = usuarioCorreo;
 		}
+		public String getUsuarioImagenPerfil() {
+	        return usuarioImagenPerfil;
+	    }
+	    
+	    public void setUsuarioImagenPerfil(String usuarioImagenPerfil) {
+	        this.usuarioImagenPerfil = usuarioImagenPerfil;
+	    }
 		public Long getLikes() {
 			return likes;
 		}

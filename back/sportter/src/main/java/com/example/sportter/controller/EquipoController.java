@@ -23,14 +23,14 @@ public class EquipoController {
     @Autowired
     private EquipoService equipoService;
 
-    @GetMapping("/usuario-con-miembros/{userId}")
+    @GetMapping("/usuario/{userId}")
     public ResponseEntity<List<EquipoConMiembrosDTO>> getEquiposConMiembrosParaUsuario(
             @PathVariable Long userId) {
         List<EquipoConMiembrosDTO> equipos = equipoService.getEquiposConMiembrosParaUsuario(userId);
         return ResponseEntity.ok(equipos);
     }
 
-    @GetMapping("/comunidad-con-miembros/{userId}")
+    @GetMapping("/comunidad/{userId}")
     public ResponseEntity<List<EquipoConMiembrosDTO>> getEquiposComunidadConMiembros(
             @PathVariable Long userId) {
         List<EquipoConMiembrosDTO> equipos = equipoService.getEquiposComunidadConMiembros(userId);

@@ -286,20 +286,368 @@ function PantallaEventos() {
               transition={{ type: "spring", stiffness: 500 }}
               style={{ marginBottom: "0.10rem" }}
             >
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 14 14"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                style={{ marginRight: "0.75rem" }}
-              >
-                <path
-                  fill="none"
-                  stroke="currentColor"
-                  d="M2 11.5h2a.5.5 0 0 0 .5-.5V8a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v3a.5.5 0 0 0 .5.5h2a.5.5 0 0 0 .5-.5V6.5h.389a.496.496 0 0 0 .413-.838L6.422.681a.59.59 0 0 0-.844 0L.698 5.662a.496.496 0 0 0 .413.838H1.5V11a.5.5 0 0 0 .5.5z"
-                ></path>
-              </svg>
+                <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    style={{
+                        width: "50px",
+                        height: "50px",
+                        cursor: "pointer",
+                        marginBottom: "2rem",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        borderRadius: "50%",
+                        backgroundColor: primaryColor,
+                        padding: "10px"
+                    }}
+                    onClick={() => setShowLeftSidebar(!showLeftSidebar)}
+                >
+                    <img
+                        src="https://i.imgur.com/bUwYQP3.png"
+                        alt="Logo"
+                        style={{ width: "100%", height: "100%", objectFit: "contain", filter: "invert()" }}
+                    />
+                </motion.div>
+
+                <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            marginBottom: "1rem",
+                            color: activeTab === "inicio" ? accentColor : textColor,
+                            backgroundColor: "transparent",
+                            border: "none",
+                            fontSize: "1.2rem",
+                            textAlign: "left",
+                            padding: "0.5rem",
+                        }}
+                        onClick={() => {
+                            isMobile && setShowLeftSidebar(false);
+
+                            // Efecto de transición idéntico al de PantallaPrincipal
+                            document.body.style.overflow = "hidden"; // Bloquea el scroll durante la transición
+                            setTimeout(() => {
+                                navigate('/principal', {
+                                    state: { user: userData },
+                                    replace: false
+                                });
+                                document.body.style.overflow = ""; // Restaura el scroll
+                            }, 300);
+                        }}
+                    >
+                        <motion.div
+                            initial={false}
+                            animate={{
+                                rotate: activeTab === "inicio" ? 10 : 0,
+                                scale: activeTab === "inicio" ? 1.1 : 1
+                            }}
+                            transition={{ type: "spring", stiffness: 500 }}
+                            style={{ marginBottom: "0.10rem" }}
+                        >
+                            <svg width="24" height="24" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "0.75rem" }}>
+                                <path
+                                    fill="none"
+                                    stroke="currentColor"
+                                    d="M2 11.5h2a.5.5 0 0 0 .5-.5V8a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v3a.5.5 0 0 0 .5.5h2a.5.5 0 0 0 .5-.5V6.5h.389a.496.496 0 0 0 .413-.838L6.422.681a.59.59 0 0 0-.844 0L.698 5.662a.496.496 0 0 0 .413.838H1.5V11a.5.5 0 0 0 .5.5z"
+                                ></path>
+                            </svg>
+                        </motion.div>
+                        Inicio
+                    </motion.button>
+
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            marginBottom: "1rem",
+                            color: activeTab === "explorar" ? accentColor : textColor,
+                            backgroundColor: "transparent",
+                            border: "none",
+                            fontSize: "1.2rem",
+                            textAlign: "left",
+                            padding: "0.5rem"
+                        }}
+                        onClick={() => {
+                            isMobile && setShowLeftSidebar(false);
+
+                            // Efecto de transición
+                            document.body.style.overflow = "hidden"; // Bloquea el scroll durante la transición
+                            setTimeout(() => {
+                                navigate('/equipos', {
+                                    state: { user: userEmail },
+                                    replace: false
+                                });
+                                document.body.style.overflow = ""; // Restaura el scroll
+                            }, 300);
+                        }}
+                    >
+                        <motion.div
+                            initial={false}
+                            animate={{
+                                rotate: activeTab === "explorar" ? 10 : 0,
+                                scale: activeTab === "explorar" ? 1.1 : 1
+                            }}
+                            transition={{ type: "spring", stiffness: 500 }}
+                            style={{ marginBottom: "0.20rem" }}
+                        >
+                            <svg width="24" height="24" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "0.75rem" }}>
+                                <path
+                                    fill="currentColor"
+                                    d="M14.754 10c.966 0 1.75.784 1.75 1.75v4.749a4.501 4.501 0 0 1-9.002 0V11.75c0-.966.783-1.75 1.75-1.75zm0 1.5H9.252a.25.25 0 0 0-.25.25v4.749a3.001 3.001 0 0 0 6.002 0V11.75a.25.25 0 0 0-.25-.25M3.75 10h3.381a2.74 2.74 0 0 0-.618 1.5H3.75a.25.25 0 0 0-.25.25v3.249a2.5 2.5 0 0 0 3.082 2.433c.085.504.24.985.453 1.432Q6.539 18.999 6 19a4 4 0 0 1-4-4.001V11.75c0-.966.784-1.75 1.75-1.75m13.125 0h3.375c.966 0 1.75.784 1.75 1.75V15a4 4 0 0 1-5.03 3.866c.214-.448.369-.929.455-1.433q.277.066.575.067a2.5 2.5 0 0 0 2.5-2.5v-3.25a.25.25 0 0 0-.25-.25h-2.757a2.74 2.74 0 0 0-.618-1.5M12 3a3 3 0 1 1 0 6a3 3 0 0 1 0-6m6.5 1a2.5 2.5 0 1 1 0 5a2.5 2.5 0 0 1 0-5m-13 0a2.5 2.5 0 1 1 0 5a2.5 2.5 0 0 1 0-5m6.5.5a1.5 1.5 0 1 0 0 3a1.5 1.5 0 0 0 0-3m6.5 1a1 1 0 1 0 0 2a1 1 0 0 0 0-2m-13 0a1 1 0 1 0 0 2a1 1 0 0 0 0-2"
+                                ></path>
+                            </svg>
+                        </motion.div>
+                        Equipos
+                    </motion.button>
+
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            marginBottom: "1rem",
+                            color: activeTab === ("inicio" || "equipos" || "mensajes" || "perfil") ? textColor : accentColor,
+                            backgroundColor: "rgba(255, 112, 67, 0.1)",
+                            borderRadius: "8px",
+                            border: "none",
+                            fontSize: "1.2rem",
+                            textAlign: "left",
+                            padding: "0.5rem"
+                        }}
+                        onClick={() => {
+                            isMobile && setShowLeftSidebar(false);
+                        }}
+                    >
+                        <motion.div
+                            initial={false}
+                            animate={{
+                                rotate: activeTab === "eventos" ? 10 : 0,
+                                scale: activeTab === "eventos" ? 1.1 : 1
+                            }}
+                            transition={{ type: "spring", stiffness: 500 }}
+                            style={{ marginBottom: "0.20rem" }}
+                        >
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "0.75rem" }}>
+                                <path d="M16 10H8c-.55 0-1 .45-1 1s.45 1 1 1h8c.55 0 1-.45 1-1s-.45-1-1-1m3-7h-1V2c0-.55-.45-1-1-1s-1 .45-1 1v1H8V2c0-.55-.45-1-1-1s-1 .45-1 1v1H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m-1 16H6c-.55 0-1-.45-1-1V8h14v10c0 .55-.45 1-1 1m-5-5H8c-.55 0-1 .45-1 1s.45 1 1 1h5c.55 0 1-.45 1-1s-.45-1-1-1" fill={activeTab === "eventos" ? textColor : accentColor} />
+                            </svg>
+                        </motion.div>
+                        Eventos
+                    </motion.button>
+
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            marginBottom: "1rem",
+                            color: activeTab === "mensajes" ? accentColor : textColor,
+                            backgroundColor: "transparent",
+                            border: "none",
+                            fontSize: "1.2rem",
+                            textAlign: "left",
+                            padding: "0.5rem"
+                        }}
+                        onClick={() => {
+                            isMobile && setShowLeftSidebar(false);
+
+                            // Efecto de transición
+                            document.body.style.overflow = "hidden"; // Bloquea el scroll durante la transición
+                            setTimeout(() => {
+                                navigate('/mensajes', {
+                                    state: { user: userEmail },
+                                    replace: false
+                                });
+                                document.body.style.overflow = ""; // Restaura el scroll
+                            }, 300);
+                        }}
+                    >
+                        <motion.div
+                            initial={false}
+                            animate={{
+                                rotate: activeTab === "mensajes" ? 10 : 0,
+                                scale: activeTab === "mensajes" ? 1.1 : 1
+                            }}
+                            transition={{ type: "spring", stiffness: 500 }}
+                            style={{ marginRight: "0.75rem" }}
+                        >
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="2"
+                                    d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zm-8-7H7m10 4H7"
+                                ></path>
+                            </svg>
+                        </motion.div>
+                        Mensajes
+                    </motion.button>
+
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            marginBottom: "1rem",
+                            color: activeTab === "perfil" ? accentColor : textColor,
+                            backgroundColor: "transparent",
+                            border: "none",
+                            fontSize: "1.2rem",
+                            textAlign: "left",
+                            padding: "0.5rem"
+                        }}
+                        onClick={() => {
+                            isMobile && setShowLeftSidebar(false);
+
+                            // Efecto de transición
+                            document.body.style.overflow = "hidden"; // Bloquea el scroll durante la transición
+                            setTimeout(() => {
+                                navigate(`/perfil/${currentUserId}`, {
+                                    state: { user: userEmail },
+                                    replace: false
+                                });
+                                document.body.style.overflow = ""; // Restaura el scroll
+                            }, 300);
+                        }}
+                    >
+                        <motion.div
+                            style={{ marginBottom: "0.20rem" }}
+                        >
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "0.75rem" }}>
+                                <g
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="2"
+                                >
+                                    <path d="M18 20a6 6 0 0 0-12 0"></path>
+                                    <circle cx="12" cy="10" r="4"></circle>
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                </g>
+                            </svg>
+                        </motion.div>
+                        Perfil
+                    </motion.button>
+                </div>
+
+                <div style={{
+                    marginTop: "auto",
+                    marginBottom: "1rem",
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "0.5rem",
+                    borderRadius: "50px",
+                    cursor: "pointer",
+                    ":hover": { backgroundColor: "rgba(255,255,255,0.1)" }
+                }}>
+                    {/* IMAGEN DE USUARIO ABAJO IZQUIERDA */}
+                    <div
+                        style={{
+                            width: "48px",
+                            height: "48px",
+                            borderRadius: "50%",
+                            backgroundColor: !userData?.imagen_perfil ? primaryColor : "transparent",
+                            overflow: "hidden",
+                            marginRight: "0.75rem",
+                            flexShrink: 0,
+                            border: userData?.imagen_perfil ? `1px solid rgb(122, 122, 122)` : "none",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                        }}
+                        >
+                        {userData?.imagen_perfil ? (
+                            <img
+                            src={
+                                userData.imagen_perfil.startsWith("data:image")
+                                ? userData.imagen_perfil
+                                : `http://localhost:8080/${userData.imagen_perfil}`
+                            }
+                            alt={`Avatar de ${userData.nombreUsuario}`}
+                            style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                            }}
+                            onError={(e) => {
+                                console.error("Error cargando imagen de perfil:", e);
+                                e.target.style.display = "none";
+                                e.target.parentNode.style.backgroundColor = primaryColor;
+                            }}
+                            />
+                        ) : (
+                            <svg
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            style={{ margin: "12px" }}
+                            xmlns="http://www.w3.org/2000/svg"
+                            >
+                            <path
+                                d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
+                                fill="white"
+                            />
+                            <path
+                                d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
+                                fill="white"
+                            />
+                            <path
+                                d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
+                                fill="white"
+                            />
+                            </svg>
+                        )}
+                        </div>
+
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>{userName?.charAt(0).toUpperCase() + userName?.slice(1)}</div>
+                        <div
+                            data-tooltip-id="tooltip-email"
+                            data-tooltip-content={userEmail}
+                            style={{
+                                maxWidth: "100px",
+                                overflow: "hidden",
+                                whiteSpace: "nowrap",
+                                textOverflow: "ellipsis",
+                                cursor: "pointer"
+                            }}
+                        >
+                            {userEmail}
+                        </div>
+                        <ReactTooltip id="tooltip-email" place="bottom" style={{ backgroundColor: "rgba(204, 112, 0, 0.27)" }} />
+                    </div>
+                    <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        style={{
+                            background: "transparent",
+                            border: "none",
+                            color: textColor,
+                            cursor: "pointer",
+                            padding: "0.5rem"
+                        }}
+                        onClick={handleLogout}
+                    >
+                        <svg width="25" height="25" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke="currentColor"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="1.5"
+                                d="M13 4h3a2 2 0 0 1 2 2v14M2 20h3m8 0h9m-12-8v.01m3-7.448v16.157a1 1 0 0 1-1.242.97L5 20V5.562a2 2 0 0 1 1.515-1.94l4-1A2 2 0 0 1 13 4.561Z" fill="none" />
+                        </svg>
+                    </motion.button>
+                </div>
             </motion.div>
             Inicio
           </motion.button>

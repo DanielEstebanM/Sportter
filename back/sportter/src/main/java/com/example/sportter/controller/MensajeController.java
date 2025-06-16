@@ -121,6 +121,17 @@ public class MensajeController {
         dto.setLeido(mensaje.isLeido());
         dto.setRemitenteId(mensaje.getRemitente().getId());
         dto.setRemitenteNombre(mensaje.getRemitente().getNombreUsuario());
+        
+        Usuario usuario = mensaje.getRemitente();
+        String imagenPerfil = usuario.getImagen_perfil();
+        System.out.println("DEBUG: Imagen de perfil remitente (sin prefijo): " + imagenPerfil);
+        if (imagenPerfil != null && !imagenPerfil.startsWith("data:image")) {
+            if (imagenPerfil.matches("^[A-Za-z0-9+/=]+$")) {
+                imagenPerfil = "data:image/jpeg;base64," + imagenPerfil;
+                System.out.println("DEBUG: Imagen de perfil remitente (con prefijo): " + imagenPerfil);
+            }
+        }
+        dto.setRemitenteImagenPerfil(imagenPerfil);
         dto.setDestinatarioId(mensaje.getDestinatario().getId());
         dto.setDestinatarioNombre(mensaje.getDestinatario().getNombreUsuario());
         dto.setConversacionId(mensaje.getConversacionId());
