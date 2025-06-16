@@ -438,7 +438,7 @@ export const getPublicacion = async (postId) => {
     const postDate = post.fechaHora ? new Date(post.fechaHora) : new Date();
 
     // Manejo consistente de la fecha (igual que en loadPosts)
-    let postDate;
+  
     if (post.fechaHora) {
       if (typeof post.fechaHora === 'number') {
         postDate = new Date(post.fechaHora * 1000);
