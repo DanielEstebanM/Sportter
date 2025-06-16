@@ -1,12 +1,10 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import emailjs from "@emailjs/browser";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { loginUser } from "../services/api";
 import { actualizarContrasena } from "../services/api";
 import { verificarEmail } from "../services/api";
-import { linearGradient } from "framer-motion/client";
-import fondo from "../assets/jjj2.jpg";
 import { registerUser } from "../services/api";
 
 function PantallaInicio() {
@@ -42,6 +40,8 @@ function PantallaInicio() {
   const [passwordResetSuccess, setPasswordResetSuccess] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [emailError, setEmailError] = useState("");
+  const location = useLocation();
+  const [showPasswordResetFromState, setShowPasswordResetFromState] = useState(false);
 
   // Colores y gradientes
   const primaryGradient = "rgb(255, 77, 0)";
@@ -113,6 +113,17 @@ function PantallaInicio() {
       navigate("/principal", { replace: true });
     }
   }, [navigate]);
+
+  useEffect(() => {
+    if (location.state?.showPasswordReset) {
+      setForgotPassword(true);
+      setPasswordResetStep(1);
+      setFormData(prev => ({
+        ...prev,
+        email: location.state.email || ""
+      }));
+    }
+  }, [location.state]);
 
   const isFormValid = () => {
     if (forgotPassword) {
@@ -375,8 +386,9 @@ function PantallaInicio() {
 
             // Recargar la página después de 3 segundos
             setTimeout(() => {
+              navigate("/", { replace: true });
               window.location.reload(); // Recarga completa de la página
-            }, 3000);
+            }, 2000);
           } catch (error) {
             setErrors((prev) => ({
               ...prev,

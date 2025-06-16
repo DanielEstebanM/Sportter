@@ -4,6 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Tooltip as ReactTooltip } from 'react-tooltip';
 import 'react-tooltip/dist/react-tooltip.css';
 import styled from 'styled-components';
+import axios from "axios";
 import {
     getUsers,
     getUserById,
@@ -68,6 +69,7 @@ function PantallaPerfil() {
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
     const [confirmationAction, setConfirmationAction] = useState(null);
     const [confirmationMessage, setConfirmationMessage] = useState("");
+
     const handleConfirmedAction = async () => {
         if (confirmationAction === 'edit') {
             try {
@@ -104,11 +106,38 @@ function PantallaPerfil() {
                 alert("Error al guardar los cambios: " + (error.message || "Inténtalo de nuevo más tarde"));
             }
         } else if (confirmationAction === 'delete') {
-            // Lógica para eliminar usuario
-            console.log("Eliminar cuenta confirmado");
+            try {
+                const response = await axios.delete(
+                    `http://localhost:8080/api/usuarios/${currentUserId}`,
+                    {
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    }
+                );
+
+                if (response.status === 200) {
+                    // Limpiar datos de usuario y redirigir
+                    localStorage.removeItem("userData");
+                    navigate("/", { replace: true });
+                    alert("Tu cuenta ha sido eliminada correctamente");
+                }
+            } catch (error) {
+                console.error("Error al eliminar cuenta:", error);
+                alert("Error al eliminar la cuenta: " +
+                    (error.response?.data?.message || "Inténtalo de nuevo más tarde"));
+            }
         } else if (confirmationAction === 'changePassword') {
-            // Lógica para cambiar contraseña
-            console.log("Cambiar contraseña confirmado");
+            // Cerrar sesión y redirigir a inicio con estado para mostrar recuperación de contraseña
+            localStorage.removeItem("userData");
+            navigate("/", {
+                state: {
+                    showPasswordReset: true,
+                    email: userEmail,
+                    fromProfile: true
+                },
+                replace: true
+            });
         }
         setShowConfirmationModal(false);
     };
@@ -126,6 +155,8 @@ function PantallaPerfil() {
                 const data = await getUserById(id);
                 console.log("Datos recibidos de la API:", data);
 
+                const equipos = await getUserTeams(id);
+
                 if (!data || data.error) {
                     setProfileExists(false);
                     return;
@@ -142,7 +173,7 @@ function PantallaPerfil() {
                     email: data.email || data.correoElectronico || "",
                     bio: data.bio || "Este usuario no tiene biografía.",
                     imagen: userAvatar,
-                    equipos: data.equipos || []
+                    equipos: equipos
                 });
 
                 setName(data.nombreUsuario || data.nombre || "");
@@ -1112,6 +1143,12 @@ function PantallaPerfil() {
                                                         borderBottom: `1px solid ${borderColor}`,
                                                         borderTop: `2px solid transparent`
                                                     }}
+                                                    onClick={() => {
+                                                        setConfirmationAction('changePassword');
+                                                        setConfirmationMessage("Para cambiar tu contraseña, necesitaremos cerrar tu sesión y redirigirte a la página de recuperación. ¿Deseas continuar?");
+                                                        setShowConfirmationModal(true);
+                                                        setShowSettingsMenu(false);
+                                                    }}
                                                 >
                                                     <svg
                                                         style={{ marginRight: "12px", paddingBottom: "3px" }}
@@ -1317,10 +1354,14 @@ function PantallaPerfil() {
                                     color: lightTextColor,
                                     marginBottom: "1rem"
                                 }}>{userProfile.email}</div>
-                                <p style={{
-                                    marginBottom: "1rem",
-                                    color: textColor
-                                }}>{userProfile.bio}</p>
+                                <div style={{
+                                    textAlign: "justify"
+                                }}>
+                                    <p style={{
+                                        marginBottom: "1rem",
+                                        color: textColor
+                                    }}>{userProfile.bio}</p>
+                                </div>
                             </>
                         )}
                     </div>
@@ -1389,7 +1430,7 @@ function PantallaPerfil() {
                                                 cursor: "pointer"
                                             }}
                                             onClick={() =>
-                                                navigate(`/publicacion/${post.id}`, {
+                                                navigate(`/publicaciones/${post.id}`, {
                                                     state: { user: userData },
                                                 })
                                             }
@@ -1408,7 +1449,7 @@ function PantallaPerfil() {
                                                 }}
                                             >
                                                 <img
-                                                    src={userProfile.imagen.startsWith('data:image') ? userProfile.imagen : `data:image/jpeg;base64,${userProfile.imagen}`}
+                                                    src={post.userImage || "https://i.imgur.com/bUwYQP3.png"}
                                                     alt="Perfil"
                                                     style={{
                                                         width: "100%",
@@ -1505,7 +1546,7 @@ function PantallaPerfil() {
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             // Navegar a la publicación específica
-                                                            navigate(`/publicacion/${post.id}`, {
+                                                            navigate(`/publicaciones/${post.id}`, {
                                                                 state: { user: userData },
                                                             });
                                                         }}
@@ -1626,8 +1667,10 @@ function PantallaPerfil() {
                                             overflow: "hidden",
                                             border: `1px solid ${borderColor}`,
                                             display: "flex",
-                                            flexDirection: "column"
+                                            flexDirection: "column",
+                                            cursor: "pointer"
                                         }}
+                                        onClick={() => navigate(`/equipo/${equipo.id}`)}
                                     >
                                         {/* Imagen del equipo */}
                                         <div style={{
@@ -1635,36 +1678,17 @@ function PantallaPerfil() {
                                             backgroundColor: "rgba(150, 133, 127, 0.1)",
                                             display: "flex",
                                             alignItems: "center",
-                                            justifyContent: "center",
-                                            position: "relative"
+                                            justifyContent: "center"
                                         }}>
                                             <img
-                                                src={team.image}
-                                                alt={team.name}
+                                                src={equipo.imagenUrl || "https://i.imgur.com/vVkxceM.png"}
+                                                alt={equipo.nombre}
                                                 style={{
                                                     width: "100%",
                                                     height: "100%",
                                                     objectFit: "cover"
                                                 }}
                                             />
-                                            <div style={{
-                                                position: "absolute",
-                                                top: "10px",
-                                                right: "10px",
-                                                backgroundColor: "rgba(0, 0, 0, 0.7)",
-                                                color: "white",
-                                                padding: "0.25rem 0.25rem",
-                                                borderRadius: "50px",
-                                                fontSize: "0.8rem",
-                                                display: "flex",
-                                                alignItems: "center"
-                                            }}>
-                                                <SportIcon sport={team.sport} style={{
-                                                    width: "25px",
-                                                    height: "25px",
-                                                    color: "white"
-                                                }} />
-                                            </div>
                                         </div>
 
                                         {/* Información del equipo */}
@@ -1672,37 +1696,64 @@ function PantallaPerfil() {
                                             <h3 style={{
                                                 margin: "0 0 0.5rem 0",
                                                 fontSize: "1.2rem",
-                                                fontWeight: "bold"
+                                                fontWeight: "bold",
+                                                color: textColor
                                             }}>
-                                                {team.nombre}
+                                                {equipo.nombre}
                                             </h3>
+                                            <p style={{
+                                                color: lightTextColor,
+                                                marginBottom: "0.5rem",
+                                                fontSize: "0.9rem"
+                                            }}>
+                                                {equipo.descripcion}
+                                            </p>
+                                            <div style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                marginBottom: "0.5rem"
+                                            }}>
+                                                <SportIcon
+                                                    sport={equipo.deporte.toLowerCase()}
+                                                    style={{
+                                                        width: "20px",
+                                                        height: "20px",
+                                                        marginRight: "0.5rem",
+                                                        color: accentColor
+                                                    }}
+                                                />
+                                                <span style={{ color: lightTextColor, fontSize: "0.9rem" }}>
+                                                    {equipo.deporte}
+                                                </span>
+                                            </div>
                                             <div style={{
                                                 display: "flex",
                                                 alignItems: "center",
                                                 color: lightTextColor,
-                                                marginBottom: "1rem",
                                                 fontSize: "0.9rem"
                                             }}>
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "0.5rem", marginTop: "0.4rem" }}>
-                                                    <path d="M0 7a7 7 0 1 0 14 0A7 7 0 1 0 0 7" fill="currentColor" />
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                                    style={{ marginRight: "0.5rem" }}>
+                                                    <path d="M12 4a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4"
+                                                        fill="currentColor" />
+                                                    <path d="M12 14c-5.33 0-16 2.67-16 8v2h32v-2c0-5.33-10.67-8-16-8"
+                                                        fill="currentColor" />
                                                 </svg>
-                                                {team.members} {team.members === 1 ? "miembro" : "miembros"}
+                                                {equipo.cantidadMiembros} {equipo.cantidadMiembros === 1 ? "miembro" : "miembros"}
                                             </div>
-                                            {team.isMember && (
-                                                <div style={{
-                                                    display: "inline-block",
-                                                    backgroundColor: "rgba(255, 69, 0, 0.1)",
-                                                    color: accentColor,
-                                                    padding: "0.25rem 0.5rem",
-                                                    borderRadius: "4px",
-                                                    fontSize: "0.8rem"
-                                                }}>
-                                                    Eres miembro
-                                                </div>
-                                            )}
                                         </div>
                                     </motion.div>
                                 ))}
+
+                                {userProfile.equipos.length === 0 && (
+                                    <div style={{
+                                        padding: "2rem",
+                                        textAlign: "center",
+                                        color: lightTextColor
+                                    }}>
+                                        {isCurrentUser ? "No perteneces a ningún equipo todavía" : "El usuario no pertenece a ningún equipo"}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </CustomScroll>

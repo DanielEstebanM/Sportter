@@ -141,6 +141,7 @@ export const loadPosts = async () => {
         id: 0,
         nombreUsuario: "Anónimo",
         correoElectronico: "anonimo@example.com",
+        imagen_perfil: "https://i.imgur.com/bUwYQP3.png"
       };
 
       const categoria = post.categoriaDeporte || { nombre: "General" };
@@ -186,6 +187,7 @@ export const loadPosts = async () => {
         userId: usuario.id,
         user: usuario.correoElectronico || "anonimo@example.com",
         name: usuario.nombreUsuario || "Anónimo",
+        userImage: usuario.imagen_perfil,
         content: post.contenido || "",
         time: postDate,
         comments: post.comentarios || 0,
@@ -488,11 +490,6 @@ export const getUserById = async (userId) => {
   }
 };
 
-/**
- * Obtiene las publicaciones de un usuario específico
- * @param {number} userId - ID del usuario
- * @returns {Promise<Array>} Lista de publicaciones
- */
 export const getUserPosts = async (userId) => {
   try {
     const response = await axios.get(`http://localhost:8080/api/publicaciones/usuario/${userId}`);
@@ -501,17 +498,34 @@ export const getUserPosts = async (userId) => {
     const userData = JSON.parse(localStorage.getItem("userData"));
     const userEmail = userData?.correoElectronico;
 
-    return posts.map(post => ({
-      id: post.id,
-      contenido: post.contenido,
-      fechaHora: new Date(post.fechaHora),
-      likes: post.likes || 0,
-      comments: post.comentarios || 0,
-      shares: post.compartidos || 0,
-      categoriaDeporteId: post.categoriaDeporte?.nombre?.toLowerCase() || "general",
-      name: post.usuario?.nombreUsuario || "Anónimo",
-      userUsername: post.usuario?.correoElectronico || "anonimo@example.com",
-      isLiked: post.isLiked || false,
+    // Procesar cada publicación
+    return await Promise.all(posts.map(async (post) => {
+      let isLiked = false;
+      if (userEmail) {
+        try {
+          const likeResponse = await axios.get(
+            `http://localhost:8080/api/publicaciones/${post.id}/check-like`,
+            { params: { userEmail } }
+          );
+          isLiked = likeResponse.data;
+        } catch (error) {
+          console.error("Error verificando like:", error);
+        }
+      }
+
+      return {
+        id: post.id,
+        contenido: post.contenido,
+        fechaHora: new Date(post.fechaHora),
+        likes: post.likes || 0,
+        imagen_perfil: post.imagen_perfil,
+        comentarios: post.comentarios || 0,
+        compartidos: post.compartidos || 0,
+        categoriaDeporteId: post.categoriaDeporte?.nombre?.toLowerCase() || "general",
+        name: post.usuario?.nombreUsuario || "Anónimo",
+        userUsername: post.usuario?.correoElectronico || "anonimo@example.com",
+        isLiked: isLiked
+      };
     }));
   } catch (error) {
     console.error("Error fetching user posts:", error);
@@ -545,108 +559,120 @@ export const getAllPosts = async () => {
 
 // api.js
 export const getUserTeams = async (userId) => {
-    try {
-        const response = await axios.get(
-            `http://localhost:8080/api/equipos/usuario/${userId}`
-        );
-        return response.data.map(team => ({
-            id: team.id,
-            nombre: team.nombre,
-            descripcion: team.descripcion,
-            deporte: team.deporte,
-            imagen: team.imagenUrl || "https://i.imgur.com/vVkxceM.png",
-            cantidadMiembros: team.cantidadMiembros
-        }));
-    } catch (error) {
-        console.error("Error fetching user teams:", error);
-        return [];
-    }
+  try {
+    const response = await axios.get(
+      `http://localhost:8080/api/equipos/usuario/${userId}`
+    );
+    return response.data.map(team => ({
+      id: team.id,
+      nombre: team.nombre,
+      descripcion: team.descripcion,
+      deporte: team.deporte,
+      imagen: team.imagenUrl || "https://i.imgur.com/vVkxceM.png",
+      cantidadMiembros: team.cantidadMiembros
+    }));
+  } catch (error) {
+    console.error("Error fetching user teams:", error);
+    return [];
+  }
 };
 
 export const getAllTeams = async (userId) => {
-    try {
-        const response = await axios.get(
-            `http://localhost:8080/api/equipos/comunidad/${userId}`
-        );
-        return response.data.map(team => ({
-            id: team.id,
-            nombre: team.nombre,
-            descripcion: team.descripcion,
-            deporte: team.deporte,
-            imagen: team.imagenUrl || "https://i.imgur.com/vVkxceM.png",
-            cantidadMiembros: team.cantidadMiembros
-        }));
-    } catch (error) {
-        console.error("Error fetching all teams:", error);
-        return [];
-    }
+  try {
+    const response = await axios.get(
+      `http://localhost:8080/api/equipos/comunidad/${userId}`
+    );
+    return response.data.map(team => ({
+      id: team.id,
+      nombre: team.nombre,
+      descripcion: team.descripcion,
+      deporte: team.deporte,
+      imagen: team.imagenUrl || "https://i.imgur.com/vVkxceM.png",
+      cantidadMiembros: team.cantidadMiembros
+    }));
+  } catch (error) {
+    console.error("Error fetching all teams:", error);
+    return [];
+  }
 };
 
 export const createTeam = async (teamData, creadorId) => {
-    try {
-        const response = await axios.post(
-            `http://localhost:8080/api/equipos?creadorId=${creadorId}`, 
-            teamData, 
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            }
-        );
-        return response.data;
-    } catch (error) {
-        console.error("Error creating team:", error);
-        throw error;
-    }
+  try {
+    const response = await axios.post(
+      `http://localhost:8080/api/equipos?creadorId=${creadorId}`,
+      teamData,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error creating team:", error);
+    throw error;
+  }
 };
 
+// Añadir miembro
 export const addTeamMember = async (teamId, userId) => {
-    try {
-        const response = await axios.post(
-            `http://localhost:8080/api/equipos/${teamId}/miembros?usuarioId=${userId}`,
-            {},
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            }
-        );
-        return response.data;
-    } catch (error) {
-        console.error("Error adding team member:", error);
-        throw error;
-    }
+  try {
+    const response = await axios.post(
+      `http://localhost:8080/api/equipos/${teamId}/miembros?usuarioId=${userId}`,
+      {},
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error adding team member:", error);
+    throw error;
+  }
 };
 
 // Obtener información detallada de un equipo
 export const getTeamDetails = async (teamId) => {
   try {
     const response = await axios.get(`http://localhost:8080/api/equipos/${teamId}`);
-    return response.data;
+    return {
+      ...response.data,
+      sport: response.data.categoriaDeporte.nombre.toLowerCase(),
+      categoriaDeporte: response.data.categoriaDeporte // Incluye toda la info de la categoría
+    };
   } catch (error) {
     console.error("Error fetching team details:", error);
     throw error;
   }
 };
 
-// Actualizar un equipo
+// Actualizar equipo
 export const updateTeam = async (teamId, teamData) => {
   try {
     const response = await axios.put(
       `http://localhost:8080/api/equipos/${teamId}`,
-      teamData
+      teamData,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }
     );
     return response.data;
   } catch (error) {
-    console.error("Error updating team:", error);
+    console.error("Error updating team:", error.response?.data || error.message);
     throw error;
   }
 };
 
-// Eliminar un equipo
+// Eliminar equipo
 export const deleteTeam = async (teamId) => {
   try {
-    const response = await axios.delete(`http://localhost:8080/api/equipos/${teamId}`);
+    const response = await axios.delete(
+      `http://localhost:8080/api/equipos/${teamId}`
+    );
     return response.data;
   } catch (error) {
     console.error("Error deleting team:", error);
@@ -654,7 +680,27 @@ export const deleteTeam = async (teamId) => {
   }
 };
 
-// Eliminar miembro de un equipo
+export const getTeamMembers = async (teamId) => {
+  try {
+    const response = await axios.get(`http://localhost:8080/api/equipos/${teamId}/miembros`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching team members:", error);
+    return [];
+  }
+};
+
+export const getSportsCategories = async () => {
+  try {
+    const response = await axios.get('http://localhost:8080/api/equipos/categorias');
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching sports categories:", error);
+    return [];
+  }
+};
+
+// Expulsar miembro
 export const removeTeamMember = async (teamId, userId) => {
   try {
     const response = await axios.delete(
@@ -663,6 +709,18 @@ export const removeTeamMember = async (teamId, userId) => {
     return response.data;
   } catch (error) {
     console.error("Error removing team member:", error);
+    throw error;
+  }
+};
+
+export const assignNewAdmin = async (teamId, newAdminId) => {
+  try {
+    const response = await axios.put(
+      `http://localhost:8080/api/equipos/${teamId}/admin?nuevoAdminId=${newAdminId}`
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error assigning new admin:", error);
     throw error;
   }
 };

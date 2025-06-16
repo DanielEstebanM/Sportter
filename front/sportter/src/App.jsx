@@ -24,7 +24,8 @@ function App() {
           <Route path="/eventos" element={<ProtectedRoute><PantallaEventos /></ProtectedRoute>} />
           <Route path="/perfil/:id" element={<ProtectedRoute><PantallaPerfil /></ProtectedRoute>} />
           <Route path="/mensajes" element={<ProtectedRoute><PantallaMensajes /></ProtectedRoute>} />
-          <Route path="/infoEquipo" element={<ProtectedRoute><PantallaInfoEquipo /></ProtectedRoute>} />
+          <Route path="/equipo/:id" element={<ProtectedRoute><PantallaInfoEquipo /></ProtectedRoute>} />
+          {/* <Route path="*" element={<NotFound />} /> */}
         </Routes>
       </AnimatedRoutes>
     </Router>

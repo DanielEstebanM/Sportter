@@ -1,8 +1,25 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useNavigate, useLocation } from "react-router-dom";
-import { Tooltip as ReactTooltip } from 'react-tooltip';
+import { useNavigate, useLocation, useParams } from "react-router-dom";
 import 'react-tooltip/dist/react-tooltip.css';
+import { Tooltip as ReactTooltip } from 'react-tooltip';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { ToastContainer } from 'react-toastify';
+import { Slide } from 'react-toastify';
+
+import {
+    getTeamDetails,
+    updateTeam,
+    deleteTeam,
+    removeTeamMember,
+    getUsers,
+    getUserById,
+    addTeamMember,
+    assignNewAdmin,
+    getSportsCategories,
+    mensajeService
+} from '../services/api';
 
 function PantallaInfoEquipo() {
     const [showLeftSidebar, setShowLeftSidebar] = useState(false);
@@ -12,26 +29,16 @@ function PantallaInfoEquipo() {
     const [showCreateEventModal, setShowCreateEventModal] = useState(false);
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
     const [confirmationAction, setConfirmationAction] = useState(null);
-    const [showMemberOptions, setShowMemberOptions] = useState(null);
+    const [showTeamOptions, setShowTeamOptions] = useState(false);
+    const [selectedMemberId, setSelectedMemberId] = useState(null);
     const [searchMemberQuery, setSearchMemberQuery] = useState("");
-    const [availableMembers, setAvailableMembers] = useState([
-        { id: 4, name: "Usuario4", email: "usuario4@example.com" },
-        { id: 5, name: "Usuario5", email: "usuario5@example.com" },
-        { id: 6, name: "Usuario6", email: "usuario6@example.com" },
-        { id: 7, name: "Usuario7", email: "usuario7@example.com" },
-        { id: 8, name: "Usuario8", email: "usuario8@example.com" },
-        { id: 9, name: "Usuario9", email: "usuario9@example.com" },
-        { id: 10, name: "Usuario10", email: "usuario10@example.com" },
-        { id: 11, name: "Usuario11", email: "usuario11@example.com" },
-        { id: 12, name: "Usuario12", email: "usuario12@example.com" },
-    ]);
+    const [availableMembers, setAvailableMembers] = useState([]);
     const [showTeamSearchModal, setShowTeamSearchModal] = useState(false);
-    const [teams, setTeams] = useState([
-        { id: 1, name: "Los Leones", image: "https://i.imgur.com/abc123.jpg" },
-        { id: 2, name: "Águilas FC", image: "https://i.imgur.com/def456.jpg" },
-        { id: 3, name: "Tiburones", image: "https://i.imgur.com/ghi789.jpg" },
-    ]);
+    const [teams, setTeams] = useState([]);
     const [searchTeamQuery, setSearchTeamQuery] = useState("");
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [conversations, setConversations] = useState([]);
 
     // Estados para editar equipo
     const [teamImage, setTeamImage] = useState(null);
@@ -48,35 +55,47 @@ function PantallaInfoEquipo() {
     const [opponentTeam, setOpponentTeam] = useState("");
     const [opponentImage, setOpponentImage] = useState("");
 
-    const location = useLocation();
+    const { id } = useParams();
     const navigate = useNavigate();
-    const teamData = location.state?.team || {
-        id: 1,
-        name: "Los Tigres",
-        sport: "fútbol",
-        members: 15,
-        image: "https://images2.minutemediacdn.com/image/upload/c_crop,w_3531,h_1986,x_0,y_232/c_fill,w_720,ar_16:9,f_auto,q_auto,g_auto/images/GettyImages/mmsport/90min_es_international_web/01j5c0e6nzzxe7vxjnzk.jpg",
-        description: "Equipo de fútbol amateur con sede en Madrid.",
-        membersList: [
-            { id: 1, name: "Usuario1", email: "usuario1@example.com", isAdmin: true },
-            { id: 2, name: "Usuario2", email: "usuario2@example.com", isAdmin: false },
-            { id: 3, name: "Usuario3", email: "usuario3@example.com", isAdmin: false },
-            { id: 4, name: "Usuario4", email: "usuario4@example.com" },
-            { id: 5, name: "Usuario5", email: "usuario5@example.com" },
-            { id: 6, name: "Usuario6", email: "usuario6@example.com" },
-            { id: 7, name: "Usuario7", email: "usuario7@example.com" },
-            { id: 8, name: "Usuario8", email: "usuario8@example.com" },
-            { id: 9, name: "Usuario9", email: "usuario9@example.com" },
-            { id: 10, name: "Usuario10", email: "usuario10@example.com" },
-            { id: 11, name: "Usuario11", email: "usuario11@example.com" },
-            { id: 12, name: "Usuario12", email: "usuario12@example.com" },
-        ],
-        isAdmin: true
+    const [teamData, setTeamData] = useState({
+        id: 0,
+        name: "",
+        sport: "",
+        members: 0,
+        image: "https://i.imgur.com/vVkxceM.png",
+        description: "",
+        membersList: [],
+        isAdmin: false,
+        isMember: false
+    });
+
+    const [formData, setFormData] = useState({
+        name: '',
+        description: '',
+        sport: 'fútbol',
+        image: ''
+    });
+
+    const [imagePreview, setImagePreview] = useState("");
+
+    const capitalizeSport = (sport) => {
+        if (!sport) return 'Deporte';
+        return sport.charAt(0).toUpperCase() + sport.slice(1);
     };
+
+    { capitalizeSport(teamData.sport) }
+
+    { teamData?.sport?.charAt(0)?.toUpperCase() + teamData?.sport?.slice(1) || 'Deporte' }
+
+    const [sportsCategories, setSportsCategories] = useState([]);
 
     const userData = JSON.parse(localStorage.getItem('userData'));
     const userEmail = userData?.correoElectronico;
     const userName = userData?.nombreUsuario;
+    const userId = userData?.id;
+
+    const adminId = teamData.membersList.find(member => member.isAdmin)?.id;
+    const showMessageButton = teamData.membersList.length > 1 && adminId !== userId;
 
     // Colores con tema anaranjado-rojizo
     const primaryColor = "#FF4500";
@@ -158,69 +177,86 @@ function PantallaInfoEquipo() {
         setTeamImagePreview("");
     };
 
-    // Manejar añadir miembros
-    const handleAddMember = (member) => {
-        if (teamData.membersList.length < 30) {
-            const updatedTeam = {
-                ...teamData,
-                membersList: [...teamData.membersList, { ...member, isAdmin: false }],
-                members: teamData.members + 1
-            };
-            navigate('/equipos', { state: { team: updatedTeam }, replace: true });
-            setShowAddMembersModal(false);
+    // Manejar asignar nuevo admin
+    const handleAssignNewAdmin = async (newAdminId) => {
+        try {
+            await assignNewAdmin(id, newAdminId);
+
+            // Actualizar estado local
+            setTeamData(prev => ({
+                ...prev,
+                membersList: prev.membersList.map(member => ({
+                    ...member,
+                    isAdmin: member.id === newAdminId
+                })),
+                isAdmin: false // El usuario actual ya no es admin
+            }));
+
+            return true;
+        } catch (error) {
+            console.error("Error al asignar nuevo admin:", error);
+            return false;
         }
     };
 
-    const handleRemoveMember = (memberId) => {
-        const updatedTeam = {
-            ...teamData,
-            membersList: teamData.membersList.filter(m => m.id !== memberId),
-            members: teamData.members - 1
-        };
-        // Aquí iría la lógica para actualizar el equipo en el estado global o backend
-        navigate('/equipos', { state: { team: updatedTeam } });
-        setShowMemberOptions(null);
-        setShowConfirmationModal(false);
-    };
+    const handleStartConversation = async () => {
 
-    const handleLeaveTeam = () => {
-        if (teamData.isAdmin && teamData.membersList.length > 1) {
-            // Buscar un nuevo admin que no sea el usuario actual
-            const newAdmin = teamData.membersList.find(m => !m.isAdmin && m.email !== userEmail);
-            if (newAdmin) {
-                const updatedTeam = {
-                    ...teamData,
-                    membersList: teamData.membersList
-                        .filter(m => m.email !== userEmail)
-                        .map(m => m.id === newAdmin.id ? { ...m, isAdmin: true } : m),
-                    members: teamData.members - 1
-                };
-                navigate('/equipos', { state: { team: updatedTeam }, replace: true });
-            }
-        } else {
-            if (teamData.members === 1) {
-                // Eliminar equipo si era el último miembro
-                navigate('/equipos', { replace: true });
-            } else {
-                // Solo remover al usuario
-                const updatedTeam = {
-                    ...teamData,
-                    membersList: teamData.membersList.filter(m => m.email !== userEmail),
-                    members: teamData.members - 1
-                };
-                navigate('/equipos', { state: { team: updatedTeam }, replace: true });
-            }
+        // Verificar que no somos el único miembro
+        if (teamData.membersList.length <= 1) {
+            return;
         }
-        setShowConfirmationModal(false);
-    };
 
-    const handleDeleteTeam = () => {
-        const handleDeleteTeam = () => {
-            // Aquí normalmente iría una llamada a la API para eliminar el equipo
-            // Por ahora simulamos la eliminación navegando a la lista de equipos
-            navigate('/equipos', { replace: true });
-            setShowConfirmationModal(false);
-        };;
+        // 1. Obtener el admin del equipo (el creador)
+        const adminId = teamData.membersList.find(member => member.isAdmin)?.id;
+
+        // Verificar que no somos el admin
+        if (adminId === userId) {
+            toast.error("No puedes enviarte mensajes a ti mismo");
+            return;
+        }
+
+        try {
+            // 1. Obtener el admin del equipo (el creador)
+            const adminId = teamData.membersList.find(member => member.isAdmin)?.id;
+
+            if (!adminId) {
+                throw new Error("No se pudo encontrar al administrador del equipo");
+            }
+
+            // 2. Verificar si ya existe una conversación con este usuario
+            const existingConversation = conversations.find(conv =>
+                (conv.usuario1Id === userId && conv.usuario2Id === adminId) ||
+                (conv.usuario1Id === adminId && conv.usuario2Id === userId)
+            );
+
+            if (existingConversation) {
+                // Si ya existe, redirigir a esa conversación
+                navigate('/mensajes', {
+                    state: {
+                        selectedConversationId: existingConversation.id,
+                        user: userData
+                    }
+                });
+                return;
+            }
+
+            // 3. Crear nueva conversación
+            const response = await mensajeService.crearConversacion(userId, adminId);
+            const newConversation = response.data;
+
+            // 4. Redirigir a la pantalla de mensajes con la nueva conversación seleccionada
+            navigate('/mensajes', {
+                state: {
+                    selectedConversationId: newConversation.id,
+                    user: userData
+                }
+            });
+
+        } catch (error) {
+            console.error("Error al iniciar conversación:", error);
+            // Mostrar mensaje de error al usuario
+            toast.error("No se pudo iniciar la conversación. Inténtalo de nuevo.");
+        }
     };
 
     // Manejar creación de evento
@@ -243,19 +279,88 @@ function PantallaInfoEquipo() {
         setShowCreateEventModal(false);
     };
 
-    const handleSaveTeamChanges = () => {
-        const updatedTeam = {
-            ...teamData,
-            name: teamName || teamData.name,
-            sport: teamSport || teamData.sport,
-            description: teamDescription || teamData.description,
-            image: teamImagePreview || teamData.image
+    useEffect(() => {
+        const fetchTeamData = async () => {
+            try {
+                setLoading(true);
+                const data = await getTeamDetails(id);
+
+                // Verificar si el usuario es admin (creador del equipo) o miembro
+                const isAdmin = data.creador && data.creador.id === userId;
+
+                // Verificación robusta de isMember
+                const isMember = data.miembros &&
+                    Array.isArray(data.miembros) &&
+                    data.miembros.some(member =>
+                        member &&
+                        member.usuario &&
+                        member.usuario.id === userId
+                    );
+
+                console.log("Datos del equipo:", data);
+                console.log("isAdmin:", isAdmin, "isMember:", isMember);
+
+                // Obtener lista de miembros con información básica
+                const membersList = data.miembros.map(member => ({
+                    id: member.usuario.id,
+                    name: member.usuario.nombreUsuario,
+                    email: member.usuario.correoElectronico,
+                    isAdmin: member.usuario.id === data.creador.id
+                }));
+
+                setTeamData({
+                    id: data.id,
+                    name: data.nombre,
+                    sport: data.categoriaDeporte.nombre.toLowerCase(),
+                    members: data.miembros.length,
+                    image: data.imagenUrl || "https://i.imgur.com/vVkxceM.png",
+                    description: data.descripcion || "No hay descripción disponible.",
+                    membersList: membersList,
+                    isAdmin: isAdmin,
+                    isMember: isMember
+                });
+
+                // Cargar usuarios disponibles para añadir
+                const allUsers = await getUsers();
+                const availableUsers = allUsers
+                    .filter(user => !membersList.some(member => member.id === user.id))
+                    .map(user => ({
+                        id: user.id,
+                        name: user.nombreUsuario,
+                        email: user.correoElectronico
+                    }));
+
+                setAvailableMembers(availableUsers);
+                setLoading(false);
+            } catch (err) {
+                console.error("Error al cargar datos del equipo:", err);
+                setError("Error al cargar los datos del equipo");
+                setLoading(false);
+            }
         };
 
-        // Actualizar el estado local del equipo
-        navigate('/equipos', { state: { team: updatedTeam }, replace: true });
-        setShowEditModal(false);
-    };
+        fetchTeamData();
+    }, [id]);
+
+    useEffect(() => {
+        const loadSportsCategories = async () => {
+            const categorias = await getSportsCategories();
+            setSportsCategories(categorias);
+        };
+        loadSportsCategories();
+    }, []);
+
+    useEffect(() => {
+        if (teamData) {
+            setFormData({
+                name: teamData.name,
+                description: teamData.description,
+                sport: teamData.sport,
+                image: teamData.image
+            });
+            setImagePreview(teamData.image);
+        }
+    }, [teamData, showEditModal]);
 
     // Detectar si es móvil o tablet
     useEffect(() => {
@@ -271,36 +376,769 @@ function PantallaInfoEquipo() {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Inicializar datos del equipo al cargar
     useEffect(() => {
         if (teamData) {
             setTeamName(teamData.name);
             setTeamSport(teamData.sport);
             setTeamDescription(teamData.description);
             setTeamImagePreview(teamData.image);
+            if (teamData.categoriaDeporte) {
+                setSportsCategories([teamData.categoriaDeporte]);
+            }
         }
     }, [teamData, showEditModal]);
 
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (showMemberOptions && !event.target.closest('.member-options')) {
-                setShowMemberOptions(null);
+    const handleClickOutside = (event) => {
+        if (showTeamOptions &&
+            !event.target.closest('.member-options') &&
+            !event.target.closest('.team-options-menu')) {
+            setShowTeamOptions(null);
+        }
+    };
+
+    const handleSaveTeamChanges = async (updatedData) => {
+        try {
+            // 1. Obtener el ID de la categoría basado en el nombre del deporte
+            const categoria = sportsCategories.find(c =>
+                c.nombre.toLowerCase() === updatedData.sport.toLowerCase()
+            );
+
+            if (!categoria) {
+                throw new Error("Categoría de deporte no encontrada");
+            }
+
+            // 2. Preparar datos para enviar
+            const equipoActualizado = {
+                nombre: updatedData.name,
+                descripcion: updatedData.description,
+                categoriaDeporteId: categoria.id,
+                imagenUrl: updatedData.imagenUrl
+            };
+
+            console.log("Datos a enviar al backend:", equipoActualizado);
+
+            // 3. Llamar a la API
+            const updatedTeam = await updateTeam(id, equipoActualizado);
+
+            // 4. Actualizar el estado local
+            setTeamData(prev => ({
+                ...prev,
+                name: updatedTeam.nombre,
+                description: updatedTeam.descripcion,
+                sport: updatedTeam.categoriaDeporte?.nombre.toLowerCase() || updatedData.sport,
+                image: updatedTeam.imagenUrl || prev.image,
+                categoriaDeporte: updatedTeam.categoriaDeporte
+            }));
+
+            // Mostrar toast de éxito
+            toast(
+                <div style={{ padding: '12px 16px' }}>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        marginBottom: '4px',
+                        fontSize: '14px',
+                        color: accentColor,
+                    }}>
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '8px' }}>
+                            <path d="M20 6L9 17L4 12" stroke="rgb(255, 111, 67)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        <div style={{
+                            fontSize: '18px',
+                            color: 'rgb(255, 111, 67)',
+                            paddingLeft: '28px'
+                        }}>
+                            El equipo se ha actualizado correctamente.
+                        </div>
+                    </div>
+                </div>,
+                {
+                    position: "top-center",
+                    autoClose: 3000,
+                    hideProgressBar: true,
+                    closeButton: false,
+                    style: {
+                        background: "rgba(255, 111, 67, 0.22)",
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                        width: 'auto',
+                        maxWidth: '400px',
+                        margin: '12px auto',
+                        borderLeft: `4px solid ${accentColor}`
+                    }
+                }
+            );
+
+            return true;
+        } catch (error) {
+            console.error("Error al actualizar equipo:", error);
+            toast(
+                <div style={{ padding: '12px 16px' }}>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        marginBottom: '4px',
+                        fontSize: '14px',
+                        color: accentColor,
+                    }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '8px' }}>
+                            <path d="M12 8V12M12 16H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="rgb(255, 111, 67)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        <div style={{
+                            fontSize: '18px',
+                            color: 'rgb(255, 111, 67)',
+                            paddingLeft: '28px'
+                        }}>
+                            No se ha podido actualizar el equipo.
+                        </div>
+                    </div>
+                </div>,
+                {
+                    position: "top-center",
+                    autoClose: 3000,
+                    hideProgressBar: true,
+                    closeButton: false,
+                    style: {
+                        background: "rgba(255, 111, 67, 0.22)",
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                        width: 'auto',
+                        maxWidth: '400px',
+                        margin: '12px auto',
+                        borderLeft: `4px solid ${accentColor}`
+                    }
+                }
+            );
+            return false;
+        }
+    };
+
+    // 2. Función para añadir miembros
+    const handleAddMember = async (userId) => {
+        try {
+            // Verificar si el usuario ya es miembro
+            if (teamData.membersList.some(member => member.id === userId)) {
+                alert("Este usuario ya es miembro del equipo");
+                return false;
+            }
+
+            // Añadir el miembro a través del servicio
+            await addTeamMember(id, userId);
+
+            // Obtener los detalles del nuevo miembro
+            const newMember = await getUserById(userId);
+
+            // Actualizar el estado local
+            setTeamData(prev => ({
+                ...prev,
+                membersList: [...prev.membersList, {
+                    id: newMember.id,
+                    name: newMember.nombreUsuario,
+                    email: newMember.correoElectronico,
+                    isAdmin: false
+                }],
+                members: prev.members + 1
+            }));
+
+            // Actualizar la lista de miembros disponibles
+            setAvailableMembers(prev => prev.filter(user => user.id !== userId));
+
+            return true;
+        } catch (error) {
+            console.error("Error al añadir miembro:", error);
+            alert("Error al añadir miembro. Por favor, inténtalo de nuevo.");
+            return false;
+        }
+    };
+
+    // 3. Función para expulsar un miembro
+    const handleRemoveMember = async (userId) => {
+        try {
+            // Verificar si el usuario a expulsar es el administrador
+            const memberToRemove = teamData.membersList.find(m => m.id === userId);
+            if (memberToRemove?.isAdmin) {
+                alert("No puedes expulsar al administrador del equipo");
+                return false;
+            }
+
+            // Llamar al servicio para eliminar al miembro
+            await removeTeamMember(id, userId);
+
+            // Actualizar el estado local
+            setTeamData(prev => ({
+                ...prev,
+                membersList: prev.membersList.filter(m => m.id !== userId),
+                members: prev.members - 1
+            }));
+
+            // Añadir el usuario a la lista de disponibles
+            const user = await getUserById(userId);
+            setAvailableMembers(prev => [...prev, {
+                id: user.id,
+                name: user.nombreUsuario,
+                email: user.correoElectronico
+            }]);
+
+            return true;
+        } catch (error) {
+            console.error("Error al expulsar miembro:", error);
+            alert("Error al expulsar miembro. Por favor, inténtalo de nuevo.");
+            return false;
+        }
+    };
+
+    // 4. Función para salir del equipo
+    const handleLeaveTeam = async () => {
+        try {
+            // Si el usuario es admin y hay más miembros, asignar nuevo admin
+            if (teamData.isAdmin && teamData.membersList.length > 1) {
+                // Buscar un miembro que no sea el usuario actual
+                const newAdmin = teamData.membersList.find(m => m.id !== userId);
+
+                if (newAdmin) {
+                    // Asignar nuevo admin en el backend
+                    await assignNewAdmin(id, newAdmin.id);
+
+                    // Actualizar estado local
+                    setTeamData(prev => ({
+                        ...prev,
+                        membersList: prev.membersList
+                            .filter(m => m.id !== userId) // Remover al usuario actual
+                            .map(m => m.id === newAdmin.id ? { ...m, isAdmin: true } : m), // Hacer admin al nuevo
+                        members: prev.members - 1,
+                        isAdmin: false
+                    }));
+                }
+            }
+
+            // Si es el último miembro, eliminar el equipo
+            if (teamData.members === 1) {
+                await deleteTeam(id);
+            } else {
+                // Solo remover al usuario
+                await removeTeamMember(id, userId);
+            }
+
+            // Redirigir a la página de equipos
+            navigate('/equipos');
+            setShowConfirmationModal(false);
+        } catch (error) {
+            console.error("Error al salir del equipo:", error);
+            alert("Error al salir del equipo. Por favor, inténtalo de nuevo.");
+        }
+    };
+
+    // 5. Función para eliminar el equipo (solo admin)
+    const handleDeleteTeam = async () => {
+        try {
+            await deleteTeam(id);
+            navigate('/equipos');
+        } catch (error) {
+            console.error("Error al eliminar equipo:", error);
+            alert("Error al eliminar el equipo. Por favor, inténtalo de nuevo.");
+        }
+    };
+
+    const EditTeamModal = ({ team, onSave, onClose, sportsCategories }) => {
+        const [formData, setFormData] = useState({
+            name: team.name,
+            description: team.description,
+            sport: team.sport,
+            image: team.image
+        });
+        const [imagePreview, setImagePreview] = useState(team.image);
+        const [imageFile, setImageFile] = useState(null);
+
+        const handleImageChange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                setImageFile(file);
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setImagePreview(reader.result);
+                };
+                reader.readAsDataURL(file);
             }
         };
 
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
+        const handleRemoveImage = () => {
+            setImageFile(null);
+            setImagePreview("https://i.imgur.com/vVkxceM.png");
         };
-    }, [showMemberOptions]);
+
+        const handleSubmit = async (e) => {
+            e.preventDefault();
+
+            try {
+                // 1. Buscar la categoría seleccionada
+                const selectedCategory = sportsCategories.find(
+                    c => c.nombre.toLowerCase() === formData.sport.toLowerCase()
+                );
+
+                if (!selectedCategory) {
+                    throw new Error("Por favor selecciona una categoría de deporte válida");
+                }
+
+                // 2. Preparar datos para enviar
+                const teamDataToUpdate = {
+                    name: formData.name,
+                    description: formData.description,
+                    sport: formData.sport,
+                    imagenUrl: imagePreview,
+                    categoriaDeporteId: selectedCategory.id
+                };
+
+                console.log("Datos a enviar:", teamDataToUpdate);
+
+                // 3. Llamar a la función onSave con los datos correctos
+                const success = await onSave(teamDataToUpdate);
+
+                if (success) {
+                    onClose();
+                }
+            } catch (error) {
+                console.error("Error al guardar:", error);
+                alert(error.message);
+            }
+        };
+
+        return (
+            <div style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: "rgba(0,0,0,0.7)",
+                backdropFilter: "blur(5px)",
+                zIndex: 100,
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center"
+            }}>
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    style={{
+                        backgroundColor: cardColor,
+                        borderRadius: "16px",
+                        padding: "1.5rem",
+                        width: "90%",
+                        maxWidth: "500px",
+                        border: `1px solid ${borderColor}`,
+                        maxHeight: "90vh",
+                        overflowY: "auto"
+                    }}
+                >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                        <h3 style={{ margin: 0, color: textColor }}>Editar equipo</h3>
+                        <button
+                            onClick={onClose}
+                            style={{
+                                background: "transparent",
+                                border: "none",
+                                color: textColor,
+                                cursor: "pointer",
+                                fontSize: "1.5rem"
+                            }}
+                        >
+                            ×
+                        </button>
+                    </div>
+
+                    <form onSubmit={handleSubmit}>
+                        {/* Imagen del equipo */}
+                        <div style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            marginBottom: "1.5rem"
+                        }}>
+                            <label htmlFor="team-image-upload" style={{ cursor: "pointer" }}>
+                                <div style={{
+                                    width: "120px",
+                                    height: "120px",
+                                    borderRadius: "50%",
+                                    overflow: "hidden",
+                                    border: `3px solid ${primaryColor}`,
+                                    position: "relative",
+                                    marginBottom: "1rem",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center"
+                                }}>
+                                    <img
+                                        src={imagePreview}
+                                        alt="Imagen del equipo"
+                                        style={{
+                                            width: "100%",
+                                            height: "100%",
+                                            objectFit: "cover",
+                                            filter: "blur(3px)",
+                                            position: "absolute",
+                                            top: 0,
+                                            left: 0,
+                                        }}
+                                    />
+                                    <div style={{
+                                        position: "relative",
+                                        color: "white",
+                                        fontSize: "2.3rem",
+                                        paddingBottom: "0.4rem",
+                                        zIndex: 1,
+                                        userSelect: "none",
+                                        pointerEvents: "none",
+                                    }}>
+                                        +
+                                    </div>
+                                </div>
+                            </label>
+                            <input
+                                id="team-image-upload"
+                                type="file"
+                                accept="image/*"
+                                style={{ display: "none" }}
+                                onChange={handleImageChange}
+                            />
+                            <div style={{ display: "flex", gap: "0.5rem" }}>
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    type="button"
+                                    onClick={handleRemoveImage}
+                                    style={{
+                                        background: "transparent",
+                                        color: textColor,
+                                        border: `1px solid ${borderColor}`,
+                                        borderRadius: "4px",
+                                        padding: "0.5rem 1rem",
+                                        cursor: "pointer",
+                                        fontSize: "0.9rem"
+                                    }}
+                                >
+                                    Eliminar imagen
+                                </motion.button>
+                            </div>
+                        </div>
+
+                        {/* Nombre del equipo */}
+                        <div style={{ marginBottom: "1rem" }}>
+                            <label style={{ display: "block", marginBottom: "0.5rem", color: textColor }}>
+                                Nombre del equipo
+                            </label>
+                            <input
+                                type="text"
+                                value={formData.name}
+                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                style={{
+                                    width: "100%",
+                                    padding: "0.75rem",
+                                    borderRadius: "8px",
+                                    border: `1px solid ${borderColor}`,
+                                    backgroundColor: backgroundColor,
+                                    color: textColor,
+                                    outline: "none"
+                                }}
+                                required
+                            />
+                        </div>
+
+                        {/* Descripción */}
+                        <div style={{ marginBottom: "1.5rem" }}>
+                            <label style={{ display: "block", marginBottom: "0.5rem", color: textColor }}>
+                                Descripción
+                            </label>
+                            <textarea
+                                value={formData.description}
+                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                style={{
+                                    width: "100%",
+                                    minHeight: "100px",
+                                    maxHeight: "300px",
+                                    padding: "0.75rem",
+                                    borderRadius: "8px",
+                                    border: `1px solid ${borderColor}`,
+                                    backgroundColor: backgroundColor,
+                                    color: textColor,
+                                    outline: "none",
+                                    resize: "vertical"
+                                }}
+                            />
+                        </div>
+
+                        {/* Botones */}
+                        <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem" }}>
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                type="button"
+                                onClick={onClose}
+                                style={{
+                                    background: "transparent",
+                                    color: textColor,
+                                    borderRadius: "30px",
+                                    border: `1px solid ${borderColor}`,
+                                    padding: "8px 24px",
+                                    cursor: "pointer",
+                                    fontWeight: "bold",
+                                    fontSize: "1rem"
+                                }}
+                            >
+                                Cancelar
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                type="submit"
+                                style={{
+                                    background: primaryColor,
+                                    color: "white",
+                                    borderRadius: "30px",
+                                    border: "none",
+                                    padding: "8px 24px",
+                                    cursor: "pointer",
+                                    fontWeight: "bold",
+                                    fontSize: "1rem"
+                                }}
+                            >
+                                Guardar
+                            </motion.button>
+                        </div>
+                    </form>
+                </motion.div>
+            </div>
+        );
+    };
+
+    const AddMembersModal = ({ availableMembers, onAddMember, onClose }) => {
+        const [searchQuery, setSearchQuery] = useState("");
+        const [selectedUsers, setSelectedUsers] = useState([]);
+
+        const toggleUserSelection = (user) => {
+            if (selectedUsers.some(u => u.id === user.id)) {
+                setSelectedUsers(selectedUsers.filter(u => u.id !== user.id));
+            } else {
+                setSelectedUsers([...selectedUsers, user]);
+            }
+        };
+
+        const handleAddSelected = () => {
+            selectedUsers.forEach(user => onAddMember(user.id));
+            setSelectedUsers([]);
+            onClose();
+        };
+
+        // Filtrar miembros disponibles basados en la búsqueda
+        const filteredMembers = availableMembers.filter(user =>
+            user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            user.email.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+
+        return (
+            <div style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: "rgba(0,0,0,0.7)",
+                backdropFilter: "blur(5px)",
+                zIndex: 100,
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center"
+            }}>
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    style={{
+                        backgroundColor: cardColor,
+                        borderRadius: "16px",
+                        padding: "1.5rem",
+                        width: "90%",
+                        maxWidth: "500px",
+                        border: `1px solid ${borderColor}`,
+                        maxHeight: "90vh",
+                        overflowY: "auto"
+                    }}
+                >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                        <h3 style={{ margin: 0, color: textColor }}>Añadir miembros al equipo</h3>
+                        <button
+                            onClick={onClose}
+                            style={{
+                                background: "transparent",
+                                border: "none",
+                                color: textColor,
+                                cursor: "pointer",
+                                fontSize: "1.5rem"
+                            }}
+                        >
+                            ×
+                        </button>
+                    </div>
+
+                    <div style={{ position: "relative", marginBottom: "1rem" }}>
+                        <input
+                            type="text"
+                            placeholder="Buscar usuarios..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            style={{
+                                width: "100%",
+                                padding: "0.75rem 1rem 0.75rem 2.5rem",
+                                borderRadius: "50px",
+                                border: `1px solid ${borderColor}`,
+                                backgroundColor: backgroundColor,
+                                color: textColor,
+                                outline: "none",
+                                fontSize: "0.9rem"
+                            }}
+                        />
+                        <svg
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            style={{
+                                position: "absolute",
+                                left: "12px",
+                                top: "50%",
+                                transform: "translateY(-50%)",
+                                color: lightTextColor
+                            }}
+                        >
+                            <path d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3C5.91 3 3 5.91 3 9.5C3 13.09 5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5C5 7.01 7.01 5 9.5 5C11.99 5 14 7.01 14 9.5C14 11.99 11.99 14 9.5 14Z" fill="currentColor" />
+                        </svg>
+                    </div>
+
+                    {/* Contenedor con scroll personalizado */}
+                    <div style={{
+                        maxHeight: "300px",
+                        overflowY: "auto",
+                        marginBottom: "1rem",
+                        scrollbarWidth: "thin",
+                        scrollbarColor: `${lightTextColor} ${cardColor}`,
+                        '&::-webkit-scrollbar': {
+                            width: "8px"
+                        },
+                        '&::-webkit-scrollbar-track': {
+                            background: cardColor,
+                            borderRadius: "10px"
+                        },
+                        '&::-webkit-scrollbar-thumb': {
+                            backgroundColor: lightTextColor,
+                            borderRadius: "10px",
+                            border: `2px solid ${cardColor}`
+                        }
+                    }}>
+                        {filteredMembers.length > 0 ? (
+                            filteredMembers.map(user => (
+                                <div
+                                    key={user.id}
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        padding: "0.75rem",
+                                        borderBottom: `1px solid ${borderColor}`,
+                                        cursor: "pointer",
+                                        backgroundColor: selectedUsers.some(u => u.id === user.id) ?
+                                            "rgba(255, 69, 0, 0.1)" : "transparent"
+                                    }}
+                                    onClick={() => toggleUserSelection(user)}
+                                >
+                                    <div style={{
+                                        width: "40px",
+                                        height: "40px",
+                                        borderRadius: "50%",
+                                        backgroundColor: primaryColor,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        color: "white",
+                                        fontWeight: "bold",
+                                        marginRight: "1rem",
+                                        flexShrink: 0
+                                    }}>
+                                        {user.name.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: "500", color: textColor }}>{user.name}</div>
+                                        <div style={{ fontSize: "0.8rem", color: lightTextColor }}>{user.email}</div>
+                                    </div>
+                                    {selectedUsers.some(u => u.id === user.id) && (
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M9 16.17L4.83 12L3.41 13.41L9 19L21 7L19.59 5.59L9 16.17Z" fill={primaryColor} />
+                                        </svg>
+                                    )}
+                                </div>
+                            ))
+                        ) : (
+                            <div style={{
+                                textAlign: "center",
+                                padding: "2rem",
+                                color: lightTextColor,
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                gap: "1rem"
+                            }}>
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" fill={lightTextColor} />
+                                </svg>
+                                <div>
+                                    <p style={{ margin: 0, fontWeight: "500" }}>No se encontraron usuarios</p>
+                                    <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.9rem" }}>Intenta con otro nombre o correo electrónico</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                        <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={handleAddSelected}
+                            disabled={selectedUsers.length === 0}
+                            style={{
+                                background: selectedUsers.length > 0 ? primaryColor : "rgba(255, 69, 0, 0.5)",
+                                color: "white",
+                                borderRadius: "30px",
+                                border: "none",
+                                padding: "8px 24px",
+                                cursor: selectedUsers.length > 0 ? "pointer" : "not-allowed",
+                                fontWeight: "bold",
+                                fontSize: "1rem"
+                            }}
+                        >
+                            Añadir ({selectedUsers.length})
+                        </motion.button>
+                    </div>
+                </motion.div>
+            </div>
+        );
+    };
 
     const handleLogout = () => {
-        // 1. Limpiar datos de autenticación
         localStorage.removeItem("userData");
-
-        // 2. Redirigir al login (con replace para evitar volver atrás)
         navigate("/", { replace: true });
     };
+
+    if (error) {
+        return (
+            <div style={{
+                minHeight: "100vh",
+                backgroundColor: backgroundColor,
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                color: textColor
+            }}>
+                {error}
+            </div>
+        );
+    }
 
     return (
         <div style={{
@@ -502,8 +1340,17 @@ function PantallaInfoEquipo() {
                             padding: "0.5rem"
                         }}
                         onClick={() => {
-                            navigate('/perfil', { state: { user: userEmail } });
                             isMobile && setShowLeftSidebar(false);
+
+                            // Efecto de transición
+                            document.body.style.overflow = "hidden"; // Bloquea el scroll durante la transición
+                            setTimeout(() => {
+                                navigate(`/perfil/${userId}`, {
+                                    state: { user: userEmail },
+                                    replace: false
+                                });
+                                document.body.style.overflow = ""; // Restaura el scroll
+                            }, 300);
                         }}
                     >
                         <motion.div
@@ -600,9 +1447,10 @@ function PantallaInfoEquipo() {
                 marginLeft: isMobile ? "0" : "250px",
                 backgroundColor: backgroundColor,
                 height: "100vh",
-                overflowY: "auto"
+                display: "flex",
+                flexDirection: "column"
             }}>
-                {/* Encabezado */}
+                {/* Encabezado fijo */}
                 <div style={{
                     padding: "0.75rem",
                     borderBottom: `1px solid ${borderColor}`,
@@ -611,27 +1459,36 @@ function PantallaInfoEquipo() {
                     top: 0,
                     zIndex: 20
                 }}>
-                    <div style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center"
-                    }}>
-                        <h1 style={{
-                            fontSize: "1.8rem",
-                            fontWeight: "bold",
-                            margin: "0.5rem 0",
-                            color: primaryColor,
-                            textAlign: isMobile ? "center" : "left",
-                            width: isMobile ? "100%" : "auto"
-                        }}>{teamData.name}</h1>
-                    </div>
+                    <h1 style={{
+                        fontSize: "1.8rem",
+                        fontWeight: "bold",
+                        margin: "0.5rem 0",
+                        color: primaryColor,
+                        textAlign: isMobile ? "center" : "left",
+                        width: isMobile ? "100%" : "auto"
+                    }}>Equipo</h1>
                 </div>
 
-                {/* Contenido del equipo */}
+                {/* Contenido desplazable */}
                 <div style={{
+                    flex: 1,
+                    overflowY: "auto",
+                    scrollbarWidth: "thin",
+                    scrollbarColor: `${lightTextColor} ${backgroundColor}`,
                     padding: "1.5rem",
-                    maxWidth: "1200px",
-                    margin: "0 auto"
+                    margin: "0",
+                    '&::-webkit-scrollbar': {
+                        width: "8px"
+                    },
+                    '&::-webkit-scrollbar-track': {
+                        background: backgroundColor,
+                        borderRadius: "10px"
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                        backgroundColor: lightTextColor,
+                        borderRadius: "10px",
+                        border: `2px solid ${backgroundColor}`
+                    }
                 }}>
                     {/* Sección superior con información del equipo */}
                     <div style={{
@@ -716,7 +1573,8 @@ function PantallaInfoEquipo() {
 
                             {/* Descripción */}
                             <div style={{
-                                marginBottom: "1.5rem"
+                                marginBottom: "1.5rem",
+                                textAlign: "justify"
                             }}>
                                 <p style={{
                                     color: textColor,
@@ -742,7 +1600,7 @@ function PantallaInfoEquipo() {
                                 Miembros
                             </h3>
 
-                            {/* Botones de acción */}
+                            {/* Botones de acción - Solo mostrar Crear Evento si es admin */}
                             <div style={{
                                 display: "flex",
                                 gap: "1rem",
@@ -750,62 +1608,43 @@ function PantallaInfoEquipo() {
                                 marginTop: "-1rem",
                                 marginBottom: "0.5rem"
                             }}>
-                                {/* Botón de Crear Evento */}
-                                <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={() => setShowCreateEventModal(true)}
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "0.5rem",
-                                        backgroundColor: primaryColor,
-                                        color: "white",
-                                        border: "none",
-                                        borderRadius: "30px",
-                                        padding: isMobile ? "0.5rem" : "0 1.5rem",
-                                        cursor: "pointer",
-                                        fontWeight: "500",
-                                        fontSize: "1rem",
-                                        width: isMobile ? "51px" : "auto",
-                                        height: "50px",
-                                        justifyContent: "center"
-                                    }}
-                                >
-                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M21 3H3c-1.11 0-2 .89-2 2v12a2 2 0 0 0 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5a2 2 0 0 0-2-2m0 14H3V5h18zm-5-7v2h-3v3h-2v-3H8v-2h3V7h2v3z" fill="white" />
-                                    </svg>
-                                    {!isMobile && "Crear Evento"}
-                                </motion.button>
-
-                                {/* Botón de Mensajes */}
-                                <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    style={{
-                                        width: "50px",
-                                        height: "50px",
-                                        borderRadius: "50%",
-                                        backgroundColor: cardColor,
-                                        border: `1px solid ${borderColor}`,
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        cursor: "pointer"
-                                    }}
-                                >
-                                    <svg width="25" height="25" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path fillRule="evenodd"
-                                            d="M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-6.616l-2.88 2.592C8.537 20.461 7 19.776 7 18.477V17H5a2 2 0 0 1-2-2zm4 2a1 1 0 0 0 0 2h5a1 1 0 1 0 0-2zm8 0a1 1 0 1 0 0 2h2a1 1 0 1 0 0-2zm-8 3a1 1 0 1 0 0 2h2a1 1 0 1 0 0-2zm5 0a1 1 0 1 0 0 2h5a1 1 0 1 0 0-2z"
-                                            clipRule="evenodd" fill={textColor} />
-                                    </svg>
-                                </motion.button>
-
-                                {/* Botón de Ajustes */}
-                                <div style={{ position: "relative" }}>
+                                {/* Botón de Crear Evento (solo para admin) */}
+                                {teamData.isMember && teamData.isAdmin && (
                                     <motion.button
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
+                                        onClick={() => setShowCreateEventModal(true)}
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "0.5rem",
+                                            backgroundColor: primaryColor,
+                                            color: "white",
+                                            border: "none",
+                                            borderRadius: "30px",
+                                            padding: isMobile ? "0.5rem" : "0 1.5rem",
+                                            cursor: "pointer",
+                                            fontWeight: "500",
+                                            fontSize: "1rem",
+                                            width: isMobile ? "51px" : "auto",
+                                            height: "50px",
+                                            justifyContent: "center"
+                                        }}
+                                    >
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M21 3H3c-1.11 0-2 .89-2 2v12a2 2 0 0 0 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5a2 2 0 0 0-2-2m0 14H3V5h18zm-5-7v2h-3v3h-2v-3H8v-2h3V7h2v3z" fill="white" />
+                                        </svg>
+                                        {!isMobile && "Crear Evento"}
+                                    </motion.button>
+                                )}
+
+
+                                {/* Botón de Mensajes (visible para todos) */}
+                                {showMessageButton && (
+                                    <motion.button
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={() => handleStartConversation()}
                                         style={{
                                             width: "50px",
                                             height: "50px",
@@ -817,131 +1656,125 @@ function PantallaInfoEquipo() {
                                             justifyContent: "center",
                                             cursor: "pointer"
                                         }}
-                                        onClick={() => setShowMemberOptions(showMemberOptions ? null : "options")}
                                     >
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <svg width="25" height="25" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                             <path fillRule="evenodd"
-                                                d="M14.279 2.152C13.909 2 13.439 2 12.5 2s-1.408 0-1.779.152a2 2 0 0 0-1.09 1.083c-.094.223-.13.484-.145.863a1.62 1.62 0 0 1-.796 1.353a1.64 1.64 0 0 1-1.579.008c-.338-.178-.583-.276-.825-.308a2.03 2.03 0 0 0-1.49.396c-.318.242-.553.646-1.022 1.453c-.47.807-.704 1.21-.757 1.605c-.07.526.074 1.058.4 1.479c.148.192.357.353.68.555c.477.297.783.803.783 1.361s-.306 1.064-.782 1.36c-.324.203-.533.364-.682.556a2 2 0 0 0-.399 1.479c.053.394.287.798.757 1.605s.704 1.21 1.022 1.453c.424.323.96.465 1.49.396c.242-.032.487-.13.825-.308a1.64 1.64 0 0 1 1.58.008c.486.28.774.795.795 1.353c.015.38.051.64.145.863c.204.49.596.88 1.09 1.083c.37.152.84.152 1.779.152s1.409 0 1.779-.152a2 2 0 0 0 1.09-1.083c.094-.223.13-.483.145-.863c.02-.558.309-1.074.796-1.353a1.64 1.64 0 0 1 1.579-.008c.338.178.583.276.825.308c.53.07 1.066-.073 1.49-.396c.318-.242.553-.646 1.022-1.453c.47-.807.704-1.21.757-1.605a2 2 0 0 0-.4-1.479c-.148-.192-.357-.353-.68-.555c-.477-.297-.783-.803-.783-1.361s.306-1.064.782-1.36c.324-.203.533-.364.682-.556a2 2 0 0 0 .399-1.479c-.053-.394-.287-.798-.757-1.605s-.704-1.21-1.022-1.453a2.03 2.03 0 0 0-1.49-.396c-.242.032-.487.13-.825.308a1.64 1.64 0 0 1-1.58-.008a1.62 1.62 0 0 1-.795-1.353c-.015-.38-.051-.64-.145-.863a2 2 0 0 0-1.09-1.083M12.5 15c1.67 0 3.023-1.343 3.023-3S14.169 9 12.5 9s-3.023 1.343-3.023 3s1.354 3 3.023 3"
+                                                d="M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-6.616l-2.88 2.592C8.537 20.461 7 19.776 7 18.477V17H5a2 2 0 0 1-2-2zm4 2a1 1 0 0 0 0 2h5a1 1 0 1 0 0-2zm8 0a1 1 0 1 0 0 2h2a1 1 0 1 0 0-2zm-8 3a1 1 0 1 0 0 2h2a1 1 0 1 0 0-2zm5 0a1 1 0 1 0 0 2h5a1 1 0 1 0 0-2z"
                                                 clipRule="evenodd" fill={textColor} />
                                         </svg>
                                     </motion.button>
+                                )}
 
-                                    {showMemberOptions === "options" && (
-                                        <motion.div
-                                            initial={{ opacity: 0, y: -30, x: -130 }}
-                                            animate={{ opacity: 1, y: 0, x: -130 }}
+                                {/* Botón de Ajustes (solo para miembros) */}
+                                {teamData.isMember && (
+                                    <div style={{ position: "relative" }}>
+                                        <motion.button
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
                                             style={{
-                                                position: "absolute",
-                                                left: 0,
-                                                top: "60px",
+                                                width: "50px",
+                                                height: "50px",
+                                                borderRadius: "50%",
                                                 backgroundColor: cardColor,
-                                                borderRadius: "8px",
                                                 border: `1px solid ${borderColor}`,
-                                                boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
-                                                zIndex: 30,
-                                                minWidth: "200px",
-                                                overflow: "hidden"
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                cursor: "pointer"
                                             }}
+                                            onClick={() => setShowTeamOptions(!showTeamOptions)}
                                         >
-                                            <motion.button
-                                                whileHover={{ backgroundColor: "rgba(255,255,255,0.1)" }}
-                                                onClick={() => {
-                                                    setShowEditModal(true);
-                                                    setShowMemberOptions(null);
-                                                }}
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path fillRule="evenodd"
+                                                    d="M14.279 2.152C13.909 2 13.439 2 12.5 2s-1.408 0-1.779.152a2 2 0 0 0-1.09 1.083c-.094.223-.13.484-.145.863a1.62 1.62 0 0 1-.796 1.353a1.64 1.64 0 0 1-1.579.008c-.338-.178-.583-.276-.825-.308a2.03 2.03 0 0 0-1.49.396c-.318.242-.553.646-1.022 1.453c-.47.807-.704 1.21-.757 1.605c-.07.526.074 1.058.4 1.479c.148.192.357.353.68.555c.477.297.783.803.783 1.361s-.306 1.064-.782 1.36c-.324.203-.533.364-.682.556a2 2 0 0 0-.399 1.479c.053.394.287.798.757 1.605s.704 1.21 1.022 1.453c.424.323.96.465 1.49.396c.242-.032.487-.13.825-.308a1.64 1.64 0 0 1 1.58.008c.486.28.774.795.795 1.353c.015.38.051.64.145.863c.204.49.596.88 1.09 1.083c.37.152.84.152 1.779.152s1.409 0 1.779-.152a2 2 0 0 0 1.09-1.083c.094-.223.13-.483.145-.863c.02-.558.309-1.074.796-1.353a1.64 1.64 0 0 1 1.579-.008c.338.178.583.276.825.308c.53.07 1.066-.073 1.49-.396c.318-.242.553-.646 1.022-1.453c.47-.807.704-1.21.757-1.605a2 2 0 0 0-.4-1.479c-.148-.192-.357-.353-.68-.555c-.477-.297-.783-.803-.783-1.361s.306-1.064.782-1.36c.324-.203.533-.364.682-.556a2 2 0 0 0 .399-1.479c-.053-.394-.287-.798-.757-1.605s-.704-1.21-1.022-1.453a2.03 2.03 0 0 0-1.49-.396c-.242.032-.487.13-.825.308a1.64 1.64 0 0 1-1.58-.008a1.62 1.62 0 0 1-.795-1.353c-.015-.38-.051-.64-.145-.863a2 2 0 0 0-1.09-1.083M12.5 15c1.67 0 3.023-1.343 3.023-3S14.169 9 12.5 9s-3.023 1.343-3.023 3s1.354 3 3.023 3"
+                                                    clipRule="evenodd" fill={textColor} />
+                                            </svg>
+                                        </motion.button>
+
+                                        {showTeamOptions && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: -30, x: -130 }}
+                                                animate={{ opacity: 1, y: 0, x: -130 }}
                                                 style={{
-                                                    width: "100%",
-                                                    padding: "0.75rem 1rem",
-                                                    textAlign: "left",
-                                                    background: "transparent",
-                                                    border: "none",
-                                                    color: textColor,
-                                                    cursor: "pointer",
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    gap: "0.9rem"
+                                                    position: "absolute",
+                                                    left: 0,
+                                                    top: "60px",
+                                                    backgroundColor: cardColor,
+                                                    borderRadius: "8px",
+                                                    border: `1px solid ${borderColor}`,
+                                                    boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
+                                                    zIndex: 30,
+                                                    minWidth: "200px",
+                                                    overflow: "hidden"
                                                 }}
                                             >
-                                                <svg width="16" height="16" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginLeft: "0.1rem" }}>
-                                                    <path d="m410.3 231l11.3-11.3l-33.9-33.9l-62.1-62.1l-33.9-33.9l-11.3 11.3l-22.6 22.6L58.6 322.9c-10.4 10.4-18 23.3-22.2 37.4L1 480.7c-2.5 8.4-.2 17.5 6.1 23.7s15.3 8.5 23.7 6.1l120.3-35.4c14.1-4.2 27-11.8 37.4-22.2l199.2-199.2zM160 399.4l-9.1 22.7c-4 3.1-8.5 5.4-13.3 6.9l-78.2 23l23-78.1c1.4-4.9 3.8-9.4 6.9-13.3l22.7-9.1v32c0 8.8 7.2 16 16 16h32zM362.7 18.7l-14.4 14.5l-22.6 22.6l-11.4 11.3l33.9 33.9l62.1 62.1l33.9 33.9l11.3-11.3l22.6-22.6l14.5-14.5c25-25 25-65.5 0-90.5l-39.3-39.4c-25-25-65.5-25-90.5 0zm-47.4 168l-144 144c-6.2 6.2-16.4 6.2-22.6 0s-6.2-16.4 0-22.6l144-144c6.2-6.2 16.4-6.2 22.6 0s6.2 16.4 0 22.6" fill={textColor} />
-                                                </svg>
-                                                Editar grupo
-                                            </motion.button>
+                                                {/* Mostrar opciones de edición solo para admin */}
+                                                {teamData.isAdmin && (
+                                                    <motion.button
+                                                        whileHover={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation(); // Esto evita que el evento se propague
+                                                            setShowEditModal(true);
+                                                            setShowTeamOptions(false); // Cerramos el menú de opciones
+                                                        }}
+                                                        style={{
+                                                            width: "100%",
+                                                            padding: "0.75rem 1rem",
+                                                            textAlign: "left",
+                                                            background: "transparent",
+                                                            border: "none",
+                                                            color: textColor,
+                                                            cursor: "pointer",
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            gap: "0.9rem"
+                                                        }}
+                                                    >
+                                                        <svg width="16" height="16" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginLeft: "0.1rem" }}>
+                                                            <path d="m410.3 231l11.3-11.3l-33.9-33.9l-62.1-62.1l-33.9-33.9l-11.3 11.3l-22.6 22.6L58.6 322.9c-10.4 10.4-18 23.3-22.2 37.4L1 480.7c-2.5 8.4-.2 17.5 6.1 23.7s15.3 8.5 23.7 6.1l120.3-35.4c14.1-4.2 27-11.8 37.4-22.2l199.2-199.2zM160 399.4l-9.1 22.7c-4 3.1-8.5 5.4-13.3 6.9l-78.2 23l23-78.1c1.4-4.9 3.8-9.4 6.9-13.3l22.7-9.1v32c0 8.8 7.2 16 16 16h32zM362.7 18.7l-14.4 14.5l-22.6 22.6l-11.4 11.3l33.9 33.9l62.1 62.1l33.9 33.9l11.3-11.3l22.6-22.6l14.5-14.5c25-25 25-65.5 0-90.5l-39.3-39.4c-25-25-65.5-25-90.5 0m-47.4 168l-144 144c-6.2 6.2-16.4 6.2-22.6 0s-6.2-16.4 0-22.6l144-144c6.2-6.2 16.4-6.2 22.6 0s6.2 16.4 0 22.6" fill={textColor} />
+                                                        </svg>
+                                                        Editar equipo
+                                                    </motion.button>
+                                                )}
 
-                                            <motion.button
-                                                whileHover={{ backgroundColor: "rgba(255,255,255,0.1)" }}
-                                                onClick={() => {
-                                                    setShowAddMembersModal(true);
-                                                    setShowMemberOptions(null);
-                                                }}
-                                                style={{
-                                                    width: "100%",
-                                                    padding: "0.75rem 1rem",
-                                                    textAlign: "left",
-                                                    background: "transparent",
-                                                    border: "none",
-                                                    color: textColor,
-                                                    cursor: "pointer",
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    gap: "0.75rem"
-                                                }}
-                                            >
-                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                    <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4s-4 1.79-4 4s1.79 4 4 4m-9-2V8c0-.55-.45-1-1-1s-1 .45-1 1v2H2c-.55 0-1 .45-1 1s.45 1 1 1h2v2c0 .55.45 1 1 1s1-.45 1-1v-2h2c.55 0 1-.45 1-1s-.45-1-1-1zm9 4c-2.67 0-8 1.34-8 4v1c0 .55.45 1 1 1h14c.55 0 1-.45 1-1v-1c0-2.66-5.33-4-8-4" fill={textColor} />
-                                                </svg>
-                                                Añadir miembros
-                                            </motion.button>
+                                                {teamData.isAdmin && (
+                                                    <motion.button
+                                                        whileHover={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setShowAddMembersModal(true);
+                                                            setShowTeamOptions(false);
+                                                        }}
+                                                        style={{
+                                                            width: "100%",
+                                                            padding: "0.75rem 1rem",
+                                                            textAlign: "left",
+                                                            background: "transparent",
+                                                            border: "none",
+                                                            color: textColor,
+                                                            cursor: "pointer",
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            gap: "0.75rem"
+                                                        }}
+                                                    >
+                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                            <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4s-4 1.79-4 4s1.79 4 4 4m-9-2V8c0-.55-.45-1-1-1s-1 .45-1 1v2H2c-.55 0-1 .45-1 1s.45 1 1 1h2v2c0 .55.45 1 1 1s1-.45 1-1v-2h2c.55 0 1-.45 1-1s-.45-1-1-1zm9 4c-2.67 0-8 1.34-8 4v1c0 .55.45 1 1 1h14c.55 0 1-.45 1-1v-1c0-2.66-5.33-4-8-4" fill={textColor} />
+                                                        </svg>
+                                                        Añadir miembros
+                                                    </motion.button>
+                                                )}
 
-                                            <div style={{ borderTop: `1px solid ${borderColor}` }}></div>
+                                                <div style={{ borderTop: `1px solid ${borderColor}` }}></div>
 
-                                            <motion.button
-                                                whileHover={{ backgroundColor: "rgba(255,255,255,0.1)" }}
-                                                onClick={() => {
-                                                    setConfirmationAction("leave");
-                                                    setShowConfirmationModal(true);
-                                                    setShowMemberOptions(null);
-                                                }}
-                                                style={{
-                                                    width: "100%",
-                                                    padding: "0.75rem 1rem",
-                                                    textAlign: "left",
-                                                    background: "transparent",
-                                                    border: "none",
-                                                    color: textColor,
-                                                    cursor: "pointer",
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    gap: "0.75rem"
-                                                }}
-                                            >
-                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginLeft: "0.1rem" }}>
-                                                    <g fill="none">
-                                                        <path
-                                                            fill="currentColor"
-                                                            fillRule="evenodd"
-                                                            d="M10.138 1.815A3 3 0 0 1 14 4.688v14.624a3 3 0 0 1-3.862 2.873l-6-1.8A3 3 0 0 1 2 17.512V6.488a3 3 0 0 1 2.138-2.873zM15 4a1 1 0 0 1 1-1h3a3 3 0 0 1 3 3v1a1 1 0 1 1-2 0V6a1 1 0 0 0-1-1h-3a1 1 0 0 1-1-1m6 12a1 1 0 0 1 1 1v1a3 3 0 0 1-3 3h-3a1 1 0 1 1 0-2h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1M9 11a1 1 0 1 0 0 2h.001a1 1 0 1 0 0-2z"
-                                                            clipRule="evenodd"
-                                                        ></path>
-                                                        <path
-                                                            stroke="currentColor"
-                                                            strokeLinecap="round"
-                                                            strokeLinejoin="round"
-                                                            strokeWidth="2"
-                                                            d="M16 12h5m0 0l-2-2m2 2l-2 2"
-                                                        ></path>
-                                                    </g>
-                                                </svg>
-                                                Salir del grupo
-                                            </motion.button>
-
-                                            {teamData.isAdmin && (
+                                                {/* Opción de salir del grupo (visible para todos) */}
                                                 <motion.button
-                                                    whileHover={{ backgroundColor: "rgba(255, 35, 39, 0.19)" }}
-                                                    onClick={() => {
-                                                        setConfirmationAction("delete");
+                                                    whileHover={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setConfirmationAction("leave");
                                                         setShowConfirmationModal(true);
-                                                        setShowMemberOptions(null);
+                                                        setShowTeamOptions(false);
                                                     }}
                                                     style={{
                                                         width: "100%",
@@ -949,22 +1782,66 @@ function PantallaInfoEquipo() {
                                                         textAlign: "left",
                                                         background: "transparent",
                                                         border: "none",
-                                                        color: "#ff4d4f",
+                                                        color: textColor,
                                                         cursor: "pointer",
                                                         display: "flex",
                                                         alignItems: "center",
-                                                        gap: "0.85rem"
+                                                        gap: "0.75rem"
                                                     }}
                                                 >
-                                                    <svg width="14.5" height="15" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginLeft: "0.15rem" }}>
-                                                        <path d="M10.875 0a1 1 0 0 0-.594.281L5.562 5H3c-.551 0-1 .449-1 1v2c0 .551.449 1 1 1h.25l2.281 13.719v.062c.163.788.469 1.541 1.032 2.157A3.26 3.26 0 0 0 8.938 26h8.124a3.26 3.26 0 0 0 2.375-1.031c.571-.615.883-1.405 1.032-2.219v-.031L22.78 9H23c.551 0 1-.449 1-1V6c0-.551-.449-1-1-1h-1.563l-2.812-3.5a.81.81 0 0 0-.719-.313a.8.8 0 0 0-.343.125L14.688 3.25L11.717.281A1 1 0 0 0 10.876 0zM11 2.438L13.563 5H8.436L11 2.437zm6.844.656L19.375 5h-2.938l-.593-.594zM5.25 9h.688l1.187 1.188l-1.438 1.406zm2.094 0h.937l-.469.469zm2.312 0h1.688l.906.906l-2 2l-1.75-1.75zm3.125 0h.344l-.156.188L12.78 9zm1.781 0h1.688l1.156 1.156l-1.75 1.75l-2-2.031zm3.063 0h.938l-.47.469L17.626 9zm2.344 0h.812l-.437 2.688l-1.532-1.532zm-7.032 1.594l2.032 2l-2.031 2l-2-2l2-2zm-5.124.281l1.718 1.719l-2 2l-1.625-1.625l-.031-.156zm10.28 0l2 2l-1.718 1.75l-2-2.031l1.719-1.719zm-7.843 2.438l2 2l-2 2l-2-2zm5.406 0l2.031 2l-2 2l-2.03-2zm4.188 1.25l-.219 1.312l-.563-.563l.782-.75zm-13.657.093l.657.656l-.469.47zM7.532 16l2 2l-2 2.031l-.562-.562l-.407-2.5zm5.407 0l2.03 2.031l-2 2L10.939 18zm5.437 0l1.063 1.063l-.407 2.28l-.656.657l-2-2zm-8.125 2.719l2 2l-2 2.031l-2-2zm5.406 0l2 2l-2 2l-2-2zm-8.094 2.718l2 2L9 24h-.063c-.391 0-.621-.13-.874-.406a2.65 2.65 0 0 1-.594-1.188v-.031l-.125-.75l.218-.188zm5.407 0l2 2l-.563.563H11.5l-.563-.563l2.032-2zm5.406 0l.281.282l-.125.656c-.002.01.002.02 0 .031c-.095.49-.316.922-.562 1.188c-.252.27-.509.406-.907.406h-.125l-.562-.563z" fill="#ff4d4f" />
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginLeft: "0.1rem" }}>
+                                                        <g fill="none">
+                                                            <path
+                                                                fill="currentColor"
+                                                                fillRule="evenodd"
+                                                                d="M10.138 1.815A3 3 0 0 1 14 4.688v14.624a3 3 0 0 1-3.862 2.873l-6-1.8A3 3 0 0 1 2 17.512V6.488a3 3 0 0 1 2.138-2.873zM15 4a1 1 0 0 1 1-1h3a3 3 0 0 1 3 3v1a1 1 0 1 1-2 0V6a1 1 0 0 0-1-1h-3a1 1 0 0 1-1-1m6 12a1 1 0 0 1 1 1v1a3 3 0 0 1-3 3h-3a1 1 0 1 1 0-2h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1M9 11a1 1 0 1 0 0 2h.001a1 1 0 1 0 0-2z"
+                                                                clipRule="evenodd"
+                                                            ></path>
+                                                            <path
+                                                                stroke="currentColor"
+                                                                strokeLinecap="round"
+                                                                strokeLinejoin="round"
+                                                                strokeWidth="2"
+                                                                d="M16 12h5m0 0l-2-2m2 2l-2 2"
+                                                            ></path>
+                                                        </g>
                                                     </svg>
-                                                    Borrar grupo
+                                                    Salir del equipo
                                                 </motion.button>
-                                            )}
-                                        </motion.div>
-                                    )}
-                                </div>
+
+                                                {/* Opción de borrar grupo (solo para admin) */}
+                                                {teamData.isAdmin && (
+                                                    <motion.button
+                                                        whileHover={{ backgroundColor: "rgba(255, 35, 39, 0.19)" }}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setConfirmationAction("delete");
+                                                            setShowConfirmationModal(true);
+                                                            setShowTeamOptions(false);
+                                                        }}
+                                                        style={{
+                                                            width: "100%",
+                                                            padding: "0.75rem 1rem",
+                                                            textAlign: "left",
+                                                            background: "transparent",
+                                                            border: "none",
+                                                            color: "#ff4d4f",
+                                                            cursor: "pointer",
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            gap: "0.85rem"
+                                                        }}
+                                                    >
+                                                        <svg width="14.5" height="15" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginLeft: "0.15rem" }}>
+                                                            <path d="M10.875 0a1 1 0 0 0-.594.281L5.562 5H3c-.551 0-1 .449-1 1v2c0 .551.449 1 1 1h.25l2.281 13.719v.062c.163.788.469 1.541 1.032 2.157A3.26 3.26 0 0 0 8.938 26h8.124a3.26 3.26 0 0 0 2.375-1.031c.571-.615.883-1.405 1.032-2.219v-.031L22.78 9H23c.551 0 1-.449 1-1V6c0-.551-.449-1-1-1h-1.563l-2.812-3.5a.81.81 0 0 0-.719-.313a.8.8 0 0 0-.343.125L14.688 3.25L11.717.281A1 1 0 0 0 10.876 0zM11 2.438L13.563 5H8.436L11 2.437zm6.844.656L19.375 5h-2.938l-.593-.594zM5.25 9h.688l1.187 1.188l-1.438 1.406zm2.094 0h.937l-.469.469zm2.312 0h1.688l.906.906l-2 2l-1.75-1.75zm3.125 0h.344l-.156.188L12.78 9zm1.781 0h1.688l1.156 1.156l-1.75 1.75l-2-2.031zm3.063 0h.938l-.47.469L17.626 9zm2.344 0h.812l-.437 2.688l-1.532-1.532zm-7.032 1.594l2.032 2l-2.031 2l-2-2l2-2zm-5.124.281l1.718 1.719l-2 2l-1.625-1.625l-.031-.156zm10.28 0l2 2l-1.718 1.75l-2-2.031l1.719-1.719zm-7.843 2.438l2 2l-2 2l-2-2zm5.406 0l2.031 2l-2 2l-2.03-2zm4.188 1.25l-.219 1.312l-.563-.563l.782-.75zm-13.657.093l.657.656l-.469.47zM7.532 16l2 2l-2 2.031l-.562-.562l-.407-2.5zm5.407 0l2.03 2.031l-2 2L10.939 18zm5.437 0l1.063 1.063l-.407 2.28l-.656.657l-2-2zm-8.125 2.719l2 2l-2 2.031l-2-2zm5.406 0l2 2l-2 2l-2-2zm-8.094 2.718l2 2L9 24h-.063c-.391 0-.621-.13-.874-.406a2.65 2.65 0 0 1-.594-1.188v-.031l-.125-.75l.218-.188zm5.407 0l2 2l-.563.563H11.5l-.563-.563l2.032-2zm5.406 0l.281.282l-.125.656c-.002.01.002.02 0 .031c-.095.49-.316.922-.562 1.188c-.252.27-.509.406-.907.406h-.125l-.562-.563z" fill="#ff4d4f" />
+                                                        </svg>
+                                                        Borrar equipo
+                                                    </motion.button>
+                                                )}
+                                            </motion.div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -1006,7 +1883,7 @@ function PantallaInfoEquipo() {
                             </div>
 
                             {/* Lista de miembros */}
-                            {teamData.membersList.map((member, index) => (
+                            {teamData.membersList?.map((member, index) => (
                                 <div key={member.id} style={{
                                     display: "grid",
                                     gridTemplateColumns: isMobile ? "1fr auto" : "50px 1fr 1fr auto",
@@ -1062,7 +1939,7 @@ function PantallaInfoEquipo() {
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    setShowMemberOptions(showMemberOptions === member.id ? null : member.id);
+                                                    setSelectedMemberId(selectedMemberId === member.id ? null : member.id);
                                                 }}
                                                 style={{
                                                     background: "transparent",
@@ -1081,7 +1958,7 @@ function PantallaInfoEquipo() {
                                                 </svg>
                                             </button>
 
-                                            {showMemberOptions === member.id && (
+                                            {selectedMemberId === member.id && (
                                                 <motion.div
                                                     initial={{ opacity: 0, y: -10 }}
                                                     animate={{ opacity: 1, y: 0 }}
@@ -1099,30 +1976,31 @@ function PantallaInfoEquipo() {
                                                         overflow: "hidden"
                                                     }}
                                                 >
-                                                    <button
-                                                        onClick={() => {
-                                                            setConfirmationAction("remove");
-                                                            setShowConfirmationModal(true);
-                                                            setShowMemberOptions(null);
-                                                        }}
-                                                        style={{
-                                                            width: "100%",
-                                                            padding: "0.75rem 1rem",
-                                                            textAlign: "left",
-                                                            background: "transparent",
-                                                            border: "none",
-                                                            color: "#ff4d4f",
-                                                            cursor: "pointer",
-                                                            display: "flex",
-                                                            alignItems: "center",
-                                                            gap: "0.75rem"
-                                                        }}
-                                                    >
-                                                        <svg width="14.5" height="15" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                            <path d="M10.875 0a1 1 0 0 0-.594.281L5.562 5H3c-.551 0-1 .449-1 1v2c0 .551.449 1 1 1h.25l2.281 13.719v.062c.163.788.469 1.541 1.032 2.157A3.26 3.26 0 0 0 8.938 26h8.124a3.26 3.26 0 0 0 2.375-1.031c.571-.615.883-1.405 1.032-2.219v-.031L22.78 9H23c.551 0 1-.449 1-1V6c0-.551-.449-1-1-1h-1.563l-2.812-3.5a.81.81 0 0 0-.719-.313a.8.8 0 0 0-.343.125L14.688 3.25L11.717.281A1 1 0 0 0 10.876 0zM11 2.438L13.563 5H8.436L11 2.437zm6.844.656L19.375 5h-2.938l-.593-.594zM5.25 9h.688l1.187 1.188l-1.438 1.406zm2.094 0h.937l-.469.469zm2.312 0h1.688l.906.906l-2 2l-1.75-1.75zm3.125 0h.344l-.156.188L12.78 9zm1.781 0h1.688l1.156 1.156l-1.75 1.75l-2-2.031zm3.063 0h.938l-.47.469L17.626 9zm2.344 0h.812l-.437 2.688l-1.532-1.532zm-7.032 1.594l2.032 2l-2.031 2l-2-2l2-2zm-5.124.281l1.718 1.719l-2 2l-1.625-1.625l-.031-.156zm10.28 0l2 2l-1.718 1.75l-2-2.031l1.719-1.719zm-7.843 2.438l2 2l-2 2l-2-2zm5.406 0l2.031 2l-2 2l-2.03-2zm4.188 1.25l-.219 1.312l-.563-.563l.782-.75zm-13.657.093l.657.656l-.469.47zM7.532 16l2 2l-2 2.031l-.562-.562l-.407-2.5zm5.407 0l2.03 2.031l-2 2L10.939 18zm5.437 0l1.063 1.063l-.407 2.28l-.656.657l-2-2zm-8.125 2.719l2 2l-2 2.031l-2-2zm5.406 0l2 2l-2 2l-2-2zm-8.094 2.718l2 2L9 24h-.063c-.391 0-.621-.13-.874-.406a2.65 2.65 0 0 1-.594-1.188v-.031l-.125-.75l.218-.188zm5.407 0l2 2l-.563.563H11.5l-.563-.563l2.032-2zm5.406 0l.281.282l-.125.656c-.002.01.002.02 0 .031c-.095.49-.316.922-.562 1.188c-.252.27-.509.406-.907.406h-.125l-.562-.563z" fill="#ff4d4f" />
-                                                        </svg>
-                                                        Expulsar
-                                                    </button>
+                                                    {(teamData.isAdmin && !member.isAdmin) && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setConfirmationAction("remove");
+                                                                setShowConfirmationModal(true);
+                                                            }}
+                                                            style={{
+                                                                width: "100%",
+                                                                padding: "0.75rem 1rem",
+                                                                textAlign: "left",
+                                                                background: "transparent",
+                                                                border: "none",
+                                                                color: "#ff4d4f",
+                                                                cursor: "pointer",
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                gap: "0.75rem"
+                                                            }}
+                                                        >
+                                                            <svg width="14.5" height="15" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                                <path d="M10.875 0a1 1 0 0 0-.594.281L5.562 5H3c-.551 0-1 .449-1 1v2c0 .551.449 1 1 1h.25l2.281 13.719v.062c.163.788.469 1.541 1.032 2.157A3.26 3.26 0 0 0 8.938 26h8.124a3.26 3.26 0 0 0 2.375-1.031c.571-.615.883-1.405 1.032-2.219v-.031L22.78 9H23c.551 0 1-.449 1-1V6c0-.551-.449-1-1-1h-1.563l-2.812-3.5a.81.81 0 0 0-.719-.313a.8.8 0 0 0-.343.125L14.688 3.25L11.717.281A1 1 0 0 0 10.876 0zM11 2.438L13.563 5H8.436L11 2.437zm6.844.656L19.375 5h-2.938l-.593-.594zM5.25 9h.688l1.187 1.188l-1.438 1.406zm2.094 0h.937l-.469.469zm2.312 0h1.688l.906.906l-2 2l-1.75-1.75zm3.125 0h.344l-.156.188L12.78 9zm1.781 0h1.688l1.156 1.156l-1.75 1.75l-2-2.031zm3.063 0h.938l-.47.469L17.626 9zm2.344 0h.812l-.437 2.688l-1.532-1.532zm-7.032 1.594l2.032 2l-2.031 2l-2-2l2-2zm-5.124.281l1.718 1.719l-2 2l-1.625-1.625l-.031-.156zm10.28 0l2 2l-1.718 1.75l-2-2.031l1.719-1.719zm-7.843 2.438l2 2l-2 2l-2-2zm5.406 0l2.031 2l-2 2l-2.03-2zm4.188 1.25l-.219 1.312l-.563-.563l.782-.75zm-13.657.093l.657.656l-.469.47zM7.532 16l2 2l-2 2.031l-.562-.562l-.407-2.5zm5.407 0l2.03 2.031l-2 2L10.939 18zm5.437 0l1.063 1.063l-.407 2.28l-.656.657l-2-2zm-8.125 2.719l2 2l-2 2.031l-2-2zm5.406 0l2 2l-2 2l-2-2zm-8.094 2.718l2 2L9 24h-.063c-.391 0-.621-.13-.874-.406a2.65 2.65 0 0 1-.594-1.188v-.031l-.125-.75l.218-.188zm5.407 0l2 2l-.563.563H11.5l-.563-.563l2.032-2zm5.406 0l.281.282l-.125.656c-.002.01.002.02 0 .031c-.095.49-.316.922-.562 1.188c-.252.27-.509.406-.907.406h-.125l-.562-.563z" fill="#ff4d4f" />
+                                                            </svg>
+                                                            Expulsar
+                                                        </button>
+                                                    )}
                                                 </motion.div>
                                             )}
                                         </div>
@@ -1136,470 +2014,21 @@ function PantallaInfoEquipo() {
 
             {/* Modal para editar equipo */}
             {showEditModal && (
-                <div style={{
-                    position: "fixed",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: "rgba(0,0,0,0.7)",
-                    backdropFilter: "blur(5px)",
-                    zIndex: 100,
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center"
-                }}>
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        style={{
-                            backgroundColor: cardColor,
-                            borderRadius: "16px",
-                            padding: "1.5rem",
-                            width: "90%",
-                            maxWidth: "500px",
-                            border: `1px solid ${borderColor}`,
-                            maxHeight: "90vh",
-                            overflowY: "auto",
-                            scrollbarWidth: "thin",
-                            scrollbarColor: `${lightTextColor} ${cardColor}`
-                        }}
-                    >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                            <h3 style={{ margin: 0, color: textColor }}>Editar equipo</h3>
-                            <button
-                                onClick={() => setShowEditModal(false)}
-                                style={{
-                                    background: "transparent",
-                                    border: "none",
-                                    color: textColor,
-                                    cursor: "pointer",
-                                    fontSize: "1.5rem"
-                                }}
-                            >
-                                ×
-                            </button>
-                        </div>
-
-                        <div style={{ marginBottom: "1.5rem" }}>
-                            <label style={{ display: "block", marginBottom: "0.5rem", color: textColor }}>Imagen del equipo</label>
-                            <div style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                position: "relative",
-                                marginBottom: "1rem"
-                            }}>
-                                <div style={{
-                                    width: "150px",
-                                    height: "150px",
-                                    borderRadius: "8px",
-                                    overflow: "hidden",
-                                    position: "relative",
-                                    backgroundColor: "rgba(255,255,255,0.05)"
-                                }}>
-                                    <img
-                                        src={teamImagePreview || teamData.image}
-                                        alt="Preview"
-                                        style={{
-                                            width: "100%",
-                                            height: "100%",
-                                            objectFit: "cover"
-                                        }}
-                                    />
-                                    <label style={{
-                                        position: "absolute",
-                                        top: 0,
-                                        left: 0,
-                                        right: 0,
-                                        bottom: 0,
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        backgroundColor: "rgba(0,0,0,0.5)",
-                                        cursor: "pointer",
-                                        opacity: 0,
-                                        transition: "opacity 0.3s ease",
-                                        ":hover": {
-                                            opacity: 1
-                                        }
-                                    }}>
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={handleImageChange}
-                                            style={{ display: "none" }}
-                                        />
-                                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M3 17.25V21H6.75L17.81 9.94L14.06 6.19L3 17.25ZM20.71 7.04C21.1 6.65 21.1 6.02 20.71 5.63L18.37 3.29C17.98 2.9 17.35 2.9 16.96 3.29L15.13 5.12L18.88 8.87L20.71 7.04Z" fill="white" />
-                                        </svg>
-                                    </label>
-                                </div>
-                            </div>
-                            {teamImagePreview && (
-                                <button
-                                    onClick={handleRemoveImage}
-                                    style={{
-                                        background: "transparent",
-                                        border: `1px solid ${primaryColor}`,
-                                        color: primaryColor,
-                                        borderRadius: "4px",
-                                        padding: "0.5rem 1rem",
-                                        cursor: "pointer",
-                                        display: "block",
-                                        margin: "0 auto",
-                                        ":hover": {
-                                            background: "rgba(255, 69, 0, 0.1)"
-                                        }
-                                    }}
-                                >
-                                    Eliminar imagen
-                                </button>
-                            )}
-                        </div>
-
-                        <div style={{ marginBottom: "1rem" }}>
-                            <label style={{ display: "block", marginBottom: "0.5rem", color: textColor }}>Nombre del equipo</label>
-                            <input
-                                type="text"
-                                value={teamName}
-                                onChange={(e) => setTeamName(e.target.value)}
-                                maxLength={50}
-                                style={{
-                                    width: "100%",
-                                    padding: "0.75rem",
-                                    borderRadius: "8px",
-                                    border: `1px solid ${borderColor}`,
-                                    backgroundColor: backgroundColor,
-                                    color: textColor,
-                                    outline: "none"
-                                }}
-                            />
-                        </div>
-
-                        <div style={{ marginBottom: "1rem" }}>
-                            <label style={{ display: "block", marginBottom: "0.5rem", color: textColor }}>Deporte</label>
-                            <div style={{ position: "relative" }}>
-                                <button
-                                    onClick={() => setShowSportsMenu(!showSportsMenu)}
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "space-between",
-                                        width: "100%",
-                                        padding: "0.75rem",
-                                        borderRadius: "8px",
-                                        border: `1px solid ${borderColor}`,
-                                        backgroundColor: backgroundColor,
-                                        color: textColor,
-                                        cursor: "pointer"
-                                    }}
-                                >
-                                    <div style={{ display: "flex", alignItems: "center" }}>
-                                        <SportIcon sport={teamSport} style={{ width: "20px", height: "20px", marginRight: "0.5rem" }} />
-                                        {teamSport.charAt(0).toUpperCase() + teamSport.slice(1)}
-                                    </div>
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M7 10L12 15L17 10H7Z" fill={textColor} />
-                                    </svg>
-                                </button>
-
-                                {showSportsMenu && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: -10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        style={{
-                                            position: "absolute",
-                                            top: "100%",
-                                            left: 0,
-                                            right: 0,
-                                            backgroundColor: cardColor,
-                                            borderRadius: "8px",
-                                            border: `1px solid ${borderColor}`,
-                                            zIndex: 10,
-                                            marginTop: "0.25rem",
-                                            overflow: "hidden"
-                                        }}
-                                    >
-                                        {["fútbol", "baloncesto", "volleyball", "tenis", "ciclismo"].map((sport) => (
-                                            <button
-                                                key={sport}
-                                                onClick={() => {
-                                                    setTeamSport(sport);
-                                                    setShowSportsMenu(false);
-                                                }}
-                                                style={{
-                                                    width: "100%",
-                                                    padding: "0.75rem",
-                                                    textAlign: "left",
-                                                    backgroundColor: "transparent",
-                                                    border: "none",
-                                                    color: textColor,
-                                                    cursor: "pointer",
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    ":hover": {
-                                                        backgroundColor: "rgba(255,255,255,0.1)"
-                                                    }
-                                                }}
-                                            >
-                                                <SportIcon sport={sport} style={{ width: "20px", height: "20px", marginRight: "0.5rem" }} />
-                                                {sport.charAt(0).toUpperCase() + sport.slice(1)}
-                                            </button>
-                                        ))}
-                                    </motion.div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div style={{ marginBottom: "1rem" }}>
-                            <label style={{ display: "block", marginBottom: "0.5rem", color: textColor }}>Descripción</label>
-                            <textarea
-                                value={teamDescription}
-                                onChange={(e) => setTeamDescription(e.target.value)}
-                                rows="4"
-                                maxLength={500}
-                                style={{
-                                    width: "100%",
-                                    padding: "0.75rem",
-                                    borderRadius: "8px",
-                                    border: `1px solid ${borderColor}`,
-                                    backgroundColor: backgroundColor,
-                                    color: textColor,
-                                    outline: "none",
-                                    resize: "vertical"
-                                }}
-                            />
-                        </div>
-
-                        <div style={{
-                            display: "flex",
-                            justifyContent: "flex-end",
-                            marginTop: "1.5rem",
-                            gap: "0.5rem"
-                        }}>
-                            <motion.button
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => setShowEditModal(false)}
-                                style={{
-                                    background: "transparent",
-                                    color: textColor,
-                                    borderRadius: "30px",
-                                    border: `1px solid ${borderColor}`,
-                                    padding: "8px 24px",
-                                    cursor: "pointer",
-                                    fontWeight: "bold",
-                                    fontSize: "1rem"
-                                }}
-                            >
-                                Cancelar
-                            </motion.button>
-                            <motion.button
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={handleSaveTeamChanges}
-                                style={{
-                                    background: primaryColor,
-                                    color: "white",
-                                    borderRadius: "30px",
-                                    border: "none",
-                                    padding: "8px 24px",
-                                    cursor: "pointer",
-                                    fontWeight: "bold",
-                                    fontSize: "1rem"
-                                }}
-                            >
-                                Guardar cambios
-                            </motion.button>
-                        </div>
-                    </motion.div>
-                </div>
+                <EditTeamModal
+                    team={teamData}
+                    onSave={handleSaveTeamChanges}
+                    onClose={() => setShowEditModal(false)}
+                    sportsCategories={sportsCategories}
+                />
             )}
 
             {/* Modal para añadir miembros */}
             {showAddMembersModal && (
-                <div style={{
-                    position: "fixed",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: "rgba(0,0,0,0.7)",
-                    backdropFilter: "blur(5px)",
-                    zIndex: 100,
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center"
-                }}>
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        style={{
-                            backgroundColor: cardColor,
-                            borderRadius: "16px",
-                            padding: "1.5rem",
-                            width: "90%",
-                            maxWidth: "500px",
-                            border: `1px solid ${borderColor}`,
-                            maxHeight: "90vh",
-                            overflowY: "auto",
-                            scrollbarWidth: "thin",
-                            scrollbarColor: `${lightTextColor} ${cardColor}`
-                        }}
-                    >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                            <h3 style={{ margin: 0, color: textColor }}>Añadir miembros</h3>
-                            <button
-                                onClick={() => setShowAddMembersModal(false)}
-                                style={{
-                                    background: "transparent",
-                                    border: "none",
-                                    color: textColor,
-                                    cursor: "pointer",
-                                    fontSize: "1.5rem"
-                                }}
-                            >
-                                ×
-                            </button>
-                        </div>
-
-                        <div style={{ marginBottom: "1rem" }}>
-                            <label style={{ display: "block", marginBottom: "0.5rem", color: textColor }}>Buscar usuarios</label>
-                            <div style={{ position: "relative" }}>
-                                <input
-                                    type="text"
-                                    placeholder="Buscar por nombre o email..."
-                                    value={searchMemberQuery}
-                                    onChange={(e) => setSearchMemberQuery(e.target.value)}
-                                    style={{
-                                        width: "100%",
-                                        padding: "0.75rem 1rem 0.75rem 2.5rem",
-                                        borderRadius: "50px",
-                                        border: `1px solid ${borderColor}`,
-                                        backgroundColor: backgroundColor,
-                                        color: textColor,
-                                        outline: "none",
-                                        fontSize: "0.9rem"
-                                    }}
-                                />
-                                <svg
-                                    width="20"
-                                    height="20"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    style={{
-                                        position: "absolute",
-                                        left: "12px",
-                                        top: "50%",
-                                        transform: "translateY(-50%)",
-                                        color: lightTextColor
-                                    }}
-                                >
-                                    <path d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3C5.91 3 3 5.91 3 9.5C3 13.09 5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5C5 7.01 7.01 5 9.5 5C11.99 5 14 7.01 14 9.5C14 11.99 11.99 14 9.5 14Z" fill="currentColor" />
-                                </svg>
-                            </div>
-                        </div>
-
-                        <div style={{
-                            maxHeight: "300px",
-                            overflowY: "auto",
-                            marginBottom: "1.5rem",
-                            scrollbarWidth: "thin",
-                            scrollbarColor: `${lightTextColor} ${cardColor}`
-                        }}>
-                            {availableMembers
-                                .filter(member =>
-                                    member.name.toLowerCase().includes(searchMemberQuery.toLowerCase()) ||
-                                    member.email.toLowerCase().includes(searchMemberQuery.toLowerCase())
-                                )
-                                .filter(member => !teamData.membersList.some(m => m.id === member.id))
-                                .map(member => (
-                                    <div key={member.id} style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "space-between",
-                                        padding: "0.75rem",
-                                        borderBottom: `1px solid ${borderColor}`,
-                                        ":last-child": {
-                                            borderBottom: "none"
-                                        }
-                                    }}>
-                                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                                            <div style={{
-                                                width: "40px",
-                                                height: "40px",
-                                                borderRadius: "50%",
-                                                backgroundColor: primaryColor,
-                                                display: "flex",
-                                                alignItems: "center",
-                                                justifyContent: "center",
-                                                color: "white",
-                                                fontWeight: "bold",
-                                                flexShrink: 0
-                                            }}>
-                                                {member.name.charAt(0).toUpperCase()}
-                                            </div>
-                                            <div>
-                                                <div style={{ fontWeight: "500", color: textColor }}>{member.name}</div>
-                                                <div style={{ fontSize: "0.8rem", color: lightTextColor }}>{member.email}</div>
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => handleAddMember(member)}
-                                            disabled={teamData.members >= 30}
-                                            style={{
-                                                background: teamData.members >= 30 ? "rgba(255, 112, 67, 0.5)" : primaryColor,
-                                                color: "white",
-                                                border: "none",
-                                                borderRadius: "4px",
-                                                padding: "0.5rem 1rem",
-                                                cursor: teamData.members >= 30 ? "not-allowed" : "pointer",
-                                                fontSize: "0.8rem",
-                                                whiteSpace: "nowrap"
-                                            }}
-                                        >
-                                            {teamData.members >= 30 ? "Límite alcanzado" : "Añadir"}
-                                        </button>
-                                    </div>
-                                ))}
-
-                            {availableMembers.filter(member =>
-                                member.name.toLowerCase().includes(searchMemberQuery.toLowerCase()) ||
-                                member.email.toLowerCase().includes(searchMemberQuery.toLowerCase())
-                            ).filter(member => !teamData.membersList.some(m => m.id === member.id)).length === 0 && (
-                                    <div style={{ textAlign: "center", padding: "1rem", color: lightTextColor }}>
-                                        {searchMemberQuery ? "No se encontraron resultados" : "No hay usuarios disponibles para añadir"}
-                                    </div>
-                                )}
-                        </div>
-
-                        <div style={{
-                            display: "flex",
-                            justifyContent: "flex-end",
-                            marginTop: "1rem"
-                        }}>
-                            <motion.button
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => setShowAddMembersModal(false)}
-                                style={{
-                                    background: "transparent",
-                                    color: textColor,
-                                    borderRadius: "30px",
-                                    border: `1px solid ${borderColor}`,
-                                    padding: "8px 24px",
-                                    cursor: "pointer",
-                                    fontWeight: "bold",
-                                    fontSize: "1rem"
-                                }}
-                            >
-                                Cerrar
-                            </motion.button>
-                        </div>
-                    </motion.div>
-                </div>
+                <AddMembersModal
+                    availableMembers={availableMembers}
+                    onAddMember={handleAddMember}
+                    onClose={() => setShowAddMembersModal(false)}
+                />
             )}
 
             {/* Modal para crear evento */}
@@ -2030,15 +2459,16 @@ function PantallaInfoEquipo() {
                             <motion.button
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
-                                onClick={() => {
+                                onClick={async () => {
                                     if (confirmationAction === "leave") {
                                         handleLeaveTeam();
                                     } else if (confirmationAction === "delete") {
                                         handleDeleteTeam();
                                     } else if (confirmationAction === "remove") {
-                                        // Lógica para eliminar miembro
-                                        handleRemoveMember(showMemberOptions);
+                                        await handleRemoveMember(selectedMemberId);
+                                        console.log("➡️ Eliminando miembro:", selectedMemberId);
                                         setShowConfirmationModal(false);
+                                        setSelectedMemberId(null);
                                     }
                                 }}
                                 style={{
@@ -2101,6 +2531,27 @@ function PantallaInfoEquipo() {
                     </svg>
                 </motion.button>
             )}
+
+            <ToastContainer
+                position="top-center"
+                autoClose={3000}
+                hideProgressBar
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                transition={Slide}
+                style={{
+                    top: '20px',
+                    width: '100%',
+                    minWidth: '700px',
+                    margin: '0 auto',
+                    left: '50%',
+                    transform: 'translateX(-50%)'
+                }}
+            />
         </div>
     );
 }

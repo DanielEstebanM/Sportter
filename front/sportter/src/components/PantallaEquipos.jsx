@@ -3,8 +3,7 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Tooltip as ReactTooltip } from 'react-tooltip';
 import 'react-tooltip/dist/react-tooltip.css';
-import { getUserTeams, getAllTeams, createTeam, getUsers } from '../services/api';
-import axios from "axios";
+import { getUserTeams, getAllTeams, createTeam, getUsers, addTeamMember } from '../services/api';
 
 function PantallaEquipos() {
     const [activeTab, setActiveTab] = useState("paraTi");
@@ -104,7 +103,7 @@ function PantallaEquipos() {
     const handleCreateTeam = async () => {
         if (teamName.trim() && teamDescription.trim()) {
             try {
-                // Map sport names to category IDs (adjust these IDs based on your database)
+                // Map sport names to category IDs (usando la estructura de tu api.js)
                 const sportToCategoryId = {
                     "fútbol": 1,
                     "baloncesto": 2,
@@ -124,22 +123,29 @@ function PantallaEquipos() {
                 const createdTeam = await createTeam(newTeam, currentUserId);
                 console.log("Equipo creado:", createdTeam);
 
-                // Añadir miembros seleccionados al equipo
-                for (const member of selectedMembers) {
-                    try {
-                        await addTeamMember(createdTeam.id, member.id);
-                        console.log(`Miembro ${member.nombreUsuario} añadido al equipo`);
-                    } catch (error) {
-                        console.error(`Error añadiendo miembro ${member.nombreUsuario}:`, error);
-                    }
+                // Añadir miembros seleccionados al equipo usando la función de api.js
+                const memberAdditionResults = await Promise.allSettled(
+                    selectedMembers.map(member =>
+                        addTeamMember(createdTeam.id, member.id)
+                    ));
+
+                // Verificar resultados
+                const failedAdditions = memberAdditionResults
+                    .filter(result => result.status === 'rejected')
+                    .map(result => result.reason);
+
+                if (failedAdditions.length > 0) {
+                    console.warn("Algunos miembros no se pudieron añadir:", failedAdditions);
+                    alert(`Equipo creado, pero algunos miembros no se pudieron añadir. Ver consola para detalles.`);
+                } else {
+                    alert("Equipo creado exitosamente con todos los miembros!");
                 }
 
-                // Update team lists
-                const updatedUserTeams = await getUserTeams(currentUserId);
-                const updatedAllTeams = await getAllTeams(currentUserId);
-
-                console.log("Equipos actualizados - Para ti:", updatedUserTeams);
-                console.log("Equipos actualizados - Comunidad:", updatedAllTeams);
+                // Actualizar listas de equipos usando las funciones de api.js
+                const [updatedUserTeams, updatedAllTeams] = await Promise.all([
+                    getUserTeams(currentUserId),
+                    getAllTeams(currentUserId)
+                ]);
 
                 setTeams({
                     paraTi: updatedUserTeams,
@@ -154,9 +160,6 @@ function PantallaEquipos() {
                 setTeamImagePreview("");
                 setSelectedMembers([]);
                 setShowCreateTeamModal(false);
-
-                // Show success message
-                alert("Equipo creado exitosamente!");
 
             } catch (error) {
                 console.error("Error creating team:", error);
@@ -235,20 +238,26 @@ function PantallaEquipos() {
         return () => window.removeEventListener('resize', handleResize);
     }, [currentUserId]);
 
+    // Reemplazar el useEffect que carga los usuarios con este:
     useEffect(() => {
         const fetchUsers = async () => {
             try {
                 setLoadingUsers(true);
                 const fetchedUsers = await getUsers();
 
+                // Filtrar para excluir al usuario actual
+                const filteredUsers = fetchedUsers.filter(user =>
+                    user.id !== currentUserId
+                );
+
                 // Ordenar usuarios alfabéticamente por nombreUsuario
-                const sortedUsers = fetchedUsers.sort((a, b) => {
+                const sortedUsers = filteredUsers.sort((a, b) => {
                     const nameA = a.nombreUsuario?.toUpperCase() || '';
                     const nameB = b.nombreUsuario?.toUpperCase() || '';
                     return nameA.localeCompare(nameB);
                 });
 
-                console.log("Usuarios ordenados:", sortedUsers);
+                console.log("Usuarios ordenados (excluyendo al actual):", sortedUsers);
                 setUsers(sortedUsers);
             } catch (error) {
                 console.error("Error loading users:", error);
@@ -258,7 +267,7 @@ function PantallaEquipos() {
             }
         };
         fetchUsers();
-    }, []);
+    }, [currentUserId]);
 
     const handleLogout = () => {
         // 1. Limpiar datos de autenticación
@@ -269,10 +278,10 @@ function PantallaEquipos() {
     };
 
     const filteredTeams = searchQuery
-        ? teams[activeTab].filter(team =>
+        ? (teams[activeTab] || []).filter(team =>
             team.name.toLowerCase().includes(searchQuery.toLowerCase())
         )
-        : teams[activeTab];
+        : teams[activeTab] || [];
 
     return (
         <div style={{
@@ -900,25 +909,20 @@ function PantallaEquipos() {
                                     display: "flex",
                                     alignItems: "center",
                                     color: lightTextColor,
-                                    fontSize: "0.85rem"
+                                    fontSize: "0.85rem",
+                                    marginTop: '0.3rem'
                                 }}>
                                     <svg
                                         style={{ marginRight: '0.5rem' }}
                                         xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 22 22"
+                                        viewBox="0 0 24 24"
                                         width="1.2em"
                                         height="1.2em"
                                     >
-                                        <g
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth="2"
-                                        >
-                                            <circle cx="12" cy="5" r="1"></circle>
-                                            <path d="m9 20l3-6l3 6M6 8l6 2l6-2m-6 2v4"></path>
-                                        </g>
+                                        <path
+                                            fill="currentColor"
+                                            d="M3.5 7a5 5 0 1 1 10 0a5 5 0 0 1-10 0M5 14a5 5 0 0 0-5 5v2h17v-2a5 5 0 0 0-5-5zm19 7h-5v-2c0-1.959-.804-3.73-2.1-5H19a5 5 0 0 1 5 5zm-8.5-9a5 5 0 0 1-1.786-.329A6.97 6.97 0 0 0 15.5 7a6.97 6.97 0 0 0-1.787-4.671A5 5 0 1 1 15.5 12"
+                                        ></path>
                                     </svg>
                                     {team.cantidadMiembros} {team.cantidadMiembros === 1 ? 'miembro' : 'miembros'}
                                 </div>
@@ -1010,16 +1014,30 @@ function PantallaEquipos() {
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
                                 <h3 style={{ margin: 0, color: textColor }}>Crear nuevo equipo</h3>
                                 <button
-                                    onClick={() => setShowCreateTeamModal(false)}
+                                    onClick={() => handleCancel()}
                                     style={{
                                         background: "transparent",
                                         border: "none",
                                         color: textColor,
                                         cursor: "pointer",
-                                        fontSize: "1.5rem"
+                                        fontSize: "1.75rem"
                                     }}
                                 >
-                                    ×
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 24 24"
+                                        width="1em"
+                                        height="1em"
+                                    >
+                                        <path
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth="2"
+                                            d="M6 18L18 6m0 12L6 6"
+                                        ></path>
+                                    </svg>
                                 </button>
                             </div>
 
@@ -1292,8 +1310,8 @@ function PantallaEquipos() {
                                     }}>
                                         {users
                                             .filter(user =>
-                                                user.nombreUsuario?.toLowerCase().includes(searchMemberQuery.toLowerCase()) ||
-                                                user.correoElectronico?.toLowerCase().includes(searchMemberQuery.toLowerCase())
+                                            (user.nombreUsuario?.toLowerCase().includes(searchMemberQuery.toLowerCase()) ||
+                                                user.correoElectronico?.toLowerCase().includes(searchMemberQuery.toLowerCase()))
                                             )
                                             .filter(user => !selectedMembers.some(m => m.id === user.id))
                                             .map(user => (
@@ -1326,8 +1344,12 @@ function PantallaEquipos() {
                                                             {user.nombreUsuario?.charAt(0).toUpperCase() || "U"}
                                                         </div>
                                                         <div>
-                                                            <div style={{ fontWeight: "bold", color: textColor }}>{user.nombreUsuario || "Usuario"}</div>
-                                                            <div style={{ fontSize: "0.8rem", color: lightTextColor }}>{user.correoElectronico}</div>
+                                                            <div style={{ fontWeight: "bold", color: textColor }}>
+                                                                {user.nombreUsuario || "Usuario"}
+                                                            </div>
+                                                            <div style={{ fontSize: "0.8rem", color: lightTextColor }}>
+                                                                {user.correoElectronico}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                     <button

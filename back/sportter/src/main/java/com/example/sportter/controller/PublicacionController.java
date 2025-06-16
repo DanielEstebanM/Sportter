@@ -29,7 +29,7 @@ public class PublicacionController {
 
 	@Autowired
 	private PublicacionRepository publicacionRepository;
-	
+
 	@Autowired
 	private UsuarioRepository usuarioRepository;
 
@@ -49,8 +49,8 @@ public class PublicacionController {
 					System.out.println("Usuario: NULL");
 				}
 			});
-			
-		//publicacionRepository.actualizarConteoDeComentarios();
+
+			// publicacionRepository.actualizarConteoDeComentarios();
 
 			return ResponseEntity.ok(publicaciones);
 		} catch (Exception e) {
@@ -58,46 +58,67 @@ public class PublicacionController {
 					.body("Error al obtener publicaciones: " + e.getMessage());
 		}
 	}
-	
+
 	@GetMapping("/{id}")
 	public ResponseEntity<?> obtenerPublicacion(@PathVariable Long id) {
-	    try {
-	        // FORMA CORRECTA de usar orElseThrow
-	        Publicacion publicacion = publicacionRepository.findById(id)
-	            .orElseThrow(() -> new RuntimeException("Publicación no encontrada"));
-	        
-	        return ResponseEntity.ok(publicacion);
-	        
-	    } catch (RuntimeException e) {
-	        return ResponseEntity.notFound().build();
-	    } catch (Exception e) {
-	        return ResponseEntity.internalServerError()
-	            .body("Error al obtener publicación: " + e.getMessage());
-	    }
+		try {
+			// FORMA CORRECTA de usar orElseThrow
+			Publicacion publicacion = publicacionRepository.findById(id)
+					.orElseThrow(() -> new RuntimeException("Publicación no encontrada"));
+
+			return ResponseEntity.ok(publicacion);
+
+		} catch (RuntimeException e) {
+			return ResponseEntity.notFound().build();
+		} catch (Exception e) {
+			return ResponseEntity.internalServerError().body("Error al obtener publicación: " + e.getMessage());
+		}
 	}
 
-    private PublicacionDTO convertirADTO(Publicacion publicacion) {
-        PublicacionDTO dto = new PublicacionDTO(null, null, null, null, null);
-        dto.setId(publicacion.getId());
-        dto.setContenido(publicacion.getContenido());
-        dto.setFechaHora(publicacion.getFechaHora());
-        dto.setLikes(publicacion.getLikes());
-        
-        // Mapear usuario si existe
-        if (publicacion.getUsuario() != null) {
-            dto.setUsuarioId(publicacion.getUsuario().getId());
-            dto.setUsuarioNombre(publicacion.getUsuario().getNombreUsuario());
-            dto.setUsuarioCorreo(publicacion.getUsuario().getCorreoElectronico());
-        }
-        
-        // Mapear categoría si existe
-        if (publicacion.getCategoriaDeporte() != null) {
-            dto.setCategoriaDeporte(publicacion.getCategoriaDeporte().getNombre());
-        }
-        
-        return dto;
-    }
+	private PublicacionDTO convertirADTO(Publicacion publicacion) {
+		PublicacionDTO dto = new PublicacionDTO(null, null, null, null, null);
+		dto.setId(publicacion.getId());
+		dto.setContenido(publicacion.getContenido());
+		dto.setFechaHora(publicacion.getFechaHora());
+		dto.setLikes(publicacion.getLikes());
 
+		// Mapear usuario si existe
+		if (publicacion.getUsuario() != null) {
+			dto.setUsuarioId(publicacion.getUsuario().getId());
+			dto.setUsuarioNombre(publicacion.getUsuario().getNombreUsuario());
+			dto.setUsuarioCorreo(publicacion.getUsuario().getCorreoElectronico());
+		}
+
+		// Mapear categoría si existe
+		if (publicacion.getCategoriaDeporte() != null) {
+			dto.setCategoriaDeporte(publicacion.getCategoriaDeporte().getNombre());
+		}
+
+		return dto;
+	}
+
+	@GetMapping("/usuario/{userId}")
+	public ResponseEntity<?> getPublicacionesPorUsuario(@PathVariable Long userId) {
+		try {
+			List<Publicacion> publicaciones = publicacionRepository.findByUsuarioId(userId);
+
+			if (publicaciones.isEmpty()) {
+				return ResponseEntity.ok(Collections.emptyList());
+			}
+
+			return ResponseEntity.ok(publicaciones);
+		} catch (Exception e) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+					.body("Error al obtener publicaciones del usuario: " + e.getMessage());
+		}
+	}
+
+	@GetMapping("/publicaciones/usuario/{userId}")
+	public ResponseEntity<List<Publicacion>> getPublicacionesUsuario(@PathVariable Long userId) {
+	    List<Publicacion> publicaciones = publicacionRepository.findByUsuarioId(userId);
+	    return ResponseEntity.ok(publicaciones);
+	}
+	
 	@PostMapping("/{publicacionId}/like")
 	public ResponseEntity<?> darLike(@PathVariable Long publicacionId, @RequestBody Map<String, String> request) {
 		try {
@@ -165,30 +186,30 @@ public class PublicacionController {
 					.body("Error al verificar like: " + e.getMessage());
 		}
 	}
-	
-	@PostMapping("/crearPubli")  // Cambiado para que coincida con el frontend
+
+	@PostMapping("/crearPubli") // Cambiado para que coincida con el frontend
 	public ResponseEntity<Publicacion> crearPublicacion(@RequestBody Publicacion publicacion) {
-	    try {
-	        publicacion.setFechaHora(LocalDateTime.now());
-	        publicacion.setLikes(0L);
-	        publicacion.setComentarios(0L);
-	        publicacion.setCompartidos(0L);
-	        
-	        // Asegúrate de que el usuario existe
-	        if (publicacion.getUsuario() != null && publicacion.getUsuario().getId() != null) {
-	            Optional<Usuario> usuario = usuarioRepository.findById(publicacion.getUsuario().getId());
-	            if (usuario.isPresent()) {
-	                publicacion.setUsuario(usuario.get());
-	            } else {
-	                return ResponseEntity.badRequest().body(null);
-	            }
-	        }
-	        
-	        Publicacion nuevaPublicacion = publicacionRepository.save(publicacion);
-	        return ResponseEntity.ok(nuevaPublicacion);
-	    } catch (Exception e) {
-	        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
-	    }
+		try {
+			publicacion.setFechaHora(LocalDateTime.now());
+			publicacion.setLikes(0L);
+			publicacion.setComentarios(0L);
+			publicacion.setCompartidos(0L);
+
+			// Asegúrate de que el usuario existe
+			if (publicacion.getUsuario() != null && publicacion.getUsuario().getId() != null) {
+				Optional<Usuario> usuario = usuarioRepository.findById(publicacion.getUsuario().getId());
+				if (usuario.isPresent()) {
+					publicacion.setUsuario(usuario.get());
+				} else {
+					return ResponseEntity.badRequest().body(null);
+				}
+			}
+
+			Publicacion nuevaPublicacion = publicacionRepository.save(publicacion);
+			return ResponseEntity.ok(nuevaPublicacion);
+		} catch (Exception e) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+		}
 	}
 
 }

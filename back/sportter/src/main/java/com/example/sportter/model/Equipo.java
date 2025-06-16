@@ -34,7 +34,7 @@ public class Equipo {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "miembros"})
     private Usuario creador;
 
-    @OneToMany(mappedBy = "equipo", fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "equipo", fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
     private List<Miembro> miembros;
 

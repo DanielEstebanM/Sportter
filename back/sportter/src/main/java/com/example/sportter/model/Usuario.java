@@ -39,8 +39,24 @@ public class Usuario {
     
     @Column(name = "imagen_perfil", columnDefinition = "LONGTEXT")
     private String imagen_perfil; 
+    
+    public Usuario() {
+		super();
+		// TODO Auto-generated constructor stub
+	}
 
-    // Getters y Setters
+	public Usuario(Long id, List<Publicacion> publicaciones, String nombreUsuario, String correoElectronico,
+			String contrasena, String imagen_perfil) {
+		super();
+		this.id = id;
+		this.publicaciones = publicaciones;
+		this.nombreUsuario = nombreUsuario;
+		this.correoElectronico = correoElectronico;
+		this.contrasena = contrasena;
+		this.imagen_perfil = imagen_perfil;
+	}
+
+	// Getters y Setters
     public Long getId() {
         return id;
     }
