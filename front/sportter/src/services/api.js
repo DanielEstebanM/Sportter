@@ -24,7 +24,7 @@ export const loginUser = async (credentials) => {
     return response.data;
   } catch (error) {
     console.error("Error completo:", error.response);
-    throw error; 
+    throw error;
   }
 };
 
@@ -86,7 +86,7 @@ export const verificarEmail = async (email, paraRegistro) => {
       );
     }
 
-     if (!paraRegistro) {
+    if (!paraRegistro) {
       throw new Error(
         error.message || "Error al verificar el correo electrónico"
       );
@@ -129,7 +129,7 @@ export const actualizarContrasena = async (email, nuevaContrasena) => {
     if (!response.ok) {
       throw new Error(
         data?.message ||
-          "Error al actualizar la contraseña. Código: " + response.status
+        "Error al actualizar la contraseña. Código: " + response.status
       );
     }
 
@@ -138,109 +138,79 @@ export const actualizarContrasena = async (email, nuevaContrasena) => {
     console.error("Error al actualizar contraseña:", error);
     throw new Error(
       error.message ||
-        "No se pudo conectar con el servidor para actualizar la contraseña"
+      "No se pudo conectar con el servidor para actualizar la contraseña"
     );
   }
 };
 
 export const loadPosts = async () => {
   try {
-    const response = await axios.get(`${BASE_URL}/api/publicaciones`);
-
-    if (!response.data || !Array.isArray(response.data)) {
-      return [];
-    }
+    const response = await axios.get("http://localhost:8080/api/publicaciones");
+    if (!response.data || !Array.isArray(response.data)) return [];
 
     const userData = JSON.parse(localStorage.getItem("userData"));
     const userEmail = userData?.correoElectronico;
 
-    const postsData = await Promise.all(response.data.map(async (post) => {
+    const procesarImagen = (img) => {
+      if (!img) return null;
+      if (typeof img === 'string') {
+        if (img.startsWith('http') || img.startsWith('data:image/')) return img;
+        if (/^[A-Za-z0-9+/=]+$/.test(img)) {
+          let tipo = 'jpeg';
+          if (img.startsWith('iVBORw0KGgo')) tipo = 'png';
+          return `data:image/${tipo};base64,${img}`;
+        }
+      }
+      return null;
+    };
+
+    return await Promise.all(response.data.map(async (post) => {
       const usuario = post.usuario || {
         id: 0,
-        nombreUsuario: "Anónimo",
+        nombreUsuario: "AnÃ³nimo",
         correoElectronico: "anonimo@example.com",
-        imagen_perfil: "https://i.imgur.com/bUwYQP3.png"
+        imagen_perfil: null
       };
 
-        const categoria = post.categoriaDeporte || { nombre: "General" };
+      // Procesar imagen de perfil
+      const imagenPerfil = usuario.imagen_perfil
+        ? procesarImagen(usuario.imagen_perfil)
+        : null;
 
-        let isLiked = false;
-        if (userEmail) {
-          try {
-            const likeResponse = await axios.get(
-              `${BASE_URL}/api/publicaciones/${post.id}/check-like`,
-              { params: { userEmail } }
-            );
-            isLiked = likeResponse.data;
-          } catch (error) {
-            console.error("Error verificando like:", error);
-          }
-        }
-
-        
-        if (post.fechaHora) {
-          // Si es un timestamp en segundos
-          if (typeof post.fechaHora === "number") {
-            postDate = new Date(post.fechaHora * 1000);
-          }
-          // Si es un string ISO (como "2023-10-05T12:00:00Z")
-          else if (typeof post.fechaHora === "string") {
-            postDate = new Date(post.fechaHora);
-          }
-          // Si es un objeto Date (poco probable desde el backend)
-          else if (post.fechaHora instanceof Date) {
-            postDate = post.fechaHora;
-          }
-        }
-
-        // Si no se pudo parsear, usa la fecha actual
-        if (!postDate || isNaN(postDate.getTime())) {
-          console.warn(
-            `Fecha inválida para post ${post.id}, usando fecha actual`
+      // Verificar like
+      let isLiked = false;
+      if (userEmail) {
+        try {
+          const likeResponse = await axios.get(
+            `http://localhost:8080/api/publicaciones/${post.id}/check-like`,
+            { params: { userEmail } }
           );
-          postDate = new Date();
-        }
-
-      // Manejo mejorado de la fecha
-      let postDate;
-      if (post.fechaHora) {
-        // Si es un timestamp en segundos
-        if (typeof post.fechaHora === 'number') {
-          postDate = new Date(post.fechaHora * 1000);
-        }
-        // Si es un string ISO (como "2023-10-05T12:00:00Z")
-        else if (typeof post.fechaHora === 'string') {
-          postDate = new Date(post.fechaHora);
-        }
-        // Si es un objeto Date (poco probable desde el backend)
-        else if (post.fechaHora instanceof Date) {
-          postDate = post.fechaHora;
+          isLiked = likeResponse.data;
+        } catch (error) {
+          console.error("Error verificando like:", error);
         }
       }
 
-      // Si no se pudo parsear, usa la fecha actual
-      if (!postDate || isNaN(postDate.getTime())) {
-        console.warn(`Fecha inválida para post ${post.id}, usando fecha actual`);
-        postDate = new Date();
-      }
+      // Procesar fecha
+      const postDate = post.fechaHora ? new Date(post.fechaHora) : new Date();
 
       return {
         id: post.id,
         userId: usuario.id,
-        user: usuario.correoElectronico || "anonimo@example.com",
-        name: usuario.nombreUsuario || "Anónimo",
-        userImage: usuario.imagen_perfil,
+        user: usuario.correoElectronico,
+        name: usuario.nombreUsuario,
         content: post.contenido || "",
         time: postDate,
         comments: post.comentarios || 0,
         likes: post.likes || 0,
         shares: post.compartidos || 0,
-        sport: categoria.nombre || "General",
-        isLiked: isLiked,
+        sport: post.categoriaDeporte?.nombre || "General",
+        isLiked,
+        imagen: procesarImagen(post.imagen),
+        usuario: { imagenPerfil }
       };
     }));
 
-    return postsData;
   } catch (error) {
     console.error("Error loading posts:", error);
     return [];
