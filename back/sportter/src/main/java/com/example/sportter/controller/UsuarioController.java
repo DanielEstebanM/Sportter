@@ -9,8 +9,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
+import java.io.IOException;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -57,6 +60,11 @@ public class UsuarioController {
 		}
 
 		if (contrasenaValida) {
+			
+			if (usuario.getImagen_perfil() != null && !usuario.getImagen_perfil().startsWith("data:image")) {
+	            usuario.setImagen_perfil("data:image/jpeg;base64," + usuario.getImagen_perfil());
+	        }
+			
 			return ResponseEntity.ok(usuario);
 		} else {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuario o contraseña incorrecta");
@@ -125,13 +133,30 @@ public class UsuarioController {
 		dto.setNombreUsuario(usuario.getNombreUsuario());
 		dto.setEmail(usuario.getCorreoElectronico());
 		dto.setAvatar(usuario.getImagen_perfil());
+		dto.setBio(usuario.getBio());
 		return dto;
 	}
 
 	@GetMapping("/usuarios/{id}")
-	public ResponseEntity<UsuarioDTO> obtenerUsuario(@PathVariable Long id) {
-		Usuario usuario = usuarioRepository.findById(id).orElseThrow();
-		return ResponseEntity.ok(convertirAUsuarioDTO(usuario));
+	public ResponseEntity<?> obtenerUsuario(@PathVariable Long id) {
+	    try {
+	        Optional<Usuario> usuarioOpt = usuarioRepository.findById(id);
+	        
+	        if (usuarioOpt.isEmpty()) {
+	            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+	                .body(Map.of("message", "Usuario no encontrado"));
+	        }
+	        
+	        Usuario usuario = usuarioOpt.get();
+	        // Ocultar contraseña por seguridad
+	        usuario.setContrasena(null);
+	        
+	        return ResponseEntity.ok(convertirAUsuarioDTO(usuario));
+	        
+	    } catch (Exception e) {
+	        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+	            .body("Error al obtener usuario: " + e.getMessage());
+	    }
 	}
 
 	@GetMapping("/usuarios")
@@ -142,5 +167,74 @@ public class UsuarioController {
 
 		return ResponseEntity.ok(usuarios);
 	}
+	
+	@PutMapping("/usuarios/{id}/perfil")
+	public ResponseEntity<?> actualizarPerfil(
+	    @PathVariable Long id,
+	    @RequestBody Usuario usuarioActualizado) {
+	    
+	    Optional<Usuario> usuarioOpt = usuarioRepository.findById(id);
+	    
+	    if (usuarioOpt.isEmpty()) {
+	        return ResponseEntity.notFound().build();
+	    }
+	    
+	    Usuario usuario = usuarioOpt.get();
+	    
+	    // Actualizar solo los campos permitidos
+	    if (usuarioActualizado.getNombreUsuario() != null) {
+	        usuario.setNombreUsuario(usuarioActualizado.getNombreUsuario());
+	    }
+	    
+	    if (usuarioActualizado.getBio() != null) {
+	        usuario.setBio(usuarioActualizado.getBio());
+	    }
+	    
+	    usuarioRepository.save(usuario);
+	    
+	    return ResponseEntity.ok(convertirAUsuarioDTO(usuario));
+	}
+
+	@PostMapping("/usuarios/{id}/imagen-perfil")
+	public ResponseEntity<?> subirImagenPerfil(
+	    @PathVariable Long id,
+	    @RequestParam("image") MultipartFile file) {
+
+	    try {
+	        Optional<Usuario> usuarioOpt = usuarioRepository.findById(id);
+
+	        if (usuarioOpt.isEmpty()) {
+	            return ResponseEntity.notFound().build();
+	        }
+
+	        Usuario usuario = usuarioOpt.get();
+
+	        // Obtener tipo de contenido (ej. image/jpeg)
+	        String contentType = file.getContentType();
+	        if (contentType == null || !contentType.startsWith("image/")) {
+	            return ResponseEntity.badRequest().body("Tipo de archivo no soportado");
+	        }
+
+	        // Convertir a Base64
+	        String imagenBase64 = Base64.getEncoder().encodeToString(file.getBytes());
+	        String tipoImagen = contentType.split("/")[1]; // "jpeg", "png", etc.
+
+	        String imagenConPrefijo = "data:image/" + tipoImagen + ";base64," + imagenBase64;
+
+	        // Guardar en el modelo
+	        usuario.setImagen_perfil(imagenConPrefijo);
+	        usuarioRepository.save(usuario);
+
+	        return ResponseEntity.ok(Map.of(
+	            "avatar", imagenConPrefijo,
+	            "message", "Imagen de perfil actualizada correctamente"
+	        ));
+
+	    } catch (IOException e) {
+	        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+	            .body("Error al procesar la imagen");
+	    }
+	}
+
 
 }

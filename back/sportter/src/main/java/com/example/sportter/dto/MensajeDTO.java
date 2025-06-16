@@ -9,6 +9,7 @@ public class MensajeDTO {
     private boolean leido;
     private Long remitenteId;
     private String remitenteNombre;
+    private String remitenteImagenPerfil;
     private Long destinatarioId;
     private String destinatarioNombre;
     private String conversacionId;
@@ -26,6 +27,10 @@ public class MensajeDTO {
     public void setRemitenteId(Long remitenteId) { this.remitenteId = remitenteId; }
     public String getRemitenteNombre() { return remitenteNombre; }
     public void setRemitenteNombre(String remitenteNombre) { this.remitenteNombre = remitenteNombre; }
+    public String getRemitenteImagenPerfil() { return remitenteImagenPerfil; }
+    public void setRemitenteImagenPerfil(String remitenteImagenPerfil) {
+        this.remitenteImagenPerfil = remitenteImagenPerfil;
+    }
     public Long getDestinatarioId() { return destinatarioId; }
     public void setDestinatarioId(Long destinatarioId) { this.destinatarioId = destinatarioId; }
     public String getDestinatarioNombre() { return destinatarioNombre; }

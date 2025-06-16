@@ -71,17 +71,25 @@ public class ComentarioController {
     }
     
 
-    private ComentarioResponseDto convertToDto(Comentario yaDioLike) {
-    	
-    	System.out.println("Accediendo a usuario de comentario: " + yaDioLike.getId());
-
+    private ComentarioResponseDto convertToDto(Comentario comentario) {
         ComentarioResponseDto dto = new ComentarioResponseDto();
-        dto.setId(yaDioLike.getId());
-        dto.setContenido(yaDioLike.getContenido());
-        dto.setLikes(yaDioLike.getLikes());
-        dto.setUsuarioNombre(yaDioLike.getUsuario().getNombreUsuario());
-        dto.setUsuarioCorreo(yaDioLike.getUsuario().getCorreoElectronico());
-        dto.setFechaHora(yaDioLike.getFechaHora());
+        dto.setId(comentario.getId());
+        dto.setContenido(comentario.getContenido());
+        dto.setLikes(comentario.getLikes());
+        dto.setUsuarioId(comentario.getUsuario().getId());
+        dto.setUsuarioNombre(comentario.getUsuario().getNombreUsuario());
+        dto.setUsuarioCorreo(comentario.getUsuario().getCorreoElectronico());
+
+        // Procesar la imagen de perfil
+        String imagenPerfil = comentario.getUsuario().getImagen_perfil();
+        if (imagenPerfil != null && !imagenPerfil.startsWith("data:image")) {
+            if (imagenPerfil.matches("^[A-Za-z0-9+/=]+$")) {
+                imagenPerfil = "data:image/jpeg;base64," + imagenPerfil;
+            }
+        }
+        dto.setUsuarioImagenPerfil(imagenPerfil);
+        
+        dto.setFechaHora(comentario.getFechaHora());
         return dto;
     }
     

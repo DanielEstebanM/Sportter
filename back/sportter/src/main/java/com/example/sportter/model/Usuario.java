@@ -37,6 +37,10 @@ public class Usuario {
     @Column(name = "contrasena") // Añadida anotación @Column
     private String contrasena;
     
+    @JsonProperty("bio")
+    @Column(name = "bio", length = 500)
+    private String bio;
+    
     @Column(name = "imagen_perfil", columnDefinition = "LONGTEXT")
     private String imagen_perfil; 
 
@@ -52,7 +56,6 @@ public class Usuario {
     public String getNombreUsuario() {
         return nombreUsuario;
     }
-    
     
     public void setNombreUsuario(String nombreUsuario) {
         this.nombreUsuario = nombreUsuario;
@@ -82,6 +85,14 @@ public class Usuario {
 		this.publicaciones = publicaciones;
 	}
 
+	public String getBio() {
+		return bio;
+	}
+
+	public void setBio(String bio) {
+		this.bio = bio;
+	}
+
 	public String getImagen_perfil() {
 		return imagen_perfil;
 	}
@@ -89,5 +100,11 @@ public class Usuario {
 	public void setImagen_perfil(String imagen_perfil) {
 		this.imagen_perfil = imagen_perfil;
 	}
+	
+	@JsonProperty("usuarioImagenPerfil")
+	public String getUsuarioImagenPerfil() {
+	    return this.imagen_perfil;
+	}
+
 
 }

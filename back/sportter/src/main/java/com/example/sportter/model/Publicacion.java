@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Entity
 @Table(name = "publicacion")
@@ -55,7 +56,7 @@ public class Publicacion {
     @Column(name = "compartidos")
     private Long compartidos;
     
-    @Column(name = "imagen")
+    @Column(name = "imagen", columnDefinition = "LONGTEXT")
     private String imagen;
     
 
@@ -137,5 +138,10 @@ public class Publicacion {
 
 	public void setUsuariosQueDieronLike(Set<Usuario> usuariosQueDieronLike) {
 	    this.usuariosQueDieronLike = usuariosQueDieronLike;
+	}
+	
+	@JsonProperty("usuarioId")
+	public Long getUsuarioId() {
+	    return this.usuario != null ? this.usuario.getId() : null;
 	}
 }

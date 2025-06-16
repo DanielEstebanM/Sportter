@@ -10,7 +10,6 @@ import {
   crearPublicacion,
   getUsers
 } from "../services/api";
-
 function PantallaPrincipal() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -26,6 +25,10 @@ function PantallaPrincipal() {
   const [scrollY, setScrollY] = useState(0);
 
   const userData = location.state?.user || JSON.parse(localStorage.getItem("userData"));
+  console.log("Datos del usuario:", userData);
+
+  // console.log("URL de imagen de perfil:", userData?.imagen_perfil);
+
   const userEmail = userData?.correoElectronico;
   const userName = userData?.nombreUsuario;
   const currentUserId = userData?.id;
@@ -44,9 +47,85 @@ function PantallaPrincipal() {
   const [postImage, setPostImage] = useState(null);
   const [postImagePreview, setPostImagePreview] = useState("");
 
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [imageScroll, setImageScroll] = useState({ top: 0, left: 0 });
+  const [zoomAnchor, setZoomAnchor] = useState({ x: 0, y: 0 });
+
+  const handleImageClick = (e, imageSrc) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left; // Posición X relativa a la imagen
+    const y = e.clientY - rect.top;  // Posición Y relativa a la imagen
+    
+    setZoomAnchor({ x, y });
+    setSelectedImage(imageSrc);
+    setShowImageModal(true);
+    setZoomLevel(1);
+  };
+
   // Datos de ejemplo para usuarios
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
+
+  const validBase64 = (str) => {
+    try {
+      return btoa(atob(str.split(',')[1])) === str.split(',')[1];
+    } catch (e) {
+      return false;
+    }
+  };
+
+  console.log("La imagen es base64 válida:", validBase64(userData.imagen_perfil));
+
+  const UserAvatar = ({ usuario }) => {
+    const [imgError, setImgError] = useState(false);
+    
+    // Si no hay usuario o imagen, mostramos el icono por defecto
+    if (!usuario?.imagen_perfil || imgError) {
+      return (
+        <div style={{
+          width: 48,
+          height: 48,
+          borderRadius: '50%',
+          backgroundColor: '#FF4500',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z" fill="white"/>
+            <path d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z" fill="white"/>
+            <path d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z" fill="white"/>
+          </svg>
+        </div>
+      );
+    }
+
+    return (
+      <div style={{
+        width: 48,
+        height: 48,
+        borderRadius: '50%',
+        overflow: 'hidden',
+        border: '2px solid #FF7043'
+      }}>
+        <img 
+          src={usuario.imagen_perfil} 
+          alt={`Avatar de ${usuario.nombreUsuario}`}
+          onError={() => {
+            console.error('Error cargando imagen de perfil');
+            setImgError(true);
+          }}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover'
+          }}
+        />
+      </div>
+    );
+  };
 
   // Cargar publicaciones al iniciar
   useEffect(() => {
@@ -56,14 +135,31 @@ function PantallaPrincipal() {
         const fetchedPosts = await loadPosts();
         if (fetchedPosts && Array.isArray(fetchedPosts)) {
           const resolvedPosts = await Promise.all(fetchedPosts);
+          
           const processedPosts = resolvedPosts
-            .filter((post) => post)
-            .map((post) => ({
-              ...post,
-              time: new Date(post.time),
-            }));
+            .filter((post) => post) // Filtra posts nulos
+            .map((post) => {
+              // Verificación robusta de imagen
+              const hasValidImage = post.imagen && 
+                typeof post.imagen === 'string' &&
+                post.imagen.startsWith('data:image/') &&
+                post.imagen.length > 100;
+
+              return {
+                ...post,
+                time: new Date(post.time),
+                imagen: hasValidImage ? post.imagen : null // Conserva null si no es válida
+              };
+            });
+
+          console.log("Posts procesados:", processedPosts.map(p => ({
+            id: p.id,
+            hasImage: !!p.imagen,
+            contentLength: p.content?.length,
+            imageLength: p.imagen?.length
+          })));
+          
           setPosts(processedPosts);
-          console.log("Total posts establecidos:", processedPosts.length);
         } else {
           console.warn("No se recibieron posts o el array está vacío");
           setPosts([]);
@@ -75,6 +171,7 @@ function PantallaPrincipal() {
         setLoading(false);
       }
     };
+    
     fetchAndSetPosts();
   }, []);
 
@@ -137,6 +234,23 @@ function PantallaPrincipal() {
     };
     fetchUsers();
   }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (showImageModal) {
+        if (e.key === 'Escape') {
+          setShowImageModal(false);
+        } else if (e.key === '+' || e.key === '=') {
+          setZoomLevel(prev => Math.min(3, prev + 0.1));
+        } else if (e.key === '-' || e.key === '_') {
+          setZoomLevel(prev => Math.max(0.5, prev - 0.1));
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showImageModal]);
 
   const headerOpacity = Math.max(0.7, 1 - Math.min(scrollY / 100, 0.3));
 
@@ -388,36 +502,30 @@ function PantallaPrincipal() {
     if (!newPostContent.trim() || !modalSelectedSport) return;
 
     try {
-      const nuevaPublicacion = {
-        contenido: newPostContent,
-        categoriaDeporte: {
-          id: getDeporteId(modalSelectedSport), // Función que mapea nombre deporte a ID
-        },
-        usuario: {
-          id: userData.id, // Asegúrate que userData tenga el ID del usuario
-        },
-        // No necesitas enviar likes, comentarios, compartidos ni fecha - el backend los maneja
-      };
+      const formData = new FormData();
+      formData.append('contenido', newPostContent);
+      formData.append('categoriaDeporteId', getDeporteId(modalSelectedSport));
+      formData.append('usuarioId', userData.id);
+      if (postImage) {
+        formData.append('imagen', postImage);
+      }
 
-      // Llamar a la API para crear la publicación
-      const publicacionCreada = await crearPublicacion(nuevaPublicacion);
+      const publicacionCreada = await crearPublicacion(formData);
 
       // Actualizar el estado local con la nueva publicación
-      setPosts([
-        {
-          id: publicacionCreada.id,
-          content: publicacionCreada.contenido,
-          user: userEmail,
-          name: userName,
-          time: new Date(publicacionCreada.fechaHora),
-          likes: publicacionCreada.likes || 0,
-          comments: publicacionCreada.comentarios || 0,
-          shares: publicacionCreada.compartidos || 0,
-          isLiked: false,
-          sport: modalSelectedSport,
-        },
-        ...posts,
-      ]);
+      setPosts([{
+        id: publicacionCreada.id,
+        content: publicacionCreada.contenido,
+        user: userEmail,
+        name: userName,
+        time: new Date(publicacionCreada.fechaHora),
+        likes: publicacionCreada.likes || 0,
+        comments: publicacionCreada.comentarios || 0,
+        shares: publicacionCreada.compartidos || 0,
+        isLiked: false,
+        sport: modalSelectedSport,
+        imagen: publicacionCreada.imagen || null
+      }, ...posts]);
 
       // Resetear el formulario
       setNewPostContent("");
@@ -427,7 +535,6 @@ function PantallaPrincipal() {
       setPostImagePreview("");
     } catch (error) {
       console.error("Error al crear publicación:", error);
-      // Puedes mostrar un mensaje de error al usuario aquí
       alert("Error al crear la publicación. Por favor intenta nuevamente.");
     }
   };
@@ -634,7 +741,7 @@ function PantallaPrincipal() {
                     backgroundColor: lightTextColor,
                     borderRadius: "10px",
                     border: `2px solid ${backgroundColor}`,
-                  },
+                  }
                 }}
               >
                 {users.filter(
@@ -957,44 +1064,39 @@ function PantallaPrincipal() {
                   border: `2px solid ${cardColor}`,
                 },
                 paddingRight: "8px",
-                marginRight: "-8px",
+                marginRight: "-8px"
               }}
             >
               <form onSubmit={handlePostSubmit}>
                 <div style={{ display: "flex" }}>
-                  <div
-                    style={{
-                      width: "48px",
-                      height: "48px",
-                      borderRadius: "50%",
-                      background: primaryColor,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      marginRight: "0.75rem",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <svg
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                        fill="white"
+                  <UserAvatar usuario={userData} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {userData?.imagen_perfil ? (
+                      <img 
+                        src={
+                          userData.imagen_perfil.startsWith('data:image') ? 
+                          userData.imagen_perfil : 
+                          `http://localhost:8080/${userData.imagen_perfil}`
+                        }
+                        alt={`Avatar de ${userData.nombreUsuario}`}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover'
+                        }}
+                        onError={(e) => {
+                          console.error('Error cargando imagen de perfil:', e);
+                          e.target.style.display = 'none';
+                          e.target.parentNode.style.backgroundColor = primaryColor;
+                        }}
                       />
-                      <path
-                        d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                        fill="white"
-                      />
-                      <path
-                        d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                        fill="white"
-                      />
-                    </svg>
+                    ) : (
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z" fill="white"/>
+                        <path d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z" fill="white"/>
+                        <path d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z" fill="white"/>
+                      </svg>
+                    )}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <textarea
@@ -1489,38 +1591,59 @@ function PantallaPrincipal() {
             ":hover": { backgroundColor: "rgba(255,255,255,0.1)" },
           }}
         >
-          <div
-            style={{
-              width: "40px",
-              height: "40px",
-              borderRadius: "50%",
-              background: primaryColor,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              marginRight: "0.5rem",
-            }}
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                fill="white"
+          <div style={{
+            width: "40px",
+            height: "40px",
+            borderRadius: "50%",
+            backgroundColor: !userData?.imagen_perfil ? primaryColor : 'transparent',
+            overflow: 'hidden',
+            marginRight: "0.5rem",
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: userData?.imagen_perfil ? `1px solid rgb(122, 122, 122)` : 'none'
+          }}>
+            {userData?.imagen_perfil ? (
+              <img 
+                src={
+                  userData.imagen_perfil.startsWith('data:image') ? 
+                  userData.imagen_perfil : 
+                  `http://localhost:8080/${userData.imagen_perfil}`
+                }
+                alt={`Avatar de ${userData.nombreUsuario}`}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover'
+                }}
+                onError={(e) => {
+                  console.error('Error cargando imagen de perfil:', e);
+                  e.target.style.display = 'none';
+                  e.target.parentNode.style.backgroundColor = primaryColor;
+                }}
               />
-              <path
-                d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                fill="white"
-              />
-              <path
-                d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                fill="white"
-              />
-            </svg>
+            ) : (
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
+                  fill="white"
+                />
+                <path
+                  d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
+                  fill="white"
+                />
+                <path
+                  d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
+                  fill="white"
+                />
+              </svg>
+            )}
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>
@@ -1809,7 +1932,7 @@ function PantallaPrincipal() {
                 backgroundColor: lightTextColor,
                 borderRadius: "10px",
                 border: `2px solid ${backgroundColor}`,
-              },
+              }
             }}
           >
             {/* Crear nuevo post */}
@@ -1830,39 +1953,42 @@ function PantallaPrincipal() {
                 }}
               >
                 <div style={{ display: "flex" }}>
-                  <div
-                    style={{
-                      width: "48px",
-                      height: "48px",
-                      borderRadius: "50%",
-                      background: primaryColor,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      marginRight: "0.75rem",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <svg
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                        fill="white"
+                  <div style={{
+                    width: "48px",
+                    height: "48px",
+                    borderRadius: "50%",
+                    backgroundColor: !userData?.imagen_perfil ? primaryColor : 'transparent',
+                    overflow: 'hidden',
+                    marginRight: "0.75rem",
+                    flexShrink: 0,
+                    border: userData?.imagen_perfil ? `1px solid rgb(122, 122, 122)` : 'none'
+                  }}>
+                    {userData?.imagen_perfil ? (
+                      <img 
+                        src={
+                          userData.imagen_perfil.startsWith('data:image') ? 
+                          userData.imagen_perfil : 
+                          `http://localhost:8080/${userData.imagen_perfil}`
+                        }
+                        alt={`Avatar de ${userData.nombreUsuario}`}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover'
+                        }}
+                        onError={(e) => {
+                          console.error('Error cargando imagen de perfil:', e);
+                          e.target.style.display = 'none';
+                          e.target.parentNode.style.backgroundColor = primaryColor;
+                        }}
                       />
-                      <path
-                        d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                        fill="white"
-                      />
-                      <path
-                        d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                        fill="white"
-                      />
-                    </svg>
+                    ) : (
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ margin: '12px' }}>
+                        <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z" fill="white"/>
+                        <path d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z" fill="white"/>
+                        <path d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z" fill="white"/>
+                      </svg>
+                    )}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <input
@@ -1895,6 +2021,19 @@ function PantallaPrincipal() {
                 "Valid:",
                 post.time instanceof Date && !isNaN(post.time.getTime())
               );
+
+              console.log('Datos completos del post:', {
+                id: post.id,
+                usuario: {
+                    id: post.usuario?.id,
+                    nombre: post.usuario?.nombreUsuario,
+                    // Muestra los primeros caracteres de la imagen para verificar
+                    imagen: post.usuario?.imagenPerfil?.substring(0, 30) + '...',
+                    // Verifica si es base64 o URL
+                    tipoImagen: post.usuario?.imagenPerfil?.startsWith('data:image') ? 'Base64' : 
+                              post.usuario?.imagenPerfil?.startsWith('http') ? 'URL' : 'Formato desconocido'
+                }
+            });
               return (
                 <motion.div
                   key={post.id}
@@ -1908,40 +2047,44 @@ function PantallaPrincipal() {
                     backgroundColor: cardColor,
                   }}
                 >
-                  <div
-                    style={{
-                      width: "48px",
-                      height: "48px",
-                      borderRadius: "50%",
-                      background: primaryColor,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      marginRight: "0.75rem",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <svg
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                        fill="white"
-                      />
-                      <path
-                        d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                        fill="white"
-                      />
-                      <path
-                        d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                        fill="white"
-                      />
-                    </svg>
-                  </div>
+                <div style={{
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "50%",
+                  backgroundColor: !post.usuario?.imagenPerfil ? primaryColor : 'transparent',
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                  marginRight: "0.75rem",
+                  border: post.usuario?.imagenPerfil ? `1px solid rgb(122, 122, 122)` : 'none'
+                }}>
+                    {post.usuario?.imagenPerfil ? (
+                        <img 
+                            src={
+                                post.usuario.imagenPerfil.startsWith('data:image') ? 
+                                post.usuario.imagenPerfil : 
+                                `http://localhost:8080/${post.usuario.imagenPerfil}`
+                            }
+                            alt={`Avatar de ${post.usuario.name}`}
+                            style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover'
+                            }}
+                            onError={(e) => {
+                                // Fallback robusto
+                                console.error('Error cargando imagen:', e.target.src);
+                                e.target.style.display = 'none';
+                                e.target.parentNode.style.backgroundColor = primaryColor;
+                            }}
+                        />
+                    ) : (
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ margin: '12px' }}>
+                            <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z" fill="white"/>
+                            <path d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z" fill="white"/>
+                            <path d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z" fill="white"/>
+                        </svg>
+                    )}
+                </div>
 
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div
@@ -2013,6 +2156,44 @@ function PantallaPrincipal() {
                     >
                       {post.content}
                     </p>
+
+                    {post.imagen && (
+                      <div style={{
+                        marginTop: '1rem',
+                        marginBottom: '0.5rem',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        maxHeight: '400px',
+                        cursor: 'pointer',
+                        // backgroundColor: borderColor
+                      }}
+                      
+                      onClick={(e) => handleImageClick(e, post.imagen)}
+                      >
+                        <img
+                          src={post.imagen}
+                          alt="Contenido de la publicación"
+                          onError={(e) => {
+                            console.error("Error cargando imagen:", e);
+                            console.log("Datos imagen:", {
+                              id: post.id,
+                              startsWithData: post.imagen.startsWith('data:image'),
+                              length: post.imagen.length,
+                              preview: post.imagen.substring(0, 50) + '...'
+                            });
+                            e.target.style.display = 'none';
+                          }}
+                          style={{
+                            width: '100%',
+                            height: 'auto',
+                            maxHeight: '400px',
+                            display: 'block',
+                            objectFit: 'contain'
+                          }}
+                        />
+                      </div>
+                    )}
+
                     <div
                       style={{
                         display: "flex",
@@ -2125,7 +2306,13 @@ function PantallaPrincipal() {
                           display: "flex",
                           alignItems: "center",
                         }}
-                        onClick={() => navigate(`/perfil/${post.id}`)}
+                        onClick={() => {
+                          if (post?.userId) {
+                            navigate(`/perfil/${post.userId}`);
+                          } else {
+                            console.error("No se pudo navegar: ID de usuario no disponible");
+                          }
+                        }}
                       >
                         <svg
                           width="19"
@@ -2181,7 +2368,7 @@ function PantallaPrincipal() {
                 backgroundColor: lightTextColor,
                 borderRadius: "10px",
                 border: `2px solid ${backgroundColor}`,
-              },
+              }
             }}
           >
             {/* Buscador */}
@@ -2388,7 +2575,7 @@ function PantallaPrincipal() {
                             backgroundColor: lightTextColor,
                             borderRadius: "10px",
                             border: `2px solid ${backgroundColor}`,
-                          },
+                          }
                         }}
                       >
                         {users
@@ -2658,7 +2845,7 @@ function PantallaPrincipal() {
               backgroundColor: lightTextColor,
               borderRadius: "10px",
               border: `2px solid ${backgroundColor}`,
-            },
+            }
           }}
         >
           {/* Botón para cerrar en móviles */}
@@ -2890,7 +3077,7 @@ function PantallaPrincipal() {
                           backgroundColor: lightTextColor,
                           borderRadius: "10px",
                           border: `2px solid ${backgroundColor}`,
-                        },
+                        }
                       }}
                     >
                       {users
@@ -3120,6 +3307,93 @@ function PantallaPrincipal() {
           </div>
         </motion.div>
       )}
+
+      {showImageModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.9)',
+            zIndex: 1000,
+            overflow: 'auto',
+            cursor: 'zoom-out'
+          }}
+          onClick={() => setShowImageModal(false)}
+          ref={(container) => {
+            if (container && zoomLevel > 1) {
+              // Calcular posición para mantener el punto de zoom visible
+              const centerX = container.clientWidth / 2;
+              const centerY = container.clientHeight / 2;
+              const offsetX = (zoomAnchor.x * zoomLevel - centerX);
+              const offsetY = (zoomAnchor.y * zoomLevel - centerY);
+              
+              container.scrollTo({
+                left: offsetX,
+                top: offsetY,
+                behavior: 'auto'
+              });
+            }
+          }}
+        >
+          <button
+            style={{
+              position: 'fixed',
+              top: '20px',
+              right: '20px',
+              background: 'transparent',
+              border: 'none',
+              color: 'white',
+              fontSize: '2rem',
+              cursor: 'pointer',
+              zIndex: 1001
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowImageModal(false);
+            }}
+          >
+            ×
+          </button>
+
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'flex-start', // Alinear arriba en lugar de centrar
+              minHeight: '100vh',
+              padding: '20px',
+              boxSizing: 'border-box'
+            }}
+          >
+            <img
+              src={selectedImage}
+              alt="Ampliada"
+              style={{
+                maxWidth: '90vw',
+                maxHeight: 'none',
+                objectFit: 'contain',
+                transform: `scale(${zoomLevel})`,
+                transformOrigin: `${zoomAnchor.x}px ${zoomAnchor.y}px`, // Origen del zoom en el punto de clic
+                transition: 'transform 0.2s ease',
+                cursor: 'zoom-in'
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                setZoomAnchor({ x, y });
+                setZoomLevel(prev => prev === 1 ? 2 : 1);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
