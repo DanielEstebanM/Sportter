@@ -989,7 +989,7 @@ function VistaComentarios() {
                   flexShrink: 0,
                   marginTop: "0.25rem",
                 }}
-              >
+              > 
                 <svg
                   width="24"
                   height="24"
@@ -1265,6 +1265,14 @@ function VistaComentarios() {
                     >
                       {comentario.content}
                     </p>
+                   <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        maxWidth: "100%",
+                      }}
+                    >
+                    </div>
                   </div>
                 </motion.div>
               ))

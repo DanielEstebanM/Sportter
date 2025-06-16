@@ -1,15 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import "react-tooltip/dist/react-tooltip.css";
+import { mensajeService } from "../services/api";
+
 import {
   loadPosts,
   darLike,
   quitarLike,
   crearPublicacion,
-  getUsers
+  getUsers,
 } from "../services/api";
+import { useConversaciones } from "../components/hooks/useConversaciones";
 
 function PantallaPrincipal() {
   const location = useLocation();
@@ -24,8 +27,10 @@ function PantallaPrincipal() {
   const [showLeftSidebar, setShowLeftSidebar] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [scrollY, setScrollY] = useState(0);
+  const stompClientRef = useRef(null);
 
-  const userData = location.state?.user || JSON.parse(localStorage.getItem("userData"));
+  const userData =
+    location.state?.user || JSON.parse(localStorage.getItem("userData"));
   const userEmail = userData?.correoElectronico;
   const userName = userData?.nombreUsuario;
   const currentUserId = userData?.id;
@@ -47,6 +52,8 @@ function PantallaPrincipal() {
   // Datos de ejemplo para usuarios
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
+  const { conversations, loadingConversations } =
+    useConversaciones(currentUserId);
 
   // Cargar publicaciones al iniciar
   useEffect(() => {
@@ -121,8 +128,8 @@ function PantallaPrincipal() {
 
         // Ordenar usuarios alfabéticamente por nombreUsuario
         const sortedUsers = fetchedUsers.sort((a, b) => {
-          const nameA = a.nombreUsuario?.toUpperCase() || ''; // Manejo seguro de valores undefined
-          const nameB = b.nombreUsuario?.toUpperCase() || '';
+          const nameA = a.nombreUsuario?.toUpperCase() || ""; // Manejo seguro de valores undefined
+          const nameB = b.nombreUsuario?.toUpperCase() || "";
           return nameA.localeCompare(nameB);
         });
 
@@ -189,31 +196,72 @@ function PantallaPrincipal() {
   };
 
   // Función para enviar la publicación compartida
-  const handleSendShare = () => {
+  const handleSendShare = async () => {
     if (selectedUsers.length === 0 || !currentSharedPost) return;
 
-    // Aquí iría la lógica para enviar la publicación a los usuarios seleccionados
-    console.log(
-      `Compartiendo publicación ${currentSharedPost.id} con usuarios:`,
-      selectedUsers
-    );
+    try {
+      // Crear el contenido del mensaje con formato mejorado
+      const postPreview =
+        currentSharedPost.content.length > 50
+          ? `${currentSharedPost.content.substring(0, 50)}...`
+          : currentSharedPost.content;
 
-    // Actualizar el contador de shares
-    setPosts(
-      posts.map((post) => {
-        if (post.id === currentSharedPost.id) {
-          return {
-            ...post,
-            shares: post.shares + selectedUsers.length,
-          };
-        }
-        return post;
-      })
-    );
+      const messageContent = `
+      📢 ${userName} ha compartido una publicación contigo:
+      
+      💬 "${postPreview}"
+      
+      🔍 Ver publicación: ${window.location.origin}/publicaciones/${currentSharedPost.id}
+    `;
 
-    setShowShareModal(false);
-    setCurrentSharedPost(null);
-    setSelectedUsers([]);
+      // Enviar a cada conversación seleccionada
+      for (const conversationId of selectedUsers) {
+        const mensajeDTO = {
+          contenido: messageContent,
+          remitenteId: currentUserId,
+          destinatarioId: conversations.find((c) => c.id === conversationId)
+            ?.destinatarioId,
+          conversacionId: conversationId,
+          metadata: JSON.stringify({
+            type: "shared_post", // Para identificar el tipo
+            postId: currentSharedPost.id, // Obligatorio
+            preview: postPreview, // Obligatorio
+            author: userName, // Obligatorio
+            // Añade estos campos si SharedPostCard los usa:
+            imageUrl: currentSharedPost.imageUrl || null,
+            timestamp: new Date().toISOString(),
+          }),
+        };
+
+        console.log("📤 Metadata enviado:", {
+          metadataString: mensajeDTO.metadata,
+          metadataParsed: JSON.parse(mensajeDTO.metadata), // Verifica que el parseo sea correcto
+        });
+
+        // Enviar por HTTP (WebSocket opcional)
+        await mensajeService.enviarMensaje(mensajeDTO);
+      }
+
+      // Actualizar el contador de shares
+      setPosts(
+        posts.map((post) => {
+          if (post.id === currentSharedPost.id) {
+            return {
+              ...post,
+              shares: post.shares + selectedUsers.length,
+            };
+          }
+          return post;
+        })
+      );
+
+      // Cerrar modal
+      setShowShareModal(false);
+      setCurrentSharedPost(null);
+      setSelectedUsers([]);
+    } catch (error) {
+      console.error("Error al compartir publicación:", error);
+    }
   };
 
   // Función para alternar la selección de usuarios
@@ -491,18 +539,18 @@ function PantallaPrincipal() {
   const filteredPosts =
     selectedSport === "General"
       ? posts.filter(
-        (post) =>
-          post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          post.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          post.user.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-      : posts.filter(
-        (post) =>
-          post.sport === selectedSport &&
-          (post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (post) =>
+            post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
             post.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            post.user.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
+            post.user.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      : posts.filter(
+          (post) =>
+            post.sport === selectedSport &&
+            (post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              post.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              post.user.toLowerCase().includes(searchQuery.toLowerCase()))
+        );
 
   return (
     <div
@@ -525,246 +573,124 @@ function PantallaPrincipal() {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: "rgba(0,0,0,0.7)",
-            backdropFilter: "blur(5px)",
-            zIndex: 100,
+            backgroundColor: "rgba(0, 0, 0, 0.8)",
+            zIndex: 1000,
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
           }}
         >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
+          <div
             style={{
-              backgroundColor: cardColor,
-              borderRadius: "16px",
-              padding: "1.5rem",
+              backgroundColor: "#1e1e1e",
+              borderRadius: "12px",
               width: "90%",
               maxWidth: "500px",
-              border: `1px solid ${borderColor}`,
+              maxHeight: "80vh",
+              padding: "20px",
+              border: "1px solid #FF4500",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "1rem",
-              }}
-            >
-              <h3 style={{ margin: 0 }}>Compartir publicación</h3>
-              <button
-                onClick={() => {
-                  setShowShareModal(false);
-                  setShareSearchQuery("");
-                }}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: textColor,
-                  cursor: "pointer",
-                  fontSize: "1.5rem",
-                }}
-              >
-                ×
-              </button>
-            </div>
+            <h3 style={{ color: "#FF4500", marginTop: 0 }}>
+              Compartir publicación
+            </h3>
 
-            <div style={{ marginBottom: "1rem" }}>
-              <div
-                style={{
-                  position: "relative",
-                  marginBottom: "1rem",
-                }}
-              >
-                <input
-                  type="text"
-                  placeholder="Buscar usuarios..."
-                  value={shareSearchQuery}
-                  onChange={(e) => setShareSearchQuery(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "0.75rem 1rem 0.75rem 2.5rem",
-                    borderRadius: "50px",
-                    border: `1px solid ${borderColor}`,
-                    backgroundColor: backgroundColor,
-                    color: textColor,
-                    outline: "none",
-                    fontSize: "0.9rem",
-                  }}
-                />
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  style={{
-                    position: "absolute",
-                    left: "12px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    color: lightTextColor,
-                  }}
-                >
-                  <path
-                    d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3C5.91 3 3 5.91 3 9.5C3 13.09 5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5C5 7.01 7.01 5 9.5 5C11.99 5 14 7.01 14 9.5C14 11.99 11.99 14 9.5 14Z"
-                    fill="currentColor"
-                  />
-                </svg>
-              </div>
-
-              <div
-                style={{
-                  maxHeight: "300px",
-                  overflowY: "auto",
-                  border: `1px solid ${borderColor}`,
-                  borderRadius: "8px",
-                  padding: "0.5rem",
-                  scrollbarWidth: "thin",
-                  scrollbarColor: `${lightTextColor} ${backgroundColor}`,
-                  "&::-webkit-scrollbar": {
-                    width: "8px",
-                  },
-                  "&::-webkit-scrollbar-track": {
-                    background: backgroundColor,
-                  },
-                  "&::-webkit-scrollbar-thumb": {
-                    backgroundColor: lightTextColor,
-                    borderRadius: "10px",
-                    border: `2px solid ${backgroundColor}`,
-                  },
-                }}
-              >
-                {users.filter(
-                  (user) =>
-                    user.name
-                      .toLowerCase()
-                      .includes(shareSearchQuery.toLowerCase()) ||
-                    user.email
-                      .toLowerCase()
-                      .includes(shareSearchQuery.toLowerCase())
-                ).length === 0 ? (
+            {loadingConversations ? (
+              <p style={{ color: "#a0a0a0" }}>Cargando conversaciones...</p>
+            ) : conversations.length === 0 ? (
+              <p style={{ color: "#a0a0a0" }}>
+                No tienes conversaciones activas
+              </p>
+            ) : (
+              <div style={{ maxHeight: "60vh", overflowY: "auto" }}>
+                {conversations.map((conv) => (
                   <div
+                    key={conv.id}
                     style={{
-                      textAlign: "center",
-                      padding: "1rem",
-                      color: lightTextColor,
+                      padding: "12px",
+                      margin: "8px 0",
+                      backgroundColor: selectedUsers.includes(conv.id)
+                        ? "rgba(255, 69, 0, 0.2)"
+                        : "transparent",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      border: "1px solid #2d2d2d",
+                    }}
+                    onClick={() => {
+                      const updatedSelection = selectedUsers.includes(conv.id)
+                        ? selectedUsers.filter((id) => id !== conv.id)
+                        : [...selectedUsers, conv.id];
+                      setSelectedUsers(updatedSelection);
                     }}
                   >
-                    No se encontraron usuarios con ese nombre
-                  </div>
-                ) : (
-                  users
-                    .filter(
-                      (user) =>
-                        user.name
-                          .toLowerCase()
-                          .includes(shareSearchQuery.toLowerCase()) ||
-                        user.email
-                          .toLowerCase()
-                          .includes(shareSearchQuery.toLowerCase())
-                    )
-                    .map((user) => (
-                      <div
-                        key={user.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          padding: "0.5rem",
-                          borderRadius: "4px",
-                          backgroundColor: selectedUsers.some(
-                            (u) => u.id === user.id
-                          )
-                            ? "rgba(255, 112, 67, 0.2)"
-                            : "transparent",
-                          marginBottom: "0.5rem",
-                          cursor: "pointer",
-                        }}
-                        onClick={() => toggleUserSelection(user)}
-                      >
-                        <div style={{ display: "flex", alignItems: "center" }}>
-                          <div
-                            style={{
-                              width: "40px",
-                              height: "40px",
-                              borderRadius: "50%",
-                              background: primaryColor,
-                              marginRight: "0.5rem",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: "white",
-                            }}
-                          >
-                            {user.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <div style={{ fontWeight: "bold" }}>
-                              {user.name}
-                            </div>
-                            <div
-                              style={{
-                                fontSize: "0.8rem",
-                                color: lightTextColor,
-                              }}
-                            >
-                              {user.email}
-                            </div>
-                          </div>
-                        </div>
-                        {selectedUsers.some((u) => u.id === user.id) && (
-                          <svg
-                            width="24"
-                            height="24"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              d="M9 16.17L4.83 12L3.41 13.41L9 19L21 7L19.59 5.59L9 16.17Z"
-                              fill={accentColor}
-                            />
-                          </svg>
-                        )}
+                    <div
+                      style={{
+                        width: "40px",
+                        height: "40px",
+                        borderRadius: "50%",
+                        background: primaryColor,
+                        marginRight: "12px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "white",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {conv.user.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: "bold" }}>{conv.user}</div>
+                      <div style={{ color: "#a0a0a0", fontSize: "0.8rem" }}>
+                        @{conv.username}
                       </div>
-                    ))
-                )}
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
+            )}
 
             <div
               style={{
                 display: "flex",
                 justifyContent: "flex-end",
-                paddingTop: "1rem",
+                gap: "10px",
+                marginTop: "20px",
               }}
             >
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+              <button
+                onClick={() => setShowShareModal(false)}
+                style={{
+                  background: "transparent",
+                  border: "1px solid #FF4500",
+                  color: "#FF4500",
+                  padding: "8px 16px",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                }}
+              >
+                Cancelar
+              </button>
+              <button
                 onClick={handleSendShare}
+                disabled={selectedUsers.length === 0}
                 style={{
                   background:
-                    selectedUsers.length > 0
-                      ? primaryColor
-                      : "rgba(255, 69, 0, 0.5)",
-                  color: "white",
-                  borderRadius: "30px",
+                    selectedUsers.length === 0 ? "#FF7043" : "#FF4500",
                   border: "none",
-                  padding: "8px 24px",
-                  cursor: selectedUsers.length > 0 ? "pointer" : "not-allowed",
-                  fontWeight: "bold",
-                  fontSize: "1rem",
+                  color: "white",
+                  padding: "8px 16px",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  opacity: selectedUsers.length === 0 ? 0.7 : 1,
                 }}
-                disabled={selectedUsers.length === 0}
               >
-                Enviar ({selectedUsers.length})
-              </motion.button>
+                Compartir ({selectedUsers.length})
+              </button>
             </div>
-          </motion.div>
+          </div>
         </div>
       )}
 
@@ -1021,14 +947,16 @@ function PantallaPrincipal() {
 
                 {/* Sección para la imagen */}
                 {postImagePreview && (
-                  <div style={{
-                    marginTop: "1rem",
-                    position: "relative",
-                    width: "100%",
-                    maxHeight: "300px",
-                    borderRadius: "8px",
-                    overflow: "hidden"
-                  }}>
+                  <div
+                    style={{
+                      marginTop: "1rem",
+                      position: "relative",
+                      width: "100%",
+                      maxHeight: "300px",
+                      borderRadius: "8px",
+                      overflow: "hidden",
+                    }}
+                  >
                     <img
                       src={postImagePreview}
                       alt="Preview"
@@ -1036,7 +964,7 @@ function PantallaPrincipal() {
                         width: "100%",
                         height: "100%",
                         objectFit: "contain",
-                        maxHeight: "300px"
+                        maxHeight: "300px",
                       }}
                     />
                     <button
@@ -1076,17 +1004,19 @@ function PantallaPrincipal() {
                 paddingTop: "1rem",
               }}
             >
-              <label style={{
-                padding: "0.6rem",
-                borderRadius: "8px",
-                color: "#E1E1E1",
-                cursor: postImagePreview ? "not-allowed" : "pointer",
-                textAlign: "center",
-                opacity: postImagePreview ? 0.7 : 1,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center"
-              }}>
+              <label
+                style={{
+                  padding: "0.6rem",
+                  borderRadius: "8px",
+                  color: "#E1E1E1",
+                  cursor: postImagePreview ? "not-allowed" : "pointer",
+                  textAlign: "center",
+                  opacity: postImagePreview ? 0.7 : 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 24 24"
@@ -2033,10 +1963,10 @@ function PantallaPrincipal() {
                           alignItems: "center",
                         }}
                         onClick={() =>
-                        navigate(`/publicaciones/${post.id}`, {
-                          state: { user: userData },
-                        })
-                      }
+                          navigate(`/publicaciones/${post.id}`, {
+                            state: { user: userData },
+                          })
+                        }
                       >
                         <svg
                           width="20"
@@ -2052,7 +1982,7 @@ function PantallaPrincipal() {
                             clipRule="evenodd"
                           ></path>
                         </svg>
-                        
+
                         <span>{post.comments}</span>
                       </motion.button>
                       <motion.button
@@ -2391,22 +2321,22 @@ function PantallaPrincipal() {
                           },
                         }}
                       >
-                        {users
-                          .filter(
-                            (user) =>
-                              user.nombreUsuario
-                                ?.toLowerCase()
-                                .includes(shareSearchQuery.toLowerCase()) ||
-                              user.correoElectronico
-                                ?.toLowerCase()
-                                .includes(shareSearchQuery.toLowerCase())
-                          )
-                          .length === 0 ? (
-                          <div style={{
-                            textAlign: 'center',
-                            padding: '1rem',
-                            color: lightTextColor
-                          }}>
+                        {users.filter(
+                          (user) =>
+                            user.nombreUsuario
+                              ?.toLowerCase()
+                              .includes(shareSearchQuery.toLowerCase()) ||
+                            user.correoElectronico
+                              ?.toLowerCase()
+                              .includes(shareSearchQuery.toLowerCase())
+                        ).length === 0 ? (
+                          <div
+                            style={{
+                              textAlign: "center",
+                              padding: "1rem",
+                              color: lightTextColor,
+                            }}
+                          >
                             No se encontraron usuarios con ese nombre
                           </div>
                         ) : (
@@ -2463,10 +2393,14 @@ function PantallaPrincipal() {
                                       color: "white",
                                     }}
                                   >
-                                    {user.nombreUsuario?.charAt(0).toUpperCase() || "U"}
+                                    {user.nombreUsuario
+                                      ?.charAt(0)
+                                      .toUpperCase() || "U"}
                                   </div>
                                   <div>
-                                    <div style={{ fontWeight: "bold" }}>{user.nombreUsuario || "Usuario"}</div>
+                                    <div style={{ fontWeight: "bold" }}>
+                                      {user.nombreUsuario || "Usuario"}
+                                    </div>
                                     <div
                                       style={{
                                         fontSize: "0.8rem",
@@ -2492,8 +2426,7 @@ function PantallaPrincipal() {
                                 </svg>
                               </div>
                             ))
-                        )
-                        }
+                        )}
                       </div>
                     </div>
                   </motion.div>
@@ -2522,8 +2455,9 @@ function PantallaPrincipal() {
               {Object.entries(trends).map(([sport, trend]) => (
                 <div key={sport} style={{ marginBottom: "1rem" }}>
                   <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>
-                    {`Tendencia en ${sport.charAt(0).toUpperCase() + sport.slice(1)
-                      }`}
+                    {`Tendencia en ${
+                      sport.charAt(0).toUpperCase() + sport.slice(1)
+                    }`}
                   </div>
                   <div style={{ fontWeight: "bold", color: textColor }}>
                     {trend.tag}
@@ -2561,6 +2495,7 @@ function PantallaPrincipal() {
                     marginRight: "0.5rem",
                     marginBottom: "0.5rem",
                   }}
+                  onClick={() => navigate("/terminosDeServicio")}
                 >
                   Términos de servicio
                 </motion.button>
@@ -2577,24 +2512,9 @@ function PantallaPrincipal() {
                     marginRight: "0.5rem",
                     marginBottom: "0.5rem",
                   }}
+                  onClick={() => navigate("/politicaDePrivacidad")}
                 >
                   Política de privacidad
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: lightTextColor,
-                    cursor: "pointer",
-                    padding: "0.25rem 0.5rem",
-                    fontSize: "0.8rem",
-                    marginRight: "0.5rem",
-                    marginBottom: "0.5rem",
-                  }}
-                >
-                  Cookies
                 </motion.button>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
@@ -2609,6 +2529,7 @@ function PantallaPrincipal() {
                     marginRight: "0.5rem",
                     marginBottom: "0.5rem",
                   }}
+                  onClick={() => navigate("/accesibilidad")}
                 >
                   Accesibilidad
                 </motion.button>
@@ -2762,7 +2683,11 @@ function PantallaPrincipal() {
                 viewBox="0 0 24 24"
                 width="1.3em"
                 height="1.3em"
-                style={{ marginRight: "0.9rem", marginLeft: "0.15rem", marginBottom: "0.1rem" }}
+                style={{
+                  marginRight: "0.9rem",
+                  marginLeft: "0.15rem",
+                  marginBottom: "0.1rem",
+                }}
               >
                 <path
                   fill="currentColor"
@@ -2812,7 +2737,7 @@ function PantallaPrincipal() {
                     <h3 style={{ margin: 0 }}>Buscar usuarios</h3>
                     <button
                       onClick={() => {
-                        setShowUserSearchModal(false)
+                        setShowUserSearchModal(false);
                         setShareSearchQuery("");
                       }}
                       style={{
@@ -2893,22 +2818,22 @@ function PantallaPrincipal() {
                         },
                       }}
                     >
-                      {users
-                        .filter(
-                          (user) =>
-                            user.nombreUsuario
-                              ?.toLowerCase()
-                              .includes(shareSearchQuery.toLowerCase()) ||
-                            user.correoElectronico
-                              ?.toLowerCase()
-                              .includes(shareSearchQuery.toLowerCase())
-                        )
-                        .length === 0 ? (
-                        <div style={{
-                          textAlign: 'center',
-                          padding: '1rem',
-                          color: lightTextColor
-                        }}>
+                      {users.filter(
+                        (user) =>
+                          user.nombreUsuario
+                            ?.toLowerCase()
+                            .includes(shareSearchQuery.toLowerCase()) ||
+                          user.correoElectronico
+                            ?.toLowerCase()
+                            .includes(shareSearchQuery.toLowerCase())
+                      ).length === 0 ? (
+                        <div
+                          style={{
+                            textAlign: "center",
+                            padding: "1rem",
+                            color: lightTextColor,
+                          }}
+                        >
                           No se encontraron usuarios con ese nombre
                         </div>
                       ) : (
@@ -2946,7 +2871,12 @@ function PantallaPrincipal() {
                                 setShowUserSearchModal(false);
                               }}
                             >
-                              <div style={{ display: "flex", alignItems: "center" }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                }}
+                              >
                                 <div
                                   style={{
                                     width: "40px",
@@ -2960,10 +2890,14 @@ function PantallaPrincipal() {
                                     color: "white",
                                   }}
                                 >
-                                  {user.nombreUsuario?.charAt(0).toUpperCase() || "U"}
+                                  {user.nombreUsuario
+                                    ?.charAt(0)
+                                    .toUpperCase() || "U"}
                                 </div>
                                 <div>
-                                  <div style={{ fontWeight: "bold" }}>{user.nombreUsuario || "Usuario"}</div>
+                                  <div style={{ fontWeight: "bold" }}>
+                                    {user.nombreUsuario || "Usuario"}
+                                  </div>
                                   <div
                                     style={{
                                       fontSize: "0.8rem",
@@ -2989,8 +2923,7 @@ function PantallaPrincipal() {
                               </svg>
                             </div>
                           ))
-                      )
-                      }
+                      )}
                     </div>
                   </div>
                 </motion.div>
@@ -3018,8 +2951,9 @@ function PantallaPrincipal() {
             {Object.entries(trends).map(([sport, trend]) => (
               <div key={sport} style={{ marginBottom: "1rem" }}>
                 <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>
-                  {`Tendencia en ${sport.charAt(0).toUpperCase() + sport.slice(1)
-                    }`}
+                  {`Tendencia en ${
+                    sport.charAt(0).toUpperCase() + sport.slice(1)
+                  }`}
                 </div>
                 <div style={{ fontWeight: "bold", color: textColor }}>
                   {trend.tag}

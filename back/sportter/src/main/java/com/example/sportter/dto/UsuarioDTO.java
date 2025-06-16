@@ -6,6 +6,7 @@ public class UsuarioDTO {
     private String nombreUsuario;
     private String email;
     private String imagen_perfil;
+    private String bio;
 
  
 	// Getters y Setters
@@ -19,4 +20,11 @@ public class UsuarioDTO {
     public void setEmail(String email) { this.email = email; }
     public String getAvatar() { return imagen_perfil; }
     public void setAvatar(String imagen_perfil) { this.imagen_perfil = imagen_perfil; }
+	public String getBio() {
+		return bio;
+	}
+	public void setBio(String bio) {
+		this.bio = bio;
+	}
+    
 }
