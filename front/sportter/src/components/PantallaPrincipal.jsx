@@ -1070,34 +1070,7 @@ function PantallaPrincipal() {
               <form onSubmit={handlePostSubmit}>
                 <div style={{ display: "flex" }}>
                   <UserAvatar usuario={userData} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    {userData?.imagen_perfil ? (
-                      <img 
-                        src={
-                          userData.imagen_perfil.startsWith('data:image') ? 
-                          userData.imagen_perfil : 
-                          `http://localhost:8080/${userData.imagen_perfil}`
-                        }
-                        alt={`Avatar de ${userData.nombreUsuario}`}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover'
-                        }}
-                        onError={(e) => {
-                          console.error('Error cargando imagen de perfil:', e);
-                          e.target.style.display = 'none';
-                          e.target.parentNode.style.backgroundColor = primaryColor;
-                        }}
-                      />
-                    ) : (
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                        <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z" fill="white"/>
-                        <path d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z" fill="white"/>
-                        <path d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z" fill="white"/>
-                      </svg>
-                    )}
-                  </div>
+                  
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <textarea
                       placeholder="¿Qué está pasando? ¡Pon un # para clasificar tu contenido!"
@@ -1113,6 +1086,7 @@ function PantallaPrincipal() {
                         outline: "none",
                         padding: 0,
                         paddingRight: "0.5rem",
+                        marginLeft:'0.5rem'
                       }}
                       value={newPostContent}
                       onChange={(e) => setNewPostContent(e.target.value)}
