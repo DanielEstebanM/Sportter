@@ -24,4 +24,6 @@ public interface EquipoRepository extends JpaRepository<Equipo, Long> {
         "WHERE e NOT IN (SELECT m2.equipo FROM Miembro m2 WHERE m2.usuario.id = :userId) " +
         "GROUP BY e.id, e.nombre, e.descripcion, e.categoriaDeporte.nombre, e.imagenUrl")
  List<EquipoConMiembrosDTO> findEquiposComunidadConMiembros(@Param("userId") Long userId);
+ 
+ List<Equipo> findByCreadorId(Long creadorId);
 }

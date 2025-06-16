@@ -25,8 +25,9 @@ function PantallaMensajes() {
   const [availableUsers, setAvailableUsers] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [webSocketReady, setWebSocketReady] = useState(false);
-  `
-`;
+  const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+
   const userData = JSON.parse(localStorage.getItem("userDataMessages"));
   const currentUserId = userData?.id;
   const userId = userData?.id;
@@ -42,15 +43,71 @@ function PantallaMensajes() {
   const lightTextColor = "#a0a0a0";
   const borderColor = "#2d2d2d";
 
-  const stompClientRef = useRef(null);
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
-    if (userSearchQuery.trim().length >= 2) {
-      buscarUsuarios(userSearchQuery);
-    } else {
-      setAvailableUsers([]);
+    scrollToBottom();
+  }, [selectedUser?.messages]); // Se ejecuta cuando cambian los mensajes
+
+  // También cuando se selecciona una conversación
+  useEffect(() => {
+    if (selectedUser) {
+      scrollToBottom();
     }
-  }, [userSearchQuery]);
+  }, [selectedUser]);
+
+  const stompClientRef = useRef(null);
+
+  // Cargar todos los usuarios al montar el componente
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setLoadingUsers(true);
+        const response = await mensajeService.buscarUsuarios("");
+
+        // Ordenar usuarios alfabéticamente excluyendo al usuario actual
+        const sortedUsers = response.data
+          .filter((user) => user.id !== userId) // Excluir al usuario actual
+          .sort((a, b) => {
+            const nameA = a.nombreUsuario?.toUpperCase() || "";
+            const nameB = b.nombreUsuario?.toUpperCase() || "";
+            return nameA.localeCompare(nameB);
+          });
+
+        setUsers(sortedUsers);
+        setAvailableUsers(sortedUsers); // Mostrar todos los usuarios inicialmente
+      } catch (error) {
+        console.error("Error loading users:", error);
+        setUsers([]);
+        setAvailableUsers([]);
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+    fetchUsers();
+  }, [userId]);
+
+  // Filtrar usuarios localmente según la búsqueda
+  useEffect(() => {
+    if (userSearchQuery.trim().length > 0) {
+      const filtered = users.filter(
+        (user) =>
+          user.nombreUsuario
+            ?.toLowerCase()
+            .includes(userSearchQuery.toLowerCase()) ||
+          user.correoElectronico
+            ?.toLowerCase()
+            .includes(userSearchQuery.toLowerCase())
+      );
+      setAvailableUsers(filtered);
+    } else {
+      setAvailableUsers(users); // Mostrar todos los usuarios cuando no hay búsqueda
+    }
+  }, [userSearchQuery, users]);
 
   // Detectar si es móvil o tablet
   useEffect(() => {
@@ -77,15 +134,12 @@ function PantallaMensajes() {
   const cargarConversaciones = async () => {
     setLoading(true);
     try {
-      // 1. Obtener conversaciones básicas
       const conversacionesRes =
         await mensajeService.obtenerConversacionesUsuario(userId);
       const conversaciones = conversacionesRes.data;
 
-      // 2. Obtener información de usuarios participantes
       const usuariosUnicos = new Map();
 
-      // Usamos Promise.all para hacer las peticiones en paralelo
       await Promise.all(
         conversaciones
           .flatMap((conv) => [conv.usuario1Id, conv.usuario2Id])
@@ -107,7 +161,6 @@ function PantallaMensajes() {
           })
       );
 
-      // 3. Transformar conversaciones
       const conversacionesTransformadas = conversaciones.map((conv) => {
         const esUsuario1 = conv.usuario1Id === userId;
         const otroUsuarioId = esUsuario1 ? conv.usuario2Id : conv.usuario1Id;
@@ -116,10 +169,17 @@ function PantallaMensajes() {
           username: `user${otroUsuarioId}`,
         };
 
+        conversaciones.sort((a, b) => {
+          const fechaA = new Date(a.ultimoMensajeFecha || a.fechaCreacion);
+          const fechaB = new Date(b.ultimoMensajeFecha || b.fechaCreacion);
+          return fechaB - fechaA; // Orden descendente
+        });
+
         return {
           id: conv.id,
           user: otroUsuario.nombre,
           username: otroUsuario.username,
+          email: otroUsuario.email,
           destinatarioId: otroUsuarioId,
           avatar: "",
           lastMessage: "Cargando mensajes...",
@@ -131,7 +191,6 @@ function PantallaMensajes() {
 
       setConversations(conversacionesTransformadas);
 
-      // 4. Cargar mensajes para cada conversación
       for (const conv of conversacionesTransformadas) {
         try {
           const mensajesResponse =
@@ -150,7 +209,7 @@ function PantallaMensajes() {
                   m.remitenteId === userId
                     ? userName
                     : usuariosUnicos.get(m.remitenteId)?.nombre ||
-                    `Usuario ${m.remitenteId}`,
+                      `Usuario ${m.remitenteId}`,
                 isUser: m.remitenteId === userId,
               })),
             });
@@ -192,29 +251,10 @@ function PantallaMensajes() {
     );
   };
 
-  // Buscar usuarios para nueva conversación
-  const buscarUsuarios = async (query) => {
-    if (query.trim().length < 2) {
-      setAvailableUsers([]);
-      return;
-    }
-
-    try {
-      const response = await mensajeService.buscarUsuarios(query);
-      // Filtrar para no incluir al usuario actual
-      const usuariosFiltrados = response.data.filter((u) => u.id !== userId);
-      setAvailableUsers(usuariosFiltrados);
-    } catch (error) {
-      console.error("Error al buscar usuarios:", error);
-    }
-  };
-
   // Enviar mensaje
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedUser || !userId) return;
-
-    console.log("✉️ Enviando mensaje...");
 
     const tempId = Date.now();
     const mensajeDTO = {
@@ -245,11 +285,11 @@ function PantallaMensajes() {
       prev.map((conv) =>
         conv.id === selectedUser.id
           ? {
-            ...conv,
-            lastMessage: newMessage,
-            time: "Justo ahora",
-            messages: [...conv.messages, mensajeOptimista],
-          }
+              ...conv,
+              lastMessage: newMessage,
+              time: "Justo ahora",
+              messages: [...conv.messages, mensajeOptimista],
+            }
           : conv
       )
     );
@@ -259,18 +299,24 @@ function PantallaMensajes() {
     try {
       // Enviar por WebSocket
       if (stompClientRef.current?.connected) {
-        console.log("📤 Enviando mensaje por WebSocket");
+        if (newMessage.metadata) {
+          const parsedMetadata = JSON.parse(newMessage.metadata);
+          if (parsedMetadata.type === "shared_post") {
+            setSelectedUser((prev) => ({
+              ...prev,
+              messages: [...prev.messages, newMessage],
+            }));
+            return;
+          }
+        }
         sendMessageWebSocket(
           stompClientRef.current,
           selectedUser.id,
           mensajeDTO
         );
-      } else {
-        console.warn("WebSocket no conectado, enviando solo por HTTP");
       }
 
       // Enviar por HTTP
-      console.log("📤 Enviando mensaje por HTTP");
       const response = await mensajeService.enviarMensaje(mensajeDTO);
       const mensajeReal = response.data;
 
@@ -280,10 +326,10 @@ function PantallaMensajes() {
         messages: prev.messages.map((msg) =>
           msg.id === tempId
             ? {
-              ...msg,
-              id: mensajeReal.id,
-              time: formatearFecha(mensajeReal.fechaHora),
-            }
+                ...msg,
+                id: mensajeReal.id,
+                time: formatearFecha(mensajeReal.fechaHora),
+              }
             : msg
         ),
       }));
@@ -292,22 +338,20 @@ function PantallaMensajes() {
         prev.map((conv) =>
           conv.id === selectedUser.id
             ? {
-              ...conv,
-              messages: conv.messages.map((msg) =>
-                msg.id === tempId
-                  ? {
-                    ...msg,
-                    id: mensajeReal.id,
-                    time: formatearFecha(mensajeReal.fechaHora),
-                  }
-                  : msg
-              ),
-            }
+                ...conv,
+                messages: conv.messages.map((msg) =>
+                  msg.id === tempId
+                    ? {
+                        ...msg,
+                        id: mensajeReal.id,
+                        time: formatearFecha(mensajeReal.fechaHora),
+                      }
+                    : msg
+                ),
+              }
             : conv
         )
       );
-
-      console.log("✅ Mensaje enviado correctamente");
     } catch (error) {
       console.error("❌ Error al enviar mensaje:", error);
       // Revertir en caso de error
@@ -319,18 +363,16 @@ function PantallaMensajes() {
         prev.map((conv) =>
           conv.id === selectedUser.id
             ? {
-              ...conv,
-              messages: conv.messages.filter((msg) => msg.id !== tempId),
-            }
+                ...conv,
+                messages: conv.messages.filter((msg) => msg.id !== tempId),
+              }
             : conv
         )
       );
     }
   };
 
-  // En tu componente React
-  const [stompClient, setStompClient] = useState(null);
-
+  // Configurar WebSocket
   useEffect(() => {
     if (!conversations.length) return;
 
@@ -338,46 +380,74 @@ function PantallaMensajes() {
     const client = setupWebSocketMultiple(
       ids,
       (message) => {
-        console.log("Mensaje entrante:", message);
-        // Actualiza el estado aquí
-        setConversations((prev) => updateConversations(prev, message));
+        const isFromMe = message.remitenteId === userId;
+        const isCurrentConversation =
+          selectedUser?.id === message.conversacionId;
+
+        // Actualizar lista de conversaciones
+        setConversations((prev) =>
+          prev.map((conv) => {
+            if (conv.id !== message.conversacionId) return conv;
+
+            return {
+              ...conv,
+              messages: [
+                ...conv.messages,
+                {
+                  id: message.id,
+                  content: message.contenido,
+                  time: formatearFecha(message.fechaHora),
+                  sender: isFromMe ? userName : conv.user,
+                  isUser: isFromMe,
+                },
+              ],
+              lastMessage: message.contenido,
+              time: "Justo ahora",
+              unread: !isCurrentConversation && !isFromMe,
+            };
+          })
+        );
+
+        // Actualizar conversación seleccionada si es la activa
+        if (isCurrentConversation) {
+          setSelectedUser((prev) => ({
+            ...prev,
+            messages: [
+              ...prev.messages,
+              {
+                id: message.id,
+                content: message.contenido,
+                time: formatearFecha(message.fechaHora),
+                sender: isFromMe ? userName : prev.user,
+                isUser: isFromMe,
+              },
+            ],
+            lastMessage: message.contenido,
+            time: "Justo ahora",
+            unread: false,
+          }));
+        }
       },
       (error) => {
         console.error("Error WebSocket:", error);
       }
     );
 
-    setStompClient(client);
+    stompClientRef.current = client;
 
     return () => {
       if (client) {
-        console.log("🔌 Desconectando WebSocket...");
         client.deactivate();
       }
     };
-  }, [conversations]);
+  }, [conversations, userId, selectedUser]);
 
-  // Función para actualizar conversaciones
-  const updateConversations = (conversations, message) => {
-    return conversations.map((conv) => {
-      if (conv.id !== message.conversacionId) return conv;
-
-      return {
-        ...conv,
-        messages: [...conv.messages, message],
-        lastMessage: message.contenido,
-        time: "Justo ahora",
-        unread: selectedUser?.id !== message.conversacionId,
-      };
-    });
-  };
-
+  // Verificar conexión WebSocket
   useEffect(() => {
     if (!stompClientRef.current) return;
 
     const interval = setInterval(() => {
       if (!stompClientRef.current?.connected) {
-        console.log("🔌 WebSocket desconectado, intentando reconectar...");
         setWebSocketReady(false);
         setTimeout(() => setWebSocketReady(true), 2000);
       }
@@ -386,64 +456,8 @@ function PantallaMensajes() {
     return () => clearInterval(interval);
   }, [stompClientRef.current]);
 
-  const processIncomingMessage = (message) => {
-    const isFromMe = message.remitenteId === userId;
-    const isCurrentConversation = selectedUser?.id === message.conversacionId;
-
-    console.log(
-      `💬 Procesando mensaje (De mí: ${isFromMe}, Conversación actual: ${isCurrentConversation})`
-    );
-
-    // Actualizar lista de conversaciones
-    setConversations((prev) =>
-      prev.map((conv) => {
-        if (conv.id !== message.conversacionId) return conv;
-
-        console.log("🔄 Actualizando conversación en lista");
-        return {
-          ...conv,
-          messages: [
-            ...conv.messages,
-            {
-              id: message.id,
-              content: message.contenido,
-              time: formatearFecha(message.fechaHora),
-              sender: isFromMe ? userName : conv.user,
-              isUser: isFromMe,
-            },
-          ],
-          lastMessage: message.contenido,
-          time: "Justo ahora",
-          unread: !isCurrentConversation && !isFromMe,
-        };
-      })
-    );
-
-    // Actualizar conversación seleccionada si es la activa
-    if (isCurrentConversation) {
-      console.log("🔄 Actualizando conversación seleccionada");
-      setSelectedUser((prev) => ({
-        ...prev,
-        messages: [
-          ...prev.messages,
-          {
-            id: message.id,
-            content: message.contenido,
-            time: formatearFecha(message.fechaHora),
-            sender: isFromMe ? userName : prev.user,
-            isUser: isFromMe,
-          },
-        ],
-        lastMessage: message.contenido,
-        time: "Justo ahora",
-        unread: false,
-      }));
-    }
-  };
-
   // Al seleccionar una conversación
   const handleSelectConversation = (conversation) => {
-    // Buscar la versión más actualizada en el estado
     const updatedConv =
       conversations.find((c) => c.id === conversation.id) || conversation;
     setSelectedUser(updatedConv);
@@ -478,38 +492,35 @@ function PantallaMensajes() {
   }, [selectedUser, userId]);
 
   const handleLogout = () => {
-    // 1. Limpiar datos de autenticación
     localStorage.removeItem("userData");
-
-    // 2. Redirigir al login (con replace para evitar volver atrás)
     navigate("/", { replace: true });
   };
 
-  const filteredConversations = searchQuery
-    ? conversations.filter(
-      (conv) =>
-        (conv.user || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (conv.username || "")
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase())
-    )
-    : conversations;
-
-  // Filtrar usuarios disponibles (excluyendo los que ya están en conversaciones)
-  const filteredAvailableUsers = availableUsers.filter(
-    (user) => !conversations.some((conv) => conv.id === user.id)
-  );
-
+  // Añadir nueva conversación
   const addNewConversation = async (user) => {
     try {
-      // Primero crea la conversación en el backend
-      const response = await mensajeService.crearConversacion(userId, user.id);
+      // Verificar si ya existe una conversación con este usuario
+      const existingConv = conversations.find(
+        (conv) =>
+          conv.destinatarioId === user.id ||
+          conv.usuario1Id === user.id ||
+          conv.usuario2Id === user.id
+      );
 
+      if (existingConv) {
+        setSelectedUser(existingConv);
+        setShowAddUserPopup(false);
+        return;
+      }
+
+      // Crear nueva conversación
+      const response = await mensajeService.crearConversacion(userId, user.id);
       const newConversation = {
         id: response.data.id,
         user: user.nombreUsuario,
         username: user.nombreUsuario,
-        destinatarioId: user.id, // Asegúrate de incluir esto
+        email: user.correoElectronico,
+        destinatarioId: user.id,
         avatar: "",
         lastMessage: "",
         time: "Ahora",
@@ -526,6 +537,79 @@ function PantallaMensajes() {
     }
   };
 
+  const SharedPostCard = ({ metadata, onClick }) => {
+    const data = JSON.parse(metadata);
+
+    return (
+      <div
+        style={{
+          border: "1px solid #FF4500",
+          borderRadius: "8px",
+          padding: "10px",
+          margin: "10px 0",
+          cursor: "pointer",
+          backgroundColor: "#1e1e1e",
+        }}
+        onClick={onClick}
+      >
+        <div
+          style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}
+        >
+          <div
+            style={{
+              width: "32px",
+              height: "32px",
+              borderRadius: "50%",
+              backgroundColor: "#FF4500",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginRight: "10px",
+              color: "white",
+              fontWeight: "bold",
+            }}
+          >
+            {data.author.charAt(0).toUpperCase()}
+          </div>
+          <span style={{ fontWeight: "bold" }}>{data.author}</span>
+        </div>
+        <div style={{ marginBottom: "8px" }}>
+          <p style={{ margin: 0 }}>📢 Publicación compartida:</p>
+          <p
+            style={{
+              margin: "5px 0",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            "{data.preview}"
+          </p>
+        </div>
+        <div
+          style={{
+            color: "#FF7043",
+            fontSize: "0.8rem",
+            textAlign: "right",
+          }}
+        >
+          Haz clic para ver completa
+        </div>
+      </div>
+    );
+  };
+
+  // Filtrar conversaciones según búsqueda
+  const filteredConversations = searchQuery
+    ? conversations.filter(
+        (conv) =>
+          (conv.user || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (conv.username || "")
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase())
+      )
+    : conversations;
+
   return (
     <div
       style={{
@@ -538,7 +622,6 @@ function PantallaMensajes() {
         position: "relative",
       }}
     >
-      {/* Barra lateral izquierda */}
       {/* Barra lateral izquierda */}
       <motion.div
         initial={{ x: isMobile ? -250 : 0 }}
@@ -879,64 +962,38 @@ function PantallaMensajes() {
             ":hover": { backgroundColor: "rgba(255,255,255,0.1)" },
           }}
         >
-          {/* IMAGEN DE USUARIO ABAJO IZQUIERDA */}
           <div
             style={{
-              width: "48px",
-              height: "48px",
+              width: "40px",
+              height: "40px",
               borderRadius: "50%",
-              backgroundColor: !userData?.imagen_perfil ? primaryColor : "transparent",
-              overflow: "hidden",
-              marginRight: "0.75rem",
-              flexShrink: 0,
-              border: userData?.imagen_perfil ? `1px solid rgb(122, 122, 122)` : "none",
+              background: primaryColor,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              marginRight: "0.5rem",
             }}
           >
-            {userData?.imagen_perfil ? (
-              <img
-                src={
-                  userData.imagen_perfil.startsWith("data:image")
-                    ? userData.imagen_perfil
-                    : `http://localhost:8080/${userData.imagen_perfil}`
-                }
-                alt={`Avatar de ${userData.nombreUsuario}`}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                }}
-                onError={(e) => {
-                  console.error("Error cargando imagen de perfil:", e);
-                  e.target.style.display = "none";
-                  e.target.parentNode.style.backgroundColor = primaryColor;
-                }}
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
+                fill="white"
               />
-            ) : (
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                style={{ margin: "12px" }}
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                  fill="white"
-                />
-                <path
-                  d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                  fill="white"
-                />
-                <path
-                  d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                  fill="white"
-                />
-              </svg>
-            )}
+              <path
+                d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
+                fill="white"
+              />
+              <path
+                d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
+                fill="white"
+              />
+            </svg>
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>
@@ -1202,7 +1259,7 @@ function PantallaMensajes() {
                   display: "flex",
                   alignItems: "center",
                 }}
-                onClick={() => setSelectedUser(conversation)}
+                onClick={() => handleSelectConversation(conversation)}
               >
                 <div
                   style={{
@@ -1215,44 +1272,29 @@ function PantallaMensajes() {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    overflow: "hidden",
-                    border: conversation.remitenteImagenPerfil ? "1px solid rgb(122, 122, 122)" : "none"
                   }}
                 >
-                  {conversation.remitenteImagenPerfil ? (
-                    <img
-                      src={conversation.remitenteImagenPerfil}
-                      alt="Avatar"
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover"
-                      }}
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
+                      fill="white"
                     />
-                  ) : (
-                    <svg
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                        fill="white"
-                      />
-                      <path
-                        d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                        fill="white"
-                      />
-                      <path
-                        d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                        fill="white"
-                      />
-                    </svg>
-                  )}
+                    <path
+                      d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
+                      fill="white"
+                    />
+                    <path
+                      d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
+                      fill="white"
+                    />
+                  </svg>
                 </div>
-
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div
                     style={{ display: "flex", justifyContent: "space-between" }}
@@ -1390,13 +1432,14 @@ function PantallaMensajes() {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: "bold" }}>{selectedUser.user}</div>
                   <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>
-                    @{selectedUser.username}
+                    {selectedUser.email}
                   </div>
                 </div>
               </div>
 
               {/* Mensajes */}
               <div
+                ref={messagesEndRef}
                 style={{
                   flex: 1,
                   backgroundImage: `url('/src/assets/fondoMensajes.png')`,
@@ -1421,59 +1464,91 @@ function PantallaMensajes() {
                 }}
               >
                 {selectedUser.messages.length > 0 ? (
-                  selectedUser.messages.map((message) => (
-                    <div
-                      key={message.id}
-                      style={{
-                        marginBottom: "1.5rem",
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: message.isUser ? "flex-end" : "flex-start",
-                      }}
-                    >
-                      {message.sender !== selectedUser.messages[0]?.sender && (
-                        <div
-                          style={{
-                            color: lightTextColor,
-                            fontSize: "0.8rem",
-                            marginBottom: "0.25rem",
-                          }}
-                        >
-                          {message.isUser ? userName : message.sender} ·{" "}
-                          {message.time}
-                        </div>
-                      )}
-                      <div
-                        style={{
-                          backgroundColor: message.isUser
-                            ? primaryColor
-                            : cardColor,
-                          color: message.isUser ? "white" : textColor,
-                          padding: "0.75rem 1rem",
-                          borderRadius: message.isUser
-                            ? "18px 18px 4px 18px"
-                            : "18px 18px 18px 4px",
-                          maxWidth: "70%",
-                          wordBreak: "break-word",
-                          border: message.isUser
-                            ? "none"
-                            : `1px solid ${borderColor}`,
-                        }}
-                      >
-                        {message.content}
-                      </div>
-                      <div
-                        style={{
-                          color: lightTextColor,
-                          fontSize: "0.7rem",
-                          marginTop: "0.25rem",
-                          alignSelf: message.isUser ? "flex-end" : "flex-start",
-                        }}
-                      >
-                        {message.time}
-                      </div>
-                    </div>
-                  ))
+                  selectedUser.messages.map((message) => {
+                    try {
+                      if (message.metadata) {
+                        const metadata = JSON.parse(message.metadata);
+                        if (metadata.type === "shared_post") {
+                          // Si tiene metadata válido, muestra el SharedPostCard
+                          return (
+                            <div key={message.id} style={{ margin: "10px 0" }}>
+                              <SharedPostCard
+                                metadata={message.metadata}
+                                onClick={() =>
+                                  navigate(`/publicaciones/${metadata.postId}`)
+                                }
+                              />
+                            </div>
+                          );
+                        }
+                      } else {
+                        // Mensaje normal de texto
+                        return (
+                          <div
+                            key={message.id}
+                            style={{
+                              marginBottom: "1.5rem",
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: message.isUser
+                                ? "flex-end"
+                                : "flex-start",
+                            }}
+                          >
+                            {message.sender !==
+                              selectedUser.messages[0]?.sender && (
+                              <div
+                                style={{
+                                  color: lightTextColor,
+                                  fontSize: "0.8rem",
+                                  marginBottom: "0.25rem",
+                                }}
+                              >
+                                {/* {message.isUser ? userName : message.sender} ·{" "} */}
+                                {/* {message.time} */}
+                              </div>
+                            )}
+                            <div
+                              style={{
+                                backgroundColor: message.isUser
+                                  ? primaryColor
+                                  : cardColor,
+                                color: message.isUser ? "white" : textColor,
+                                padding: "0.75rem 1rem",
+                                borderRadius: message.isUser
+                                  ? "18px 18px 4px 18px"
+                                  : "18px 18px 18px 4px",
+                                maxWidth: "70%",
+                                wordBreak: "break-word",
+                                border: message.isUser
+                                  ? "none"
+                                  : `1px solid ${borderColor}`,
+                              }}
+                            >
+                              {message.content}
+                            </div>
+                            <div
+                              style={{
+                                color: lightTextColor,
+                                fontSize: "0.7rem",
+                                marginTop: "0.25rem",
+                                alignSelf: message.isUser
+                                  ? "flex-end"
+                                  : "flex-start",
+                              }}
+                            >
+                              {message.time}
+                            </div>
+                            <div ref={messagesEndRef} />{" "}
+                            {/* Este div marca el final */}
+                          </div>
+                        );
+                      }
+                    } catch (error) {
+                      console.error("Error al procesar mensaje:", error);
+                      return null;
+                    }
+                  })
                 ) : (
                   <div
                     style={{
@@ -1736,7 +1811,7 @@ function PantallaMensajes() {
                   color: textColor,
                 }}
               >
-                Añadir nueva conversación
+                Seleccionar contacto
               </h3>
               <motion.button
                 whileHover={{ scale: 1.1 }}
@@ -1838,8 +1913,25 @@ function PantallaMensajes() {
                 },
               }}
             >
-              {filteredAvailableUsers.length > 0 ? (
-                filteredAvailableUsers.map((user) => (
+              {loadingUsers ? (
+                <div
+                  style={{
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    padding: "2rem",
+                    textAlign: "center",
+                    color: lightTextColor,
+                  }}
+                >
+                  <div style={{ fontSize: "1.2rem", marginBottom: "1rem" }}>
+                    Cargando usuarios...
+                  </div>
+                </div>
+              ) : availableUsers.length > 0 ? (
+                availableUsers.map((user) => (
                   <motion.div
                     key={user.id}
                     whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
@@ -1867,40 +1959,25 @@ function PantallaMensajes() {
                           flexShrink: 0,
                         }}
                       >
-                        <svg
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                            fill="white"
-                          />
-                          <path
-                            d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                            fill="white"
-                          />
-                          <path
-                            d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                            fill="white"
-                          />
-                        </svg>
+                        <span style={{ color: "white", fontWeight: "bold" }}>
+                          {user.nombreUsuario?.charAt(0).toUpperCase() || "U"}
+                        </span>
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: "bold" }}>{user.user}</div>
+                        <div style={{ fontWeight: "bold", fontSize: "1rem" }}>
+                          {user.nombreUsuario || "Usuario"}
+                        </div>
                         <div
                           style={{
                             color: lightTextColor,
-                            fontSize: "0.8rem",
+                            fontSize: "0.85rem",
                             whiteSpace: "nowrap",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
-                            marginTop: "0.55rem",
+                            marginTop: "0.25rem",
                           }}
                         >
-                          {user.email}
+                          {user.email || "Sin email"}
                         </div>
                       </div>
                     </div>
@@ -1920,7 +1997,7 @@ function PantallaMensajes() {
                         marginLeft: "1rem",
                       }}
                     >
-                      Añadir
+                      Seleccionar
                     </motion.button>
                   </motion.div>
                 ))
@@ -1947,9 +2024,8 @@ function PantallaMensajes() {
                   ) : (
                     <>
                       <div style={{ fontSize: "1.2rem", marginBottom: "1rem" }}>
-                        Busca usuarios
+                        No hay usuarios disponibles
                       </div>
-                      <div>Escribe en el buscador para encontrar usuarios</div>
                     </>
                   )}
                 </div>

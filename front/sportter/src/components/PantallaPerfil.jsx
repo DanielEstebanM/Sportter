@@ -4,6 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Tooltip as ReactTooltip } from 'react-tooltip';
 import 'react-tooltip/dist/react-tooltip.css';
 import styled from 'styled-components';
+import axios from "axios";
 import {
     getUsers,
     getUserById,
@@ -31,7 +32,7 @@ function PantallaPerfil() {
     const [tempBio, setTempBio] = useState(bio);
     const [name, setName] = useState("");
     const [tempName, setTempName] = useState(name);
-    const [profileImage, setProfileImage] = useState();
+    const [profileImage, setProfileImage] = useState("https://i.imgur.com/bUwYQP3.png");
     const [teams, setTeams] = useState([]);
     const [profilePosts, setProfilePosts] = useState([]);
     const [loadingPosts, setLoadingPosts] = useState(false);
@@ -42,7 +43,7 @@ function PantallaPerfil() {
         nombre_usuario: "",
         email: "",
         bio: "",
-        imagen: "",
+        imagen: "https://i.imgur.com/bUwYQP3.png",
         equipos: []
     });
     const [currentSharedPost, setCurrentSharedPost] = useState(null);
@@ -53,12 +54,6 @@ function PantallaPerfil() {
     const currentUserId = userData?.id;
     const userEmail = userData?.correoElectronico;
     const userName = userData?.nombreUsuario || userData?.nombre_usuario;
-    const imageProfile = userData?.avatar || "https://i.imgur.com/bUwYQP3.png";
-
-    const [preview, setPreview] = useState(userData?.avatar);
-
-    const [showImageModal, setShowImageModal] = useState(false);
-    const [modalMessage, setModalMessage] = useState("");
 
     // Colores con tema anaranjado-rojizo
     const primaryColor = "#FF4500";
@@ -73,6 +68,7 @@ function PantallaPerfil() {
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
     const [confirmationAction, setConfirmationAction] = useState(null);
     const [confirmationMessage, setConfirmationMessage] = useState("");
+
     const handleConfirmedAction = async () => {
         if (confirmationAction === 'edit') {
             try {
@@ -102,55 +98,47 @@ function PantallaPerfil() {
                     };
                     localStorage.setItem('userData', JSON.stringify(updatedUserData));
 
-                    // alert("Perfil actualizado correctamente");
+                    alert("Perfil actualizado correctamente");
                 }
             } catch (error) {
                 console.error("Error al guardar perfil:", error);
                 alert("Error al guardar los cambios: " + (error.message || "Inténtalo de nuevo más tarde"));
             }
         } else if (confirmationAction === 'delete') {
-            // Lógica para eliminar usuario
-            console.log("Eliminar cuenta confirmado");
+            try {
+                const response = await axios.delete(
+                    `http://localhost:8080/api/usuarios/${currentUserId}`,
+                    {
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    }
+                );
+
+                if (response.status === 200) {
+                    // Limpiar datos de usuario y redirigir
+                    localStorage.removeItem("userData");
+                    navigate("/", { replace: true });
+                    alert("Tu cuenta ha sido eliminada correctamente");
+                }
+            } catch (error) {
+                console.error("Error al eliminar cuenta:", error);
+                alert("Error al eliminar la cuenta: " +
+                    (error.response?.data?.message || "Inténtalo de nuevo más tarde"));
+            }
         } else if (confirmationAction === 'changePassword') {
-            // Lógica para cambiar contraseña
-            console.log("Cambiar contraseña confirmado");
+            // Cerrar sesión y redirigir a inicio con estado para mostrar recuperación de contraseña
+            localStorage.removeItem("userData");
+            navigate("/", {
+                state: {
+                    showPasswordReset: true,
+                    email: userEmail,
+                    fromProfile: true
+                },
+                replace: true
+            });
         }
         setShowConfirmationModal(false);
-    };
-
-    const handleFileChange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        // Previsualizar imagen
-        const reader = new FileReader();
-        reader.onloadend = () => {
-        setPreview(reader.result); // Mostrar en la interfaz
-        };
-        reader.readAsDataURL(file);
-
-        // Subir al backend
-        const formData = new FormData();
-        formData.append("image", file);
-
-        try {
-        const res = await fetch(`http://localhost:8080/api/usuarios/${userData.id}/imagen-perfil`, {
-            method: "POST",
-            body: formData,
-        });
-
-        const data = await res.json();
-
-        if (res.ok) {
-            setPreview(data.avatar);
-            setUserData((prev) => ({ ...prev, avatar: data.avatar }));
-            alert("Imagen de perfil actualizada correctamente 🎉");
-        } else {
-            alert("Error al subir la imagen 😢");
-        }
-        } catch (error) {
-            alert("Error de red al subir la imagen ❌");
-        }
     };
 
     useEffect(() => {
@@ -166,35 +154,35 @@ function PantallaPerfil() {
                 const data = await getUserById(id);
                 console.log("Datos recibidos de la API:", data);
 
+                const equipos = await getUserTeams(id);
+
                 if (!data || data.error) {
                     setProfileExists(false);
                     return;
                 }
 
-                const defaultImage = "https://i.imgur.com/bUwYQP3.png";
-                const userAvatar = data.avatar
-                    ? (data.avatar.startsWith('data:image') ? data.avatar : `data:image/jpeg;base64,${data.avatar}`)
-                    : defaultImage;
-
                 setProfileExists(true);
                 setUserProfile({
-                    nombre_usuario: data.nombreUsuario || data.nombre || "",
-                    email: data.email || data.correoElectronico || "",
+                    nombre_usuario: data.nombreUsuario || "",
+                    email: data.correoElectronico || "",
                     bio: data.bio || "Este usuario no tiene biografía.",
-                    imagen: userAvatar,
+                    imagen: data.imagenPerfil || "https://i.imgur.com/bUwYQP3.png",
                     equipos: data.equipos || []
                 });
 
-                setName(data.nombreUsuario || data.nombre || "");
+                // Asegurarse de cargar los valores iniciales para edición
+                setName(data.nombreUsuario || "");
                 setBio(data.bio || "");
-                setTempName(data.nombreUsuario || data.nombre || "");
+                setTempName(data.nombreUsuario || "");
                 setTempBio(data.bio || "");
-                setProfileImage(userAvatar);
+                setProfileImage(data.imagenPerfil || "https://i.imgur.com/bUwYQP3.png");
+
             } catch (err) {
                 console.error("Error al cargar el perfil:", err);
                 setProfileExists(false);
             }
         };
+
         fetchData();
     }, [id]);
 
@@ -367,20 +355,17 @@ function PantallaPerfil() {
 
                 const updatedProfile = await updateProfile(currentUserId, updateData);
 
-                // Actualizar el estado local
                 setName(updatedProfile.nombreUsuario || tempName);
                 setBio(updatedProfile.bio || tempBio);
                 setEditMode(false);
                 setHasChanges(false);
 
-                // Actualizar el perfil del usuario
                 setUserProfile(prev => ({
                     ...prev,
                     nombre_usuario: updatedProfile.nombreUsuario || tempName,
                     bio: updatedProfile.bio || tempBio
                 }));
 
-                // Actualizar localStorage
                 const updatedUserData = {
                     ...userData,
                     nombreUsuario: updatedProfile.nombreUsuario || tempName,
@@ -416,40 +401,17 @@ function PantallaPerfil() {
         const file = e.target.files[0];
         if (file && isCurrentUser) {
             try {
-                // Verificar tamaño de la imagen (opcional)
-                if (file.size > 5 * 1024 * 1024) { // 5MB
-                    setModalMessage("La imagen es demasiado grande. Máximo 5MB");
-                    etShowImageModal(true);
-                    return;
-                }
-
                 const response = await uploadProfileImage(currentUserId, file);
-                
-                // Actualizar el estado con la nueva imagen
-                setProfileImage(response.avatar);
-                
-                // Actualizar el perfil del usuario
-                setUserProfile(prev => ({
-                    ...prev,
-                    imagen: response.avatar
-                }));
+                setProfileImage(response.imagenUrl);
 
-                // Actualizar localStorage
-                // const updatedUserData = {
-                //     ...userData,
-                //     avatar: response.avatar
-                // };
-                // localStorage.setItem('userData', JSON.stringify(updatedUserData));
-
-                const { avatar, ...safeUserData } = userData;
-                localStorage.setItem('userData', JSON.stringify(safeUserData));
-                
-                setModalMessage("Imagen de perfil actualizada correctamente 🎉");
-                setShowImageModal(true);            
+                // Actualizar imagen en localStorage si es el usuario actual
+                const updatedUserData = {
+                    ...userData,
+                    imagenPerfil: response.imagenUrl
+                };
+                localStorage.setItem('userData', JSON.stringify(updatedUserData));
             } catch (error) {
                 console.error("Error al subir imagen:", error);
-                setModalMessage("Error al subir la imagen: " + (error.message || "Inténtalo de nuevo más tarde"));
-                setShowImageModal(true);
             }
         }
     };
@@ -870,66 +832,22 @@ function PantallaPerfil() {
                     cursor: "pointer",
                     ":hover": { backgroundColor: "rgba(255,255,255,0.1)" }
                 }}>
-                    {/* IMAGEN DE USUARIO ABAJO IZQUIERDA */}
-                    <div
-                        style={{
-                            width: "48px",
-                            height: "48px",
-                            borderRadius: "50%",
-                            backgroundColor: !userData?.imagen_perfil ? primaryColor : "transparent",
-                            overflow: "hidden",
-                            marginRight: "0.75rem",
-                            flexShrink: 0,
-                            border: userData?.imagen_perfil ? `1px solid rgb(122, 122, 122)` : "none",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                        }}
-                        >
-                        {userData?.imagen_perfil ? (
-                            <img
-                            src={
-                                userData.imagen_perfil.startsWith("data:image")
-                                ? userData.imagen_perfil
-                                : `http://localhost:8080/${userData.imagen_perfil}`
-                            }
-                            alt={`Avatar de ${userData.nombreUsuario}`}
-                            style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
-                            }}
-                            onError={(e) => {
-                                console.error("Error cargando imagen de perfil:", e);
-                                e.target.style.display = "none";
-                                e.target.parentNode.style.backgroundColor = primaryColor;
-                            }}
-                            />
-                        ) : (
-                            <svg
-                            width="24"
-                            height="24"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            style={{ margin: "12px" }}
-                            xmlns="http://www.w3.org/2000/svg"
-                            >
-                            <path
-                                d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                                fill="white"
-                            />
-                            <path
-                                d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                                fill="white"
-                            />
-                            <path
-                                d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                                fill="white"
-                            />
-                            </svg>
-                        )}
-                        </div>
-
+                    <div style={{
+                        width: "40px",
+                        height: "40px",
+                        borderRadius: "50%",
+                        background: primaryColor,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginRight: "0.5rem"
+                    }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z" fill="white" />
+                            <path d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z" fill="white" />
+                            <path d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z" fill="white" />
+                        </svg>
+                    </div>
                     <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>{userName?.charAt(0).toUpperCase() + userName?.slice(1)}</div>
                         <div
@@ -1004,7 +922,7 @@ function PantallaPerfil() {
                         height: "100px",
                         borderRadius: "50%",
                         border: `4px solid ${cardColor}`,
-                        backgroundColor: backgroundColor,
+                        backgroundColor: accentColor,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -1013,15 +931,12 @@ function PantallaPerfil() {
                         {editMode ? (
                             <label htmlFor="profile-image-upload" style={{ cursor: "pointer" }}>
                                 <img
-                                    src={userProfile.imagen}
+                                    src={profileImage}
                                     alt="Perfil"
                                     style={{
                                         width: "100%",
                                         height: "100%",
                                         objectFit: "cover"
-                                    }}
-                                    onError={(e) => {
-                                        e.target.src = "https://i.imgur.com/bUwYQP3.png";
                                     }}
                                 />
                                 <input
@@ -1034,15 +949,12 @@ function PantallaPerfil() {
                             </label>
                         ) : (
                             <img
-                                src={userProfile.imagen}
+                                src={profileImage}
                                 alt="Perfil"
                                 style={{
                                     width: "100%",
                                     height: "100%",
                                     objectFit: "cover"
-                                }}
-                                onError={(e) => {
-                                    e.target.src = "https://i.imgur.com/bUwYQP3.png";
                                 }}
                             />
                         )}
@@ -1222,6 +1134,12 @@ function PantallaPerfil() {
                                                         borderBottom: `1px solid ${borderColor}`,
                                                         borderTop: `2px solid transparent`
                                                     }}
+                                                    onClick={() => {
+                                                        setConfirmationAction('changePassword');
+                                                        setConfirmationMessage("Para cambiar tu contraseña, necesitaremos cerrar tu sesión y redirigirte a la página de recuperación. ¿Deseas continuar?");
+                                                        setShowConfirmationModal(true);
+                                                        setShowSettingsMenu(false);
+                                                    }}
                                                 >
                                                     <svg
                                                         style={{ marginRight: "12px", paddingBottom: "3px" }}
@@ -1377,7 +1295,6 @@ function PantallaPerfil() {
                                         padding: "0.75rem",
                                         marginBottom: "1rem"
                                     }}
-                                    maxLength="500"
                                 />
                                 <div style={{ display: "flex", gap: "0.5rem", justifyContent: "right" }}>
                                     <motion.button
@@ -1428,10 +1345,14 @@ function PantallaPerfil() {
                                     color: lightTextColor,
                                     marginBottom: "1rem"
                                 }}>{userProfile.email}</div>
-                                <p style={{
-                                    marginBottom: "1rem",
-                                    color: textColor
-                                }}>{userProfile.bio}</p>
+                                <div style={{
+                                    textAlign: "justify"
+                                }}>
+                                    <p style={{
+                                        marginBottom: "1rem",
+                                        color: textColor
+                                    }}>{userProfile.bio}</p>
+                                </div>
                             </>
                         )}
                     </div>
@@ -1500,7 +1421,7 @@ function PantallaPerfil() {
                                                 cursor: "pointer"
                                             }}
                                             onClick={() =>
-                                                navigate(`/publicacion/${post.id}`, {
+                                                navigate(`/publicaciones/${post.id}`, {
                                                     state: { user: userData },
                                                 })
                                             }
@@ -1519,17 +1440,13 @@ function PantallaPerfil() {
                                                 }}
                                             >
                                                 <img
-                                                    src={userProfile.imagen.startsWith('data:image') 
-                                                        ? userProfile.imagen 
-                                                        : `data:image/jpeg;base64,${userProfile.imagen}`}
+                                                    src={profileImage}
                                                     alt="Perfil"
                                                     style={{
                                                         width: "100%",
                                                         height: "100%",
-                                                        objectFit: "cover"
-                                                    }}
-                                                    onError={(e) => {
-                                                        e.target.src = "https://i.imgur.com/bUwYQP3.png";
+                                                        objectFit: "cover",
+                                                        borderRadius: "50%",
                                                     }}
                                                 />
                                             </div>
@@ -1620,7 +1537,7 @@ function PantallaPerfil() {
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             // Navegar a la publicación específica
-                                                            navigate(`/publicacion/${post.id}`, {
+                                                            navigate(`/publicaciones/${post.id}`, {
                                                                 state: { user: userData },
                                                             });
                                                         }}
@@ -1741,8 +1658,10 @@ function PantallaPerfil() {
                                             overflow: "hidden",
                                             border: `1px solid ${borderColor}`,
                                             display: "flex",
-                                            flexDirection: "column"
+                                            flexDirection: "column",
+                                            cursor: "pointer"
                                         }}
+                                        onClick={() => navigate(`/equipo/${equipo.id}`)}
                                     >
                                         {/* Imagen del equipo */}
                                         <div style={{
@@ -1750,36 +1669,17 @@ function PantallaPerfil() {
                                             backgroundColor: "rgba(150, 133, 127, 0.1)",
                                             display: "flex",
                                             alignItems: "center",
-                                            justifyContent: "center",
-                                            position: "relative"
+                                            justifyContent: "center"
                                         }}>
                                             <img
-                                                src={team.image}
-                                                alt={team.name}
+                                                src={equipo.imagenUrl || "https://i.imgur.com/vVkxceM.png"}
+                                                alt={equipo.nombre}
                                                 style={{
                                                     width: "100%",
                                                     height: "100%",
                                                     objectFit: "cover"
                                                 }}
                                             />
-                                            <div style={{
-                                                position: "absolute",
-                                                top: "10px",
-                                                right: "10px",
-                                                backgroundColor: "rgba(0, 0, 0, 0.7)",
-                                                color: "white",
-                                                padding: "0.25rem 0.25rem",
-                                                borderRadius: "50px",
-                                                fontSize: "0.8rem",
-                                                display: "flex",
-                                                alignItems: "center"
-                                            }}>
-                                                <SportIcon sport={team.sport} style={{
-                                                    width: "25px",
-                                                    height: "25px",
-                                                    color: "white"
-                                                }} />
-                                            </div>
                                         </div>
 
                                         {/* Información del equipo */}
@@ -1787,37 +1687,64 @@ function PantallaPerfil() {
                                             <h3 style={{
                                                 margin: "0 0 0.5rem 0",
                                                 fontSize: "1.2rem",
-                                                fontWeight: "bold"
+                                                fontWeight: "bold",
+                                                color: textColor
                                             }}>
-                                                {team.nombre}
+                                                {equipo.nombre}
                                             </h3>
+                                            <p style={{
+                                                color: lightTextColor,
+                                                marginBottom: "0.5rem",
+                                                fontSize: "0.9rem"
+                                            }}>
+                                                {equipo.descripcion}
+                                            </p>
+                                            <div style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                marginBottom: "0.5rem"
+                                            }}>
+                                                <SportIcon
+                                                    sport={equipo.deporte.toLowerCase()}
+                                                    style={{
+                                                        width: "20px",
+                                                        height: "20px",
+                                                        marginRight: "0.5rem",
+                                                        color: accentColor
+                                                    }}
+                                                />
+                                                <span style={{ color: lightTextColor, fontSize: "0.9rem" }}>
+                                                    {equipo.deporte}
+                                                </span>
+                                            </div>
                                             <div style={{
                                                 display: "flex",
                                                 alignItems: "center",
                                                 color: lightTextColor,
-                                                marginBottom: "1rem",
                                                 fontSize: "0.9rem"
                                             }}>
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "0.5rem", marginTop: "0.4rem" }}>
-                                                    <path d="M0 7a7 7 0 1 0 14 0A7 7 0 1 0 0 7" fill="currentColor" />
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                                    style={{ marginRight: "0.5rem" }}>
+                                                    <path d="M12 4a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4"
+                                                        fill="currentColor" />
+                                                    <path d="M12 14c-5.33 0-16 2.67-16 8v2h32v-2c0-5.33-10.67-8-16-8"
+                                                        fill="currentColor" />
                                                 </svg>
-                                                {team.members} {team.members === 1 ? "miembro" : "miembros"}
+                                                {equipo.cantidadMiembros} {equipo.cantidadMiembros === 1 ? "miembro" : "miembros"}
                                             </div>
-                                            {team.isMember && (
-                                                <div style={{
-                                                    display: "inline-block",
-                                                    backgroundColor: "rgba(255, 69, 0, 0.1)",
-                                                    color: accentColor,
-                                                    padding: "0.25rem 0.5rem",
-                                                    borderRadius: "4px",
-                                                    fontSize: "0.8rem"
-                                                }}>
-                                                    Eres miembro
-                                                </div>
-                                            )}
                                         </div>
                                     </motion.div>
                                 ))}
+
+                                {userProfile.equipos.length === 0 && (
+                                    <div style={{
+                                        padding: "2rem",
+                                        textAlign: "center",
+                                        color: lightTextColor
+                                    }}>
+                                        {isCurrentUser ? "No perteneces a ningún equipo todavía" : "El usuario no pertenece a ningún equipo"}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </CustomScroll>
@@ -2246,46 +2173,6 @@ function PantallaPerfil() {
                     </motion.button>
                 )
             }
-
-            {showImageModal && (
-                <div style={{
-                    position: "fixed",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: "rgba(0,0,0,0.7)",
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    zIndex: 1000
-                }}>
-                    <div style={{
-                        backgroundColor: cardColor,
-                        padding: "2rem",
-                        borderRadius: "10px",
-                        maxWidth: "80%",
-                        textAlign: "center",
-                        border: `1px solid ${primaryColor}`
-                    }}>
-                        <p style={{ marginBottom: "1.5rem", fontSize: "1.1rem" }}>{modalMessage}</p>
-                        <button 
-                            onClick={() => setShowImageModal(false)}
-                            style={{
-                                backgroundColor: primaryColor,
-                                color: "white",
-                                border: "none",
-                                padding: "0.5rem 1rem",
-                                borderRadius: "5px",
-                                cursor: "pointer"
-                            }}
-                        >
-                            Aceptar
-                        </button>
-                    </div>
-                </div>
-            )}
-
         </div >
     );
 }

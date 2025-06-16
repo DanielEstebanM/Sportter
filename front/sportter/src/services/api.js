@@ -1,13 +1,16 @@
 // Funciones para manejar el inicio de sesion de usuarios
 import axios from "axios";
-import SockJS from 'sockjs-client';
-import { Stomp, Client } from '@stomp/stompjs';
+import SockJS from "sockjs-client";
+import { Stomp, Client } from "@stomp/stompjs";
+
+const BASE_URL = "http://localhost:8080";
+
 
 export const loginUser = async (credentials) => {
   try {
     console.log("Enviando credenciales:", credentials);
     const response = await axios.post(
-      "http://localhost:8080/api/login",
+      `${BASE_URL}/api/login`,
       {
         correoElectronico: credentials.correoElectronico, // ← Cambiado a guión bajo
         contrasena: credentials.contrasena,
@@ -21,16 +24,14 @@ export const loginUser = async (credentials) => {
     return response.data;
   } catch (error) {
     console.error("Error completo:", error.response);
-    throw new Error(
-      error.response?.data?.message || "Credenciales incorrectas"
-    );
+    throw error;
   }
 };
 
 // Función para manejar el registro de usuarios
 export const registerUser = async (userData) => {
   try {
-    const response = await fetch("http://localhost:8080/api/registro", {
+    const response = await fetch(`${BASE_URL}/api/registro`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -50,9 +51,9 @@ export const registerUser = async (userData) => {
 };
 
 //funcion para verificar si el correo ya existe
-export const verificarEmail = async (email) => {
+export const verificarEmail = async (email, paraRegistro) => {
   try {
-    const response = await fetch("http://localhost:8080/api/existe-email", {
+    const response = await fetch(`${BASE_URL}/api/existe-email`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -67,12 +68,29 @@ export const verificarEmail = async (email) => {
     // Si viene con contenido (por ejemplo, error 404 con mensaje)
     const data = await response.json();
 
+    if (paraRegistro) {
+      if (
+        response.status === 404 &&
+        data.message.includes("no está vinculado")
+      ) {
+        return false; // Email no existe (ok para registro)
+      }
+      if (response.ok || data.message.includes("ya esta vinculado")) {
+        return true; // Email existe (error para registro)
+      }
+    }
+
     if (!response.ok) {
       throw new Error(
         data.message || "Este correo no está vinculado a ninguna cuenta"
       );
     }
 
+    if (!paraRegistro) {
+      throw new Error(
+        error.message || "Error al verificar el correo electrónico"
+      );
+    }
     return true;
   } catch (error) {
     console.error("Error al verificar el email:", error);
@@ -87,7 +105,7 @@ export const verificarEmail = async (email) => {
 export const actualizarContrasena = async (email, nuevaContrasena) => {
   try {
     const response = await fetch(
-      "http://localhost:8080/api/actualizar-contrasena",
+      `${BASE_URL}/api/actualizar-contrasena`,
       {
         method: "POST",
         headers: {
@@ -149,13 +167,13 @@ export const loadPosts = async () => {
     return await Promise.all(response.data.map(async (post) => {
       const usuario = post.usuario || {
         id: 0,
-        nombreUsuario: "Anónimo",
+        nombreUsuario: "AnÃ³nimo",
         correoElectronico: "anonimo@example.com",
         imagen_perfil: null
       };
 
       // Procesar imagen de perfil
-      const imagenPerfil = usuario.imagen_perfil 
+      const imagenPerfil = usuario.imagen_perfil
         ? procesarImagen(usuario.imagen_perfil)
         : null;
 
@@ -202,7 +220,7 @@ export const loadPosts = async () => {
 export const darLike = async (postId, userEmail) => {
   try {
     const response = await axios.post(
-      `http://localhost:8080/api/publicaciones/${postId}/like`,
+      `${BASE_URL}/api/publicaciones/${postId}/like`,
       { userEmail },
       {
         headers: {
@@ -220,7 +238,7 @@ export const darLike = async (postId, userEmail) => {
 export const quitarLike = async (postId, userEmail) => {
   try {
     const response = await axios.post(
-      `http://localhost:8080/api/publicaciones/${postId}/unlike`,
+      `${BASE_URL}/api/publicaciones/${postId}/unlike`,
       { userEmail },
       {
         headers: {
@@ -238,7 +256,7 @@ export const quitarLike = async (postId, userEmail) => {
 export const checkLikeStatus = async (postId, userEmail) => {
   try {
     const response = await axios.get(
-      `http://localhost:8080/api/publicaciones/${postId}/check-like`,
+      `${BASE_URL}/api/publicaciones/${postId}/check-like`,
       { params: { userEmail } }
     );
     return response.data;
@@ -248,83 +266,58 @@ export const checkLikeStatus = async (postId, userEmail) => {
   }
 };
 
-
 export const crearPublicacion = async (publicacionData) => {
   try {
     const response = await axios.post(
-      'http://localhost:8080/api/publicaciones/crearPubli',
+      `${BASE_URL}/api/publicaciones/crearPubli`, // Cambiado el endpoint
       publicacionData,
       {
         headers: {
-          'Content-Type': 'multipart/form-data',
-        }
+          "Content-Type": "application/json",
+        },
       }
     );
+
     return response.data;
   } catch (error) {
-    console.error('Error al crear publicación:', error);
+    console.error("Error al crear publicación:", error);
     throw error;
   }
 };
 
 
-const BASE_URL = 'http://localhost:8080';
-
-
 // Funciones para manejar comentarios
 export const getComentarios = async (publicacionId) => {
   try {
-    const response = await axios.get(`${BASE_URL}/api/comentarios/publicaciones/${publicacionId}`);
+    const response = await axios.get(
+      `${BASE_URL}/api/comentarios/publicaciones/${publicacionId}`
+    );
 
     if (!response.data || !Array.isArray(response.data)) {
       return [];
     }
     console.log("Respuesta de la API:", response.data);
 
-    return response.data.map(comment => processComment(comment));
+    return response.data.map((comment) => processComment(comment));
   } catch (error) {
-    console.error('Error al obtener comentarios:', error);
+    console.error("Error al obtener comentarios:", error);
     throw error;
   }
 };
 
 export const processComment = (comment) => {
-  const procesarImagen = (img) => {
-    console.log("Imagen de perfil recibida:", img); // Aquí corregí el console.log
-
-    if (!img) return null;
-
-    if (typeof img === 'string') {
-      // Si ya es una URL completa o data URL
-      if (img.startsWith('http') || img.startsWith('data:image/')) {
-        return img;
-      }
-      // Si es base64 sin prefijo
-      if (/^[A-Za-z0-9+/=]+$/.test(img)) {
-        const tipo = img.startsWith('iVBORw0KGgo') ? 'png' : 'jpeg';
-        return `data:image/${tipo};base64,${img}`;
-      }
-      // Si es una ruta relativa del backend
-      if (img.startsWith('/') || img.startsWith('uploads/')) {
-        return `http://localhost:8080${img.startsWith('/') ? '' : '/'}${img}`;
-      }
-    }
-    return null;
-  };
-
   const usuario = {
     id: comment.usuarioId || 0,
     nombreUsuario: comment.usuarioNombre || "Anónimo",
     correoElectronico: comment.usuarioCorreo || "anonimo@example.com",
-    imagenPerfil: procesarImagen(comment.usuarioImagenPerfil)
   };
 
-  // Manejo de fecha
+  // Manejo de fecha igual que en las publicaciones
   let commentDate;
   if (comment.fechaHora) {
-    if (typeof comment.fechaHora === 'number') {
+    if (typeof comment.fechaHora === "number") {
       commentDate = new Date(comment.fechaHora * 1000);
-    } else if (typeof comment.fechaHora === 'string') {
+    } else if (typeof comment.fechaHora === "string") {
       commentDate = new Date(comment.fechaHora);
     } else if (comment.fechaHora instanceof Date) {
       commentDate = comment.fechaHora;
@@ -344,19 +337,22 @@ export const processComment = (comment) => {
     time: commentDate,
     likes: comment.likes || 0,
     isLiked: comment.isLiked || false,
-    imagenPerfil: usuario.imagenPerfil, 
   };
 };
 
 export const crearComentario = async (comentarioData) => {
   try {
-    const token = localStorage.getItem('token');
-    const response = await axios.post(`${BASE_URL}/api/comentarios`, comentarioData, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+    const token = localStorage.getItem("token");
+    const response = await axios.post(
+      `${BASE_URL}/api/comentarios`,
+      comentarioData,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
       }
-    });
+    );
 
     // Mapea la respuesta al formato esperado
     return {
@@ -366,42 +362,44 @@ export const crearComentario = async (comentarioData) => {
         id: response.data.usuarioId,
         nombre: response.data.usuarioNombre,
         nombreUsuario: response.data.usuarioNombre,
-        correoElectronico: response.data.usuarioCorreo
+        correoElectronico: response.data.usuarioCorreo,
       },
       fechaHora: response.data.fechaHora,
       likes: 0,
-      isLiked: false
+      isLiked: false,
     };
   } catch (error) {
-    console.error('Error al crear comentario:', error);
+    console.error("Error al crear comentario:", error);
     throw error;
   }
 };
-// En api.js
 export const getPublicacion = async (postId) => {
   try {
-    const response = await axios.get(`http://localhost:8080/api/publicaciones/${postId}`);
-    if (!response.data) throw new Error('Publicación no encontrada');
+    const response = await axios.get(
+      `${BASE_URL}/api/publicaciones/${postId}`
+    );
 
-    const post = response.data;
+    if (!response.data) {
+      throw new Error("Publicación no encontrada");
+    }
+
     const userData = JSON.parse(localStorage.getItem("userData"));
     const userEmail = userData?.correoElectronico;
 
+    const post = response.data;
     const usuario = post.usuario || {
       id: 0,
       nombreUsuario: "Anónimo",
       correoElectronico: "anonimo@example.com",
-      imagen_perfil: null
     };
 
     const categoria = post.categoriaDeporte || { nombre: "General" };
 
-    // Verificación de like
     let isLiked = false;
     if (userEmail) {
       try {
         const likeResponse = await axios.get(
-          `http://localhost:8080/api/publicaciones/${post.id}/check-like`,
+          `${BASE_URL}/api/publicaciones/${post.id}/check-like`,
           { params: { userEmail } }
         );
         isLiked = likeResponse.data;
@@ -410,62 +408,49 @@ export const getPublicacion = async (postId) => {
       }
     }
 
-    // Procesamiento de fecha
-    const postDate = post.fechaHora ? new Date(post.fechaHora) : new Date();
+    console.log("Respuesta de la API publi:", response.data);
 
-    // Procesamiento mejorado de imagen
-    const procesarImagen = (img) => {
-      if (!img) return null;
-      
-      // Si ya es una URL válida (http o data URL)
-      if (typeof img === 'string') {
-        if (img.startsWith('http') || img.startsWith('data:image/')) {
-          return img;
-        }
-        // Si es base64 sin prefijo
-        if (/^[A-Za-z0-9+/=]+$/.test(img)) {
-          // Detectamos el tipo de imagen
-          let tipo = 'jpeg';
-          if (img.startsWith('iVBORw0KGgo')) tipo = 'png';
-          if (img.startsWith('R0lGODdh') || img.startsWith('R0lGODlh')) tipo = 'gif';
-          return `data:image/${tipo};base64,${img}`;
-        }
+    // Manejo consistente de la fecha (igual que en loadPosts)
+    let postDate;
+    if (post.fechaHora) {
+      if (typeof post.fechaHora === "number") {
+        postDate = new Date(post.fechaHora * 1000);
+      } else if (typeof post.fechaHora === "string") {
+        postDate = new Date(post.fechaHora);
+      } else if (post.fechaHora instanceof Date) {
+        postDate = post.fechaHora;
       }
-      return null;
-    };
+    }
 
-    const imagen = procesarImagen(post.imagen);
+    if (!postDate || isNaN(postDate.getTime())) {
+      console.warn(`Fecha inválida para post ${post.id}, usando fecha actual`);
+      postDate = new Date();
+    }
 
     return {
       id: post.id,
       userId: usuario.id,
-      user: usuario.correoElectronico,
-      name: usuario.nombreUsuario,
-      content: post.contenido,
+      user: usuario.correoElectronico || "anonimo@example.com",
+      name: usuario.nombreUsuario || "Anónimo",
+      content: post.contenido || "",
       time: postDate,
       comments: post.comentarios || 0,
       likes: post.likes || 0,
       shares: post.compartidos || 0,
-      sport: categoria.nombre,
-      isLiked,
-      imagen,
-      usuario: {
-        imagenPerfil: procesarImagen(usuario.imagen_perfil)
-      }
+      sport: categoria.nombre || "General",
+      isLiked: isLiked,
     };
-
   } catch (error) {
     console.error("Error loading single post:", error);
-    throw error;
+    throw error; // Propaga el error para manejarlo en el componente
   }
 };
-
 
 // Funciones para manejar likes en comentarios
 // NO SE ESTA USANDO, NO FUNCIONA, SE PUEDE MODIFICAR PARA QUE FUNCIONE
 export const darLikeComent = async (comentarioId, userEmail) => {
   const response = await axios.post(
-    `http://localhost:8080/api/comentarios/${comentarioId}/like`,
+    `${BASE_URL}/comentarios/${comentarioId}/like`,
     { userEmail }
   );
   return response.data;
@@ -473,7 +458,7 @@ export const darLikeComent = async (comentarioId, userEmail) => {
 
 export const quitarLikeComent = async (comentarioId, userEmail) => {
   const response = await axios.post(
-    `http://localhost:8080/api/comentarios/${comentarioId}/unlike`,
+    `${BASE_URL}/api/comentarios/${comentarioId}/unlike`,
     { userEmail }
   );
   return response.data;
@@ -481,17 +466,16 @@ export const quitarLikeComent = async (comentarioId, userEmail) => {
 
 export const checkLikeStatusComent = async (comentarioId, userEmail) => {
   const response = await axios.get(
-    `http://localhost:8080/api/comentarios/${comentarioId}/check-like`,
+    `${BASE_URL}/api/comentarios/${comentarioId}/check-like`,
     { params: { userEmail } }
   );
   return response.data;
 };
 
-
 //Obtener todos los usuarios
 export const getUsers = async () => {
   try {
-    const response = await axios.get("http://localhost:8080/api/usuarios");
+    const response = await axios.get(`${BASE_URL}/api/usuarios`);
     console.log("Usuarios recibidos:", response.data);
     return response.data || [];
   } catch (error) {
@@ -500,7 +484,6 @@ export const getUsers = async () => {
   }
 };
 
-// Añade estas funciones al final de tu api.js
 
 /**
  * Obtiene los datos de un usuario por su ID
@@ -509,38 +492,56 @@ export const getUsers = async () => {
  */
 export const getUserById = async (userId) => {
   try {
-    const response = await axios.get(`http://localhost:8080/api/usuarios/${userId}`);
+    const response = await axios.get(
+      `${BASE_URL}/api/usuarios/${userId}`
+    );
     return response.data;
   } catch (error) {
     console.error("Error al obtener usuario:", error);
-    throw new Error(error.response?.data?.message || "Error al obtener datos del usuario");
+    throw new Error(
+      error.response?.data?.message || "Error al obtener datos del usuario"
+    );
   }
 };
 
-/**
- * Obtiene las publicaciones de un usuario específico
- * @param {number} userId - ID del usuario
- * @returns {Promise<Array>} Lista de publicaciones
- */
 export const getUserPosts = async (userId) => {
   try {
-    const response = await axios.get(`http://localhost:8080/api/publicaciones/usuario/${userId}`);
+    const response = await axios.get(
+      `${BASE_URL}/api/publicaciones/usuario/${userId}`
+    );
     const posts = response.data;
 
     const userData = JSON.parse(localStorage.getItem("userData"));
     const userEmail = userData?.correoElectronico;
 
-    return posts.map(post => ({
-      id: post.id,
-      contenido: post.contenido,
-      fechaHora: new Date(post.fechaHora),
-      likes: post.likes || 0,
-      comments: post.comentarios || 0,
-      shares: post.compartidos || 0,
-      categoriaDeporteId: post.categoriaDeporte?.nombre?.toLowerCase() || "general",
-      name: post.usuario?.nombreUsuario || "Anónimo",
-      userUsername: post.usuario?.correoElectronico || "anonimo@example.com",
-      isLiked: post.isLiked || false,
+    // Procesar cada publicación
+    return await Promise.all(posts.map(async (post) => {
+      let isLiked = false;
+      if (userEmail) {
+        try {
+          const likeResponse = await axios.get(
+            `http://localhost:8080/api/publicaciones/${post.id}/check-like`,
+            { params: { userEmail } }
+          );
+          isLiked = likeResponse.data;
+        } catch (error) {
+          console.error("Error verificando like:", error);
+        }
+      }
+
+      return {
+        id: post.id,
+        contenido: post.contenido,
+        fechaHora: new Date(post.fechaHora),
+        likes: post.likes || 0,
+        imagen_perfil: post.imagen_perfil,
+        comentarios: post.comentarios || 0,
+        compartidos: post.compartidos || 0,
+        categoriaDeporteId: post.categoriaDeporte?.nombre?.toLowerCase() || "general",
+        name: post.usuario?.nombreUsuario || "Anónimo",
+        userUsername: post.usuario?.correoElectronico || "anonimo@example.com",
+        isLiked: isLiked
+      };
     }));
   } catch (error) {
     console.error("Error fetching user posts:", error);
@@ -551,9 +552,9 @@ export const getUserPosts = async (userId) => {
 // Obtener todas las publicaciones (para feed)
 export const getAllPosts = async () => {
   try {
-    const response = await fetch('/api/posts');
+    const response = await fetch("/api/posts");
     const data = await response.json();
-    return data.posts.map(post => ({
+    return data.posts.map((post) => ({
       id: post.id,
       contenido: post.content,
       fechaHora: post.created_at,
@@ -564,7 +565,7 @@ export const getAllPosts = async () => {
       categoriaDeporteId: post.sport_category || "General",
       name: post.author_name,
       userUsername: post.author_username,
-      authorImage: post.author_image
+      authorImage: post.author_image,
     }));
   } catch (error) {
     console.error("Error fetching posts:", error);
@@ -572,110 +573,122 @@ export const getAllPosts = async () => {
   }
 };
 
-// api.js
+
 export const getUserTeams = async (userId) => {
-    try {
-        const response = await axios.get(
-            `http://localhost:8080/api/equipos/usuario/${userId}`
-        );
-        return response.data.map(team => ({
-            id: team.id,
-            nombre: team.nombre,
-            descripcion: team.descripcion,
-            deporte: team.deporte,
-            imagen: team.imagenUrl || "https://i.imgur.com/vVkxceM.png",
-            cantidadMiembros: team.cantidadMiembros
-        }));
-    } catch (error) {
-        console.error("Error fetching user teams:", error);
-        return [];
-    }
+  try {
+    const response = await axios.get(
+      `http://localhost:8080/api/equipos/usuario/${userId}`
+    );
+    return response.data.map(team => ({
+      id: team.id,
+      nombre: team.nombre,
+      descripcion: team.descripcion,
+      deporte: team.deporte,
+      imagen: team.imagenUrl || "https://i.imgur.com/vVkxceM.png",
+      cantidadMiembros: team.cantidadMiembros
+    }));
+  } catch (error) {
+    console.error("Error fetching user teams:", error);
+    return [];
+  }
 };
 
 export const getAllTeams = async (userId) => {
-    try {
-        const response = await axios.get(
-            `http://localhost:8080/api/equipos/comunidad/${userId}`
-        );
-        return response.data.map(team => ({
-            id: team.id,
-            nombre: team.nombre,
-            descripcion: team.descripcion,
-            deporte: team.deporte,
-            imagen: team.imagenUrl || "https://i.imgur.com/vVkxceM.png",
-            cantidadMiembros: team.cantidadMiembros
-        }));
-    } catch (error) {
-        console.error("Error fetching all teams:", error);
-        return [];
-    }
+  try {
+    const response = await axios.get(
+      `http://localhost:8080/api/equipos/comunidad/${userId}`
+    );
+    return response.data.map(team => ({
+      id: team.id,
+      nombre: team.nombre,
+      descripcion: team.descripcion,
+      deporte: team.deporte,
+      imagen: team.imagenUrl || "https://i.imgur.com/vVkxceM.png",
+      cantidadMiembros: team.cantidadMiembros
+    }));
+  } catch (error) {
+    console.error("Error fetching all teams:", error);
+    return [];
+  }
 };
 
 export const createTeam = async (teamData, creadorId) => {
-    try {
-        const response = await axios.post(
-            `http://localhost:8080/api/equipos?creadorId=${creadorId}`, 
-            teamData, 
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            }
-        );
-        return response.data;
-    } catch (error) {
-        console.error("Error creating team:", error);
-        throw error;
-    }
+  try {
+    const response = await axios.post(
+      `http://localhost:8080/api/equipos?creadorId=${creadorId}`,
+      teamData,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error creating team:", error);
+    throw error;
+  }
 };
 
+// Añadir miembro
 export const addTeamMember = async (teamId, userId) => {
-    try {
-        const response = await axios.post(
-            `http://localhost:8080/api/equipos/${teamId}/miembros?usuarioId=${userId}`,
-            {},
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            }
-        );
-        return response.data;
-    } catch (error) {
-        console.error("Error adding team member:", error);
-        throw error;
-    }
+  try {
+    const response = await axios.post(
+      `http://localhost:8080/api/equipos/${teamId}/miembros?usuarioId=${userId}`,
+      {},
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error adding team member:", error);
+    throw error;
+  }
 };
 
 // Obtener información detallada de un equipo
 export const getTeamDetails = async (teamId) => {
   try {
     const response = await axios.get(`http://localhost:8080/api/equipos/${teamId}`);
-    return response.data;
+    return {
+      ...response.data,
+      sport: response.data.categoriaDeporte.nombre.toLowerCase(),
+      categoriaDeporte: response.data.categoriaDeporte // Incluye toda la info de la categoría
+    };
   } catch (error) {
     console.error("Error fetching team details:", error);
     throw error;
   }
 };
 
-// Actualizar un equipo
+// Actualizar equipo
 export const updateTeam = async (teamId, teamData) => {
   try {
     const response = await axios.put(
       `http://localhost:8080/api/equipos/${teamId}`,
-      teamData
+      teamData,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }
     );
     return response.data;
   } catch (error) {
-    console.error("Error updating team:", error);
+    console.error("Error updating team:", error.response?.data || error.message);
     throw error;
   }
 };
 
-// Eliminar un equipo
+// Eliminar equipo
 export const deleteTeam = async (teamId) => {
   try {
-    const response = await axios.delete(`http://localhost:8080/api/equipos/${teamId}`);
+    const response = await axios.delete(
+      `http://localhost:8080/api/equipos/${teamId}`
+    );
     return response.data;
   } catch (error) {
     console.error("Error deleting team:", error);
@@ -683,15 +696,47 @@ export const deleteTeam = async (teamId) => {
   }
 };
 
-// Eliminar miembro de un equipo
+export const getTeamMembers = async (teamId) => {
+  try {
+    const response = await axios.get(`http://localhost:8080/api/equipos/${teamId}/miembros`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching team members:", error);
+    return [];
+  }
+};
+
+export const getSportsCategories = async () => {
+  try {
+    const response = await axios.get('http://localhost:8080/api/equipos/categorias');
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching sports categories:", error);
+    return [];
+  }
+};
+
+// Expulsar miembro
 export const removeTeamMember = async (teamId, userId) => {
   try {
     const response = await axios.delete(
-      `http://localhost:8080/api/equipos/${teamId}/miembros/${userId}`
+      `${BASE_URL}/api/equipos/${teamId}/miembros/${userId}`
     );
     return response.data;
   } catch (error) {
     console.error("Error removing team member:", error);
+    throw error;
+  }
+};
+
+export const assignNewAdmin = async (teamId, newAdminId) => {
+  try {
+    const response = await axios.put(
+      `http://localhost:8080/api/equipos/${teamId}/admin?nuevoAdminId=${newAdminId}`
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error assigning new admin:", error);
     throw error;
   }
 };
@@ -705,7 +750,7 @@ export const removeTeamMember = async (teamId, userId) => {
 export const updateProfile = async (userId, profileData) => {
   try {
     const response = await axios.put(
-      `http://localhost:8080/api/usuarios/${userId}/perfil`,
+      `${BASE_URL}/api/usuarios/${userId}/perfil`,
       profileData,
       {
         headers: {
@@ -716,7 +761,9 @@ export const updateProfile = async (userId, profileData) => {
     return response.data;
   } catch (error) {
     console.error("Error al actualizar perfil:", error);
-    throw new Error(error.response?.data?.message || "Error al actualizar el perfil");
+    throw new Error(
+      error.response?.data?.message || "Error al actualizar el perfil"
+    );
   }
 };
 
@@ -732,7 +779,7 @@ export const uploadProfileImage = async (userId, imageFile) => {
     formData.append("image", imageFile);
 
     const response = await axios.post(
-      `http://localhost:8080/api/usuarios/${userId}/imagen-perfil`,
+      `${BASE_URL}/api/usuarios/${userId}/imagen-perfil`,
       formData,
       {
         headers: {
@@ -743,14 +790,16 @@ export const uploadProfileImage = async (userId, imageFile) => {
     return response.data;
   } catch (error) {
     console.error("Error al subir imagen de perfil:", error);
-    throw new Error(error.response?.data?.message || "Error al subir la imagen");
+    throw new Error(
+      error.response?.data?.message || "Error al subir la imagen"
+    );
   }
 };
 
 //-------------------------------------------------------------------------------------\\
-// MENSAJERIA 
-axios.interceptors.request.use(config => {
-  const token = localStorage.getItem('token');
+// MENSAJERIA
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -760,84 +809,107 @@ axios.interceptors.request.use(config => {
 export const mensajeService = {
   // Mensajes
   enviarMensaje: (mensaje) => axios.post(`${BASE_URL}/api/mensajes`, mensaje),
-  obtenerMensajesConversacion: (conversacionId) => axios.get(`${BASE_URL}/api/mensajes/conversacion/${conversacionId}`),
-  obtenerConversacionesUsuario: (usuarioId) => axios.get(`${BASE_URL}/api/mensajes/usuario/${usuarioId}`),
-  marcarMensajesLeidos: (conversacionId, usuarioId) => axios.put(`${BASE_URL}/api/mensajes/marcar-leidos/${conversacionId}/${usuarioId}`),
+  obtenerMensajesConversacion: (conversacionId) =>
+    axios.get(`${BASE_URL}/api/mensajes/conversacion/${conversacionId}`),
+  obtenerConversacionesUsuario: (usuarioId) =>
+    axios.get(`${BASE_URL}/api/mensajes/usuario/${usuarioId}`),
+  marcarMensajesLeidos: (conversacionId, usuarioId) =>
+    axios.put(
+      `${BASE_URL}/api/mensajes/marcar-leidos/${conversacionId}/${usuarioId}`
+    ),
 
   // Conversaciones
-  crearConversacion: (usuario1Id, usuario2Id) => axios.post(`${BASE_URL}/api/conversaciones?usuario1Id=${usuario1Id}&usuario2Id=${usuario2Id}`),
-  obtenerConversacionesUsuario: (usuarioId) => axios.get(`${BASE_URL}/api/conversaciones/usuario/${usuarioId}`),
+  crearConversacion: (usuario1Id, usuario2Id) =>
+    axios.post(
+      `${BASE_URL}/api/conversaciones?usuario1Id=${usuario1Id}&usuario2Id=${usuario2Id}`
+    ),
+  obtenerConversacionesUsuario: (usuarioId) =>
+    axios.get(`${BASE_URL}/api/conversaciones/usuario/${usuarioId}`),
   obtenerUsuario: (userId) => axios.get(`${BASE_URL}/api/usuarios/${userId}`),
-  obtenerUsuariosPorIds: (userIds) => axios.get(`${BASE_URL}/api/usuarios/buscar-por-ids`, {
-    params: { ids: userIds.join(',') }
-  }),
-
+  obtenerUsuariosPorIds: (userIds) =>
+    axios.get(`${BASE_URL}/api/usuarios/buscar-por-ids`, {
+      params: { ids: userIds.join(",") },
+    }),
 
   // Usuarios
-  buscarUsuarios: (query) => axios.get(`${BASE_URL}/api/buscar?query=${query}`)
+  buscarUsuarios: (query) => axios.get(`${BASE_URL}/api/buscar?query=${query}`),
 };
 
 export const setupWebSocket = (conversacionId, onMessageReceived, onError) => {
-  const socket = new SockJS('http://localhost:8080/ws');
+  const socket = new SockJS(`${BASE_URL}/ws`);
 
   const stompClient = new Client({
     webSocketFactory: () => socket,
     reconnectDelay: 5000,
     heartbeatIncoming: 4000,
     heartbeatOutgoing: 4000,
-    debug: (str) => console.log('STOMP:', str),
+    debug: (str) => console.log("STOMP:", str),
     onConnect: () => {
-      console.log('✅ WebSocket conectado correctamente');
+      console.log("✅ WebSocket conectado correctamente");
 
-      stompClient.subscribe(`/topic/conversation.${conversacionId}`, (message) => {
-        try {
-          const parsedMessage = JSON.parse(message.body);
-          console.log(`📩 [${conversacionId}] Mensaje recibido:`, parsedMessage);
-          onMessageReceived(parsedMessage);
-        } catch (error) {
-          console.error(`❌ Error procesando mensaje:`, error);
+      stompClient.subscribe(
+        `/topic/conversation.${conversacionId}`,
+        (message) => {
+          try {
+            const parsedMessage = JSON.parse(message.body);
+            console.log(
+              `📩 [${conversacionId}] Mensaje recibido:`,
+              parsedMessage
+            );
+            onMessageReceived(parsedMessage);
+          } catch (error) {
+            console.error(`❌ Error procesando mensaje:`, error);
+          }
         }
-      });
+      );
     },
     onStompError: (frame) => {
-      console.error('❌ STOMP Error:', frame.headers.message || frame.body);
+      console.error("❌ STOMP Error:", frame.headers.message || frame.body);
       if (onError) onError(frame);
     },
     onWebSocketClose: () => {
-      console.warn('⚠️ WebSocket cerrado');
-    }
+      console.warn("⚠️ WebSocket cerrado");
+    },
   });
 
   stompClient.activate();
   return stompClient;
 };
 
-export const sendMessageWebSocket = (stompClient, conversacionId, mensajeDTO) => {
+export const sendMessageWebSocket = (
+  stompClient,
+  conversacionId,
+  mensajeDTO
+) => {
   if (stompClient && stompClient.active) {
     stompClient.publish({
       destination: `/app/chat/${conversacionId}`,
       body: JSON.stringify(mensajeDTO),
     });
-    console.log('✉️ Mensaje enviado:', mensajeDTO);
+    console.log("✉️ Mensaje enviado:", mensajeDTO);
   } else {
-    console.error('⚠️ No se pudo enviar - WebSocket no activo');
+    console.error("⚠️ No se pudo enviar - WebSocket no activo");
   }
 };
 
-export const setupWebSocketMultiple = (conversationIds, onMessageReceived, onError) => {
-  const socket = new SockJS('http://localhost:8080/ws');
+export const setupWebSocketMultiple = (
+  conversationIds,
+  onMessageReceived,
+  onError
+) => {
+  const socket = new SockJS(`${BASE_URL}/ws`);
 
   const stompClient = new Client({
     webSocketFactory: () => socket,
     reconnectDelay: 5000,
     heartbeatIncoming: 4000,
     heartbeatOutgoing: 4000,
-    debug: (str) => console.log('STOMP:', str),
+    debug: (str) => console.log("STOMP:", str),
     onConnect: () => {
-      console.log('✅ WebSocket conectado correctamente');
+      console.log("✅ WebSocket conectado correctamente");
 
       // 🟢 SUSCRIPCIÓN CORRECTA (ajustada a tu backend)
-      conversationIds.forEach(id => {
+      conversationIds.forEach((id) => {
         stompClient.subscribe(`/topic/conversation.${id}`, (message) => {
           try {
             const parsedMessage = JSON.parse(message.body);
@@ -850,14 +922,36 @@ export const setupWebSocketMultiple = (conversationIds, onMessageReceived, onErr
       });
     },
     onStompError: (frame) => {
-      console.error('❌ STOMP Error:', frame.headers.message || frame.body);
+      console.error("❌ STOMP Error:", frame.headers.message || frame.body);
       if (onError) onError(frame);
     },
     onWebSocketClose: () => {
-      console.warn('⚠️ WebSocket cerrado');
-    }
+      console.warn("⚠️ WebSocket cerrado");
+    },
   });
 
   stompClient.activate();
   return stompClient;
+};
+
+export const getEventos = async () => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/eventos`);
+    if (!response.ok) throw new Error("Error al obtener eventos");
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching eventos:", error);
+    throw error;
+  }
+};
+
+export const getEventosPorUsuario = async (userId) => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/eventos/usuarios/${userId}`);
+    if (!response.ok) throw new Error("Error al obtener eventos del usuario");
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching eventos del usuario:", error);
+    throw error;
+  }
 };

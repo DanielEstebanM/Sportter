@@ -32,7 +32,6 @@ function VistaComentarios() {
 
   const userData =
     location.state?.user || JSON.parse(localStorage.getItem("userData"));
-    console.log("Datos del usuario conectado:", userData);
   const userEmail = userData?.correoElectronico;
   const userName = userData?.nombreUsuario;
   const userId = userData?.id;
@@ -52,145 +51,51 @@ function VistaComentarios() {
   const lightTextColor = "#a0a0a0";
   const borderColor = "#2d2d2d";
 
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [showImageModal, setShowImageModal] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const [imageScroll, setImageScroll] = useState({ top: 0, left: 0 });
-  const [zoomAnchor, setZoomAnchor] = useState({ x: 0, y: 0 });
 
-  const handleImageClick = (e, imageSrc) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    setZoomAnchor({ x, y });
-    setSelectedImage(imageSrc);
-    setShowImageModal(true);
-    setZoomLevel(1);
-  };
 
   // Cargar publicación y comentarios
   // En el useEffect que carga los datos:
-useEffect(() => {
+  useEffect(() => {
+    const cargarDatos = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-  let isMounted = true;
+        // Cargar publicación usando la misma estructura que loadPosts
+        const publicacionData = await getPublicacion(postId);
+        setPublicacion(publicacionData);
 
-  const cargarDatos = async () => {
-    try {
-      setLoading(true);
-      const post = await getPublicacion(postId);
+        // Cargar comentarios
+        const comentariosData = await getComentarios(postId);
+        setComentarios(comentariosData);
 
-      console.log('Datos de la publicación:', {
-        ...post,
-        usuario: {
-          ...post.usuario,
-          // Muestra solo los primeros caracteres de la imagen para no saturar la consola
-          imagenPerfil: post.usuario?.imagenPerfil?.substring(0, 30) + '...'
-        }
-      });
-      
-      // Validación adicional de imagen
-      if (post?.imagen) {
-        console.log('Tipo de imagen recibida:', {
-          tipo: typeof post.imagen,
-          inicio: post.imagen.substring(0, 30),
-          esDataURL: post.imagen.startsWith('data:image/'),
-          esURL: post.imagen.startsWith('http')
-        });
-      }
-      
-      setPublicacion(post);
-      setComentarios(await getComentarios(postId));
-    } catch (error) {
-      console.error("Error:", error);
-      setError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-  cargarDatos();
-}, [postId]);
-
-useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (showImageModal) {
-        if (e.key === 'Escape') {
-          setShowImageModal(false);
-        } else if (e.key === '+' || e.key === '=') {
-          setZoomLevel(prev => Math.min(3, prev + 0.1));
-        } else if (e.key === '-' || e.key === '_') {
-          setZoomLevel(prev => Math.max(0.5, prev - 0.1));
-        }
+      } catch (error) {
+        console.error("Error cargando datos:", error);
+        setError("Error al cargar la publicación y comentarios");
+      } finally {
+        setLoading(false);
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showImageModal]);
-
-useEffect(() => {
-  const handleWheel = (e) => {
-    if (showImageModal && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
-    }
-  };
-
-  const handleTouchMove = (e) => {
-    if (showImageModal && e.touches.length > 1) {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
-    }
-  };
-
-  if (showImageModal) {
-    // Bloquear zoom con Ctrl+Scroll
-    window.addEventListener('wheel', handleWheel, { passive: false });
-    // Bloquear gesto de pellizco
-    window.addEventListener('touchmove', handleTouchMove, { passive: false });
-    
-    // Bloquear el scroll de la página
-    document.body.style.overflow = 'hidden';
-    // Bloquear zoom en móviles
-    document.body.style.touchAction = 'pan-x pan-y';
-    
-    // Bloquear doble tap zoom en móviles
-    const viewportMeta = document.querySelector('meta[name="viewport"]');
-    const originalContent = viewportMeta?.content;
-    if (viewportMeta) {
-      viewportMeta.content = originalContent + ', maximum-scale=1.0, user-scalable=no';
-    }
-
-    return () => {
-      window.removeEventListener('wheel', handleWheel);
-      window.removeEventListener('touchmove', handleTouchMove);
-      document.body.style.overflow = '';
-      document.body.style.touchAction = '';
-      if (viewportMeta) {
-        viewportMeta.content = originalContent;
-      }
-    };
-  }
-}, [showImageModal]);
+    cargarDatos();
+  }, [postId]);
 
 
-useEffect(() => {
+  useEffect(() => {
     const cargarEstadoLikes = async () => {
-        const actualizados = await Promise.all(
-            comentarios.map(async (comentario) => {
-                const yaDioLike = await checkLikeStatusComent(comentario.id, userEmail);
-                return { ...comentario, yaDioLike };
-            })
-        );
-        setComentarios(actualizados);
+      const actualizados = await Promise.all(
+        comentarios.map(async (comentario) => {
+          const yaDioLike = await checkLikeStatusComent(comentario.id, userEmail);
+          return { ...comentario, yaDioLike };
+        })
+      );
+      setComentarios(actualizados);
     };
 
     if (userEmail && comentarios.length > 0) {
-        cargarEstadoLikes();
+      cargarEstadoLikes();
     }
-}, [comentarios, userEmail]);
+  }, [comentarios, userEmail]);
 
 
   // Manejar like en la publicación
@@ -220,47 +125,47 @@ useEffect(() => {
   };
 
 
-const handleLikeComentario = async (comentario) => {
+  const handleLikeComentario = async (comentario) => {
 
-  try {
     try {
+      try {
         let response;
         if (comentario.yaDioLike) {
-            response = await quitarLikeComent(comentario.id, userEmail);
+          response = await quitarLikeComent(comentario.id, userEmail);
         } else {
-            response = await darLikeComent(comentario.id, userEmail);
+          response = await darLikeComent(comentario.id, userEmail);
         }
 
-        setComentarios(prev => 
-            prev.map(c => 
-                c.id === comentario.id 
-                    ? { 
-                        ...c, 
-                        likes: response.likes, 
-                        yaDioLike: response.likeRealizado 
-                    } 
-                    : c
-            )
+        setComentarios(prev =>
+          prev.map(c =>
+            c.id === comentario.id
+              ? {
+                ...c,
+                likes: response.likes,
+                yaDioLike: response.likeRealizado
+              }
+              : c
+          )
         );
-    } catch (error) {
+      } catch (error) {
         console.error("Error al manejar like en comentario:", error);
+      }
+    } catch (error) {
+      console.error('Full error object:', error);
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        console.error('Response data:', error.response.data);
+        console.error('Response status:', error.response.status);
+        console.error('Response headers:', error.response.headers);
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error('Request:', error.request);
+      } else {
+        // Something happened in setting up the request
+        console.error('Error message:', error.message);
+      }
     }
-  } catch (error) {
-    console.error('Full error object:', error);
-    if (error.response) {
-      // The request was made and the server responded with a status code
-      console.error('Response data:', error.response.data);
-      console.error('Response status:', error.response.status);
-      console.error('Response headers:', error.response.headers);
-    } else if (error.request) {
-      // The request was made but no response was received
-      console.error('Request:', error.request);
-    } else {
-      // Something happened in setting up the request
-      console.error('Error message:', error.message);
-    }
-  }
-};
+  };
 
 
   // Enviar nuevo comentario
@@ -272,7 +177,7 @@ const handleLikeComentario = async (comentario) => {
 
     try {
       setLoadingComentarios(true);
-      
+
       const comentarioCreado = await crearComentario({
         contenido: nuevoComentario,
         publicacionId: parseInt(postId),
@@ -287,7 +192,7 @@ const handleLikeComentario = async (comentario) => {
         likes: comentarioCreado.likes || 0,
         isLiked: false,
         user: userData.correoElectronico,
-        name: userData.nombreUsuario|| "Anónimo"
+        name: userData.nombreUsuario || "Anónimo"
       };
 
       // Actualizar estados
@@ -302,7 +207,7 @@ const handleLikeComentario = async (comentario) => {
         comments: (prev.comments || 0) + 1
       }));
       setNuevoComentario("");
-      
+
     } catch (error) {
       console.error("Error al crear comentario:", error);
       setError("Error al crear el comentario");
@@ -759,15 +664,7 @@ const handleLikeComentario = async (comentario) => {
             onClick={() => {
               setActiveTab("perfil");
               isMobile && setShowLeftSidebar(false);
-
-              document.body.style.overflow = "hidden"; // Bloquea el scroll durante la transición
-              setTimeout(() => {
-                navigate(`/perfil/${userId}`, {
-                  state: { user: userData },
-                  replace: false,
-                });
-                document.body.style.overflow = ""; // Restaura el scroll
-              }, 300);
+              navigate("/perfil");
             }}
           >
             <motion.div
@@ -838,42 +735,38 @@ const handleLikeComentario = async (comentario) => {
             ":hover": { backgroundColor: "rgba(255,255,255,0.1)" },
           }}
         >
-          <div style={{
-            width: "48px",
-            height: "48px",
-            borderRadius: "50%",
-            backgroundColor: !userData?.imagen_perfil ? primaryColor : 'transparent',
-            overflow: 'hidden',
-            marginRight: "0.75rem",
-            flexShrink: 0,
-            border: userData?.imagen_perfil ? `1px solid rgb(122, 122, 122)` : 'none'
-          }}>
-            {userData?.imagen_perfil ? (
-              <img 
-                src={
-                  userData.imagen_perfil.startsWith('data:image') ? 
-                  userData.imagen_perfil : 
-                  `http://localhost:8080/${userData.imagen_perfil}`
-                }
-                alt={`Avatar de ${userData.nombreUsuario}`}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover'
-                }}
-                onError={(e) => {
-                  console.error('Error cargando imagen de perfil:', e);
-                  e.target.style.display = 'none';
-                  e.target.parentNode.style.backgroundColor = primaryColor;
-                }}
+          <div
+            style={{
+              width: "40px",
+              height: "40px",
+              borderRadius: "50%",
+              background: primaryColor,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginRight: "0.5rem",
+            }}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
+                fill="white"
               />
-            ) : (
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ margin: '12px' }}>
-                <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z" fill="white"/>
-                <path d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z" fill="white"/>
-                <path d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z" fill="white"/>
-              </svg>
-            )}
+              <path
+                d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
+                fill="white"
+              />
+              <path
+                d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
+                fill="white"
+              />
+            </svg>
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>
@@ -1076,47 +969,47 @@ const handleLikeComentario = async (comentario) => {
               transition={{ duration: 0.3 }}
               style={{
                 padding: "1rem",
-                borderBottom: `1px solid ${borderColor}`,
+                border: `2px solid ${cardColor}`,
                 display: "flex",
-                backgroundColor: cardColor,
+                backgroundColor: borderColor,
+                margin: "1rem",
+                borderRadius: "10px",
               }}
             >
-              <div style={{
-                width: "48px",
-                height: "48px",
-                borderRadius: "50%",
-                backgroundColor: !publicacion.usuario?.imagenPerfil ? primaryColor : 'transparent',
-                overflow: 'hidden',
-                marginRight: "0.75rem",
-                flexShrink: 0,
-                border: publicacion.usuario?.imagenPerfil ? `1px solid rgb(122, 122, 122)` : 'none'
-              }}>
-                {publicacion.usuario?.imagenPerfil ? (
-                  <img 
-                    src={
-                      publicacion.usuario.imagenPerfil.startsWith('data:image') ? 
-                      publicacion.usuario.imagenPerfil : 
-                      `http://localhost:8080/${publicacion.usuario.imagenPerfil}`
-                    }
-                    alt={`Avatar de ${publicacion.name}`}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover'
-                    }}
-                    onError={(e) => {
-                      console.error('Error cargando imagen de perfil:', e);
-                      e.target.style.display = 'none';
-                      e.target.parentNode.style.backgroundColor = primaryColor;
-                    }}
+              <div
+                style={{
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "50%",
+                  background: primaryColor,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: "0.75rem",
+                  flexShrink: 0,
+                  marginTop: "0.25rem",
+                }}
+              > 
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
+                    fill="white"
                   />
-                ) : (
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ margin: '12px' }}>
-                    <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z" fill="white"/>
-                    <path d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z" fill="white"/>
-                    <path d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z" fill="white"/>
-                  </svg>
-                )}
+                  <path
+                    d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
+                    fill="white"
+                  />
+                  <path
+                    d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
+                    fill="white"
+                  />
+                </svg>
               </div>
 
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -1183,160 +1076,6 @@ const handleLikeComentario = async (comentario) => {
                 >
                   {publicacion.content}
                 </p>
-
-                {publicacion?.imagen && (
-                  <div 
-                    style={{ margin: '1rem 0', borderRadius: '8px', overflow: 'hidden', cursor: 'zoom-in' }}
-                    onClick={(e) => handleImageClick(e, publicacion.imagen)}
-                  >
-                    <img
-                      src={publicacion.imagen}
-                      alt="Contenido de la publicación"
-                      onError={(e) => {
-                        console.error("Error cargando imagen:", {
-                          src: publicacion.imagen?.substring(0, 50),
-                          error: e
-                        });
-                        e.target.style.display = 'none';
-                      }}
-                      style={{
-                        width: '100%',
-                        maxHeight: '400px',
-                        objectFit: 'contain',
-                        display: 'block'
-                      }}
-                    />
-                  </div>
-                )}
-
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    maxWidth: "100%",
-                  }}
-                >
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      color: lightTextColor,
-                      cursor: "pointer",
-                      padding: "0.5rem",
-                      display: "flex",
-                      alignItems: "center",
-                    }}
-                  >
-                    <svg
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        fill="currentColor"
-                        fillRule="evenodd"
-                        d="M3 10.4c0-2.24 0-3.36.436-4.216a4 4 0 0 1 1.748-1.748C6.04 4 7.16 4 9.4 4h5.2c2.24 0 3.36 0 4.216.436a4 4 0 0 1 1.748 1.748C21 7.04 21 8.16 21 10.4v1.2c0 2.24 0 3.36-.436 4.216a4 4 0 0 1-1.748 1.748C17.96 18 16.84 18 14.6 18H7.414a1 1 0 0 0-.707.293l-2 2c-.63.63-1.707.184-1.707-.707zM9 8a1 1 0 0 0 0 2h6a1 1 0 1 0 0-2zm0 4a1 1 0 1 0 0 2h3a1 1 0 1 0 0-2z"
-                        clipRule="evenodd"
-                      ></path>
-                    </svg>
-                    <span>{publicacion.comments || 0}</span>
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      color: publicacion.isLiked ? accentColor : lightTextColor,
-                      cursor: "pointer",
-                      padding: "0.5rem",
-                      display: "flex",
-                      alignItems: "center",
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleLike(publicacion.id);
-                    }}
-                  >
-                    <svg
-                      width="17"
-                      height="17"
-                      viewBox="0 0 256 256"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      style={{ marginRight: "0.25rem" }}
-                    >
-                      <path
-                        fill="currentColor"
-                        d="M240 102c0 70-103.79 126.66-108.21 129a8 8 0 0 1-7.58 0C119.79 228.66 16 172 16 102a62.07 62.07 0 0 1 62-62c20.65 0 38.73 8.88 50 23.89C139.27 48.88 157.35 40 178 40a62.07 62.07 0 0 1 62 62"
-                      ></path>
-                    </svg>
-                    <span>{publicacion.likes}</span>
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      color: lightTextColor,
-                      cursor: "pointer",
-                      padding: "0.5rem",
-                      display: "flex",
-                      alignItems: "center",
-                    }}
-                  >
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 512 512"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      style={{ marginRight: "0.25rem" }}
-                    >
-                      <path
-                        fill="currentColor"
-                        d="M378 324a69.78 69.78 0 0 0-48.83 19.91L202 272.41a69.7 69.7 0 0 0 0-32.82l127.13-71.5A69.76 69.76 0 1 0 308.87 129l-130.13 73.2a70 70 0 1 0 0 107.56L308.87 383A70 70 0 1 0 378 324"
-                      ></path>
-                    </svg>
-                    <span>{publicacion.shares}</span>
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      color: lightTextColor,
-                      cursor: "pointer",
-                      padding: "0.5rem",
-                      display: "flex",
-                      alignItems: "center",
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/perfil/${publicacion.userId}`);
-                    }}
-                  >
-                    <svg
-                      width="19"
-                      height="19"
-                      viewBox="0 0 16 16"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      style={{ marginRight: "0.25rem" }}
-                    >
-                      <path
-                        fill="currentColor"
-                        d="M8 8a3 3 0 1 0 0-6a3 3 0 0 0 0 6m4.735 6c.618 0 1.093-.561.872-1.139a6.002 6.002 0 0 0-11.215 0c-.22.578.254 1.139.872 1.139z"
-                      ></path>
-                    </svg>
-                  </motion.button>
-                </div>
               </div>
             </motion.div>
 
@@ -1345,47 +1084,44 @@ const handleLikeComentario = async (comentario) => {
               style={{
                 padding: "1rem",
                 borderBottom: `1px solid ${borderColor}`,
-                backgroundColor: cardColor,
+                backgroundColor: cardColor
               }}
             >
               <form onSubmit={handleEnviarComentario}>
                 <div style={{ display: "flex" }}>
-                  <div style={{
-                    width: "48px",
-                    height: "48px",
-                    borderRadius: "50%",
-                    backgroundColor: !userData?.imagen_perfil ? primaryColor : 'transparent',
-                    overflow: 'hidden',
-                    marginRight: "0.75rem",
-                    flexShrink: 0,
-                    border: userData?.imagen_perfil ? `1px solid rgb(122, 122, 122)` : 'none'
-                  }}>
-                    {userData?.imagen_perfil ? (
-                      <img 
-                        src={
-                          userData.imagen_perfil.startsWith('data:image') ? 
-                          userData.imagen_perfil : 
-                          `http://localhost:8080/${userData.imagen_perfil}`
-                        }
-                        alt={`Avatar de ${userData.nombreUsuario}`}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover'
-                        }}
-                        onError={(e) => {
-                          console.error('Error cargando imagen de perfil:', e);
-                          e.target.style.display = 'none';
-                          e.target.parentNode.style.backgroundColor = primaryColor;
-                        }}
+                  <div
+                    style={{
+                      width: "48px",
+                      height: "48px",
+                      borderRadius: "50%",
+                      background: primaryColor,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginRight: "0.75rem",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
+                        fill="white"
                       />
-                    ) : (
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ margin: '12px' }}>
-                        <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z" fill="white"/>
-                        <path d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z" fill="white"/>
-                        <path d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z" fill="white"/>
-                      </svg>
-                    )}
+                      <path
+                        d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
+                        fill="white"
+                      />
+                      <path
+                        d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
+                        fill="white"
+                      />
+                    </svg>
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <textarea
@@ -1441,153 +1177,105 @@ const handleLikeComentario = async (comentario) => {
 
             {/* Lista de comentarios */}
             {comentarios.length > 0 ? (
-              comentarios.map((comentario) => {
-                // Console para revisar el comentario recibido
-                console.log("Comentario recibido en render:", comentario);
-
-                return (
-                  <motion.div
-                    key={comentario.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
+              comentarios.map((comentario) => (
+                <motion.div
+                  key={comentario.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  style={{
+                    padding: "1rem",
+                    borderBottom: `1px solid ${borderColor}`,
+                    display: "flex",
+                    backgroundColor: cardColor,
+                  }}
+                >
+                  <div
                     style={{
-                      padding: "1rem",
-                      borderBottom: `1px solid ${borderColor}`,
+                      width: "40px",
+                      height: "40px",
+                      borderRadius: "50%",
+                      background: primaryColor,
                       display: "flex",
-                      backgroundColor: cardColor,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginRight: "2rem",
+                      marginLeft: "1rem",
+                      marginTop: "0.5rem",
+                      flexShrink: 0,
                     }}
                   >
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
+                        fill="white"
+                      />
+                      <path
+                        d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
+                        fill="white"
+                      />
+                      <path
+                        d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
+                        fill="white"
+                      />
+                    </svg>
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div
                       style={{
-                        width: "40px",
-                        height: "40px",
-                        borderRadius: "50%",
-                        backgroundColor: !comentario.imagenPerfil ? primaryColor : "transparent",
-                        overflow: "hidden",
-                        marginRight: "0.75rem",
-                        flexShrink: 0,
-                        border: comentario.imagenPerfil ? `1px solid rgb(122, 122, 122)` : "none",
+                        display: "flex",
+                        alignItems: "center",
+                        marginBottom: "0.25rem",
                       }}
                     >
-                      {comentario.imagenPerfil ? (
-                        <img
-                          src={comentario.imagenPerfil}
-                          alt={`Avatar de ${comentario.name}`}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                          }}
-                          onError={(e) => {
-                            console.error("Error cargando imagen de perfil:", e);
-                            e.target.style.display = "none";
-                            e.target.parentNode.style.backgroundColor = primaryColor;
-                          }}
-                        />
-                      ) : (
-                        <svg
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          style={{ margin: "10px" }}
-                        >
-                          <path
-                            d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                            fill="white"
-                          />
-                          <path
-                            d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                            fill="white"
-                          />
-                          <path
-                            d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                            fill="white"
-                          />
-                        </svg>
-                      )}
-                    </div>
-
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div
+                      <span
                         style={{
-                          display: "flex",
-                          alignItems: "center",
-                          marginBottom: "0.25rem",
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontWeight: "bold",
-                            marginRight: "0.25rem",
-                            color: textColor,
-                          }}
-                        >
-                          {comentario.name}
-                        </span>
-                        <span
-                          style={{
-                            marginRight: "0.25rem",
-                            color: lightTextColor,
-                          }}
-                        >
-                          @{comentario.user}
-                        </span>
-                        <span style={{ color: lightTextColor }}>
-                          · {formatRelativeTime(new Date(comentario.time))}
-                        </span>
-                      </div>
-                      <p
-                        style={{
-                          marginBottom: "0.5rem",
+                          fontWeight: "bold",
+                          marginRight: "0.25rem",
                           color: textColor,
-                          wordBreak: "break-word",
                         }}
                       >
-                        {comentario.content}
-                      </p>
-                      <div
+                        {comentario.name}
+                      </span>
+                      <span
                         style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          maxWidth: "100%",
+                          marginRight: "0.25rem",
+                          color: lightTextColor,
                         }}
                       >
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            color: comentario.isLiked ? accentColor : lightTextColor,
-                            cursor: "pointer",
-                            padding: "0.5rem",
-                            display: "flex",
-                            alignItems: "center",
-                          }}
-                          // onClick={() => handleLikeComentario(comentario)} // función comentada
-                        >
-                          <svg
-                            width="17"
-                            height="17"
-                            viewBox="0 0 256 256"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                            style={{ marginRight: "0.25rem" }}
-                          >
-                            <path
-                              fill="currentColor"
-                              d="M240 102c0 70-103.79 126.66-108.21 129a8 8 0 0 1-7.58 0C119.79 228.66 16 172 16 102a62.07 62.07 0 0 1 62-62c20.65 0 38.73 8.88 50 23.89C139.27 48.88 157.35 40 178 40a62.07 62.07 0 0 1 62 62"
-                            ></path>
-                          </svg>
-                          <span>{comentario.likes}</span>
-                        </motion.button>
-                      </div>
+                        @{comentario.user}
+                      </span>
+                      <span style={{ color: lightTextColor }}>
+                        · {formatRelativeTime(new Date(comentario.time))}
+                      </span>
                     </div>
-                  </motion.div>
-                );
-              })
+                    <p
+                      style={{
+                        marginBottom: "0.5rem",
+                        color: textColor,
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {comentario.content}
+                    </p>
+                   <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        maxWidth: "100%",
+                      }}
+                    >
+                    </div>
+                  </div>
+                </motion.div>
+              ))
             ) : (
               <div
                 style={{
@@ -1601,693 +1289,7 @@ const handleLikeComentario = async (comentario) => {
             )}
           </div>
         </div>
-
-        {/* Barra lateral derecha - versión flotante */}
-        {!isMobile && (
-          <motion.div
-            initial={{ x: "100%" }}
-            animate={{ x: showRightSidebar ? 0 : "100%" }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            style={{
-              width: "350px",
-              height: "100vh",
-              borderLeft: `1px solid ${borderColor}`,
-              backgroundColor: cardColor,
-              padding: "1rem",
-              display: "flex",
-              flexDirection: "column",
-              position: "fixed",
-              right: 0,
-              top: 0,
-              zIndex: 30,
-              overflowY: "auto",
-              scrollbarWidth: "thin",
-              scrollbarColor: `${lightTextColor} ${backgroundColor}`,
-              "&::-webkit-scrollbar": {
-                width: "8px",
-              },
-              "&::-webkit-scrollbar-track": {
-                background: backgroundColor,
-              },
-              "&::-webkit-scrollbar-thumb": {
-                backgroundColor: lightTextColor,
-                borderRadius: "10px",
-                border: `2px solid ${backgroundColor}`,
-              },
-            }}
-          >
-            {/* Buscador */}
-            <div
-              style={{
-                padding: "1rem",
-                borderRadius: "1rem",
-                marginBottom: "1rem",
-                backgroundColor: backgroundColor,
-              }}
-            >
-              <div
-                style={{
-                  position: "relative",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                <input
-                  type="text"
-                  placeholder="Buscar en Sportter"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "0.75rem 1rem 0.75rem 2.5rem",
-                    borderRadius: "50px",
-                    border: `1px solid ${borderColor}`,
-                    backgroundColor: cardColor,
-                    color: textColor,
-                    outline: "none",
-                    fontSize: "0.9rem",
-                  }}
-                />
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  style={{
-                    position: "absolute",
-                    left: "12px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    color: lightTextColor,
-                  }}
-                >
-                  <path
-                    d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3C5.91 3 3 5.91 3 9.5C3 13.09 5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5C5 7.01 7.01 5 9.5 5C11.99 5 14 7.01 14 9.5C14 11.99 11.99 14 9.5 14Z"
-                    fill="currentColor"
-                  />
-                </svg>
-              </div>
-            </div>
-
-            <div
-              style={{
-                padding: "1rem",
-                borderRadius: "1rem",
-                marginBottom: "1rem",
-                backgroundColor: backgroundColor,
-              }}
-            >
-              <h3
-                style={{
-                  fontWeight: "bold",
-                  marginBottom: "1rem",
-                  color: textColor,
-                }}
-              >
-                Tendencias para ti
-              </h3>
-              <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>
-                #Deportes
-              </div>
-              <div style={{ fontWeight: "bold", color: textColor }}>
-                #Fútbol
-              </div>
-              <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>
-                1.2K posts
-              </div>
-            </div>
-
-            <div
-              style={{
-                padding: "1rem",
-                borderRadius: "1rem",
-                backgroundColor: backgroundColor,
-              }}
-            >
-              <h3
-                style={{
-                  fontWeight: "bold",
-                  marginBottom: "1rem",
-                  color: textColor,
-                }}
-              >
-                Sugerencias
-              </h3>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  marginBottom: "1rem",
-                }}
-              >
-                <div
-                  style={{
-                    width: "40px",
-                    height: "40px",
-                    borderRadius: "50%",
-                    background: primaryColor,
-                    marginRight: "0.5rem",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "white",
-                  }}
-                >
-                  U
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      fontWeight: "bold",
-                      color: textColor,
-                    }}
-                  >
-                    Usuario Ejemplo
-                  </div>
-                  <div
-                    style={{
-                      color: lightTextColor,
-                      fontSize: "0.8rem",
-                    }}
-                  >
-                    @usuario
-                  </div>
-                </div>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  style={{
-                    background: primaryColor,
-                    color: "white",
-                    borderRadius: "30px",
-                    border: "none",
-                    padding: "5px 15px",
-                    fontWeight: "bold",
-                    cursor: "pointer",
-                  }}
-                >
-                  Visitar
-                </motion.button>
-              </div>
-            </div>
-
-            <div
-              style={{
-                marginTop: "auto",
-                padding: "1rem",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: lightTextColor,
-                    cursor: "pointer",
-                    padding: "0.25rem 0.5rem",
-                    fontSize: "0.8rem",
-                    marginRight: "0.5rem",
-                    marginBottom: "0.5rem",
-                  }}
-                >
-                  Términos de servicio
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: lightTextColor,
-                    cursor: "pointer",
-                    padding: "0.25rem 0.5rem",
-                    fontSize: "0.8rem",
-                    marginRight: "0.5rem",
-                    marginBottom: "0.5rem",
-                  }}
-                >
-                  Política de privacidad
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: lightTextColor,
-                    cursor: "pointer",
-                    padding: "0.25rem 0.5rem",
-                    fontSize: "0.8rem",
-                    marginRight: "0.5rem",
-                    marginBottom: "0.5rem",
-                  }}
-                >
-                  Cookies
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.98 }}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: lightTextColor,
-                    cursor: "pointer",
-                    padding: "0.25rem 0.5rem",
-                    fontSize: "0.8rem",
-                    marginRight: "0.5rem",
-                    marginBottom: "0.5rem",
-                  }}
-                >
-                  Accesibilidad
-                </motion.button>
-              </div>
-              <div
-                style={{
-                  color: lightTextColor,
-                  fontSize: "0.8rem",
-                }}
-              >
-                © 2025 Sportter, Inc.
-              </div>
-            </div>
-          </motion.div>
-        )}
       </div>
-
-      {/* Barra lateral derecha - versión móvil (flotante) */}
-      {isMobile && showRightSidebar && (
-        <motion.div
-          initial={{ x: "100%" }}
-          animate={{ x: showRightSidebar ? 0 : "100%" }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          style={{
-            width: "80%",
-            height: "100vh",
-            borderLeft: `1px solid ${borderColor}`,
-            backgroundColor: cardColor,
-            padding: "1rem",
-            display: "flex",
-            flexDirection: "column",
-            position: "fixed",
-            right: 0,
-            top: 0,
-            zIndex: 40,
-            overflowY: "auto",
-            //Scroll
-            scrollbarWidth: "thin",
-            scrollbarColor: `${lightTextColor} ${backgroundColor}`,
-            "&::-webkit-scrollbar": {
-              width: "8px",
-            },
-            "&::-webkit-scrollbar-track": {
-              background: backgroundColor,
-            },
-            "&::-webkit-scrollbar-thumb": {
-              backgroundColor: lightTextColor,
-              borderRadius: "10px",
-              border: `2px solid ${backgroundColor}`,
-            },
-          }}
-        >
-          {/* Botón para cerrar en móviles */}
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={toggleRightSidebar}
-            style={{
-              alignSelf: "flex-end",
-              background: "transparent",
-              border: "none",
-              color: textColor,
-              cursor: "pointer",
-              padding: "0.5rem",
-              marginBottom: "1rem",
-            }}
-          >
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z"
-                fill="currentColor"
-              />
-            </svg>
-          </motion.button>
-
-          {/* Buscador */}
-          <div
-            style={{
-              padding: "1rem",
-              borderRadius: "1rem",
-              marginBottom: "1rem",
-              backgroundColor: backgroundColor,
-            }}
-          >
-            <div
-              style={{
-                position: "relative",
-                marginBottom: "1rem",
-              }}
-            >
-              <input
-                type="text"
-                placeholder="Buscar en Sportter"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "0.75rem 1rem 0.75rem 2.5rem",
-                  borderRadius: "50px",
-                  border: `1px solid ${borderColor}`,
-                  backgroundColor: cardColor,
-                  color: textColor,
-                  outline: "none",
-                  fontSize: "0.9rem",
-                }}
-              />
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                style={{
-                  position: "absolute",
-                  left: "12px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: lightTextColor,
-                }}
-              >
-                <path
-                  d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3C5.91 3 3 5.91 3 9.5C3 13.09 5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5C5 7.01 7.01 5 9.5 5C11.99 5 14 7.01 14 9.5C14 11.99 11.99 14 9.5 14Z"
-                  fill="currentColor"
-                />
-              </svg>
-            </div>
-          </div>
-
-          <div
-            style={{
-              padding: "1rem",
-              borderRadius: "1rem",
-              marginBottom: "1rem",
-              backgroundColor: backgroundColor,
-            }}
-          >
-            <h3
-              style={{
-                fontWeight: "bold",
-                marginBottom: "1rem",
-                color: textColor,
-              }}
-            >
-              Tendencias para ti
-            </h3>
-            {Object.entries(trends).map(([sport, trend]) => (
-              <div key={sport} style={{ marginBottom: "1rem" }}>
-                <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>
-                  {`Tendencia en ${
-                    sport.charAt(0).toUpperCase() + sport.slice(1)
-                  }`}
-                </div>
-                <div style={{ fontWeight: "bold", color: textColor }}>
-                  {trend.tag}
-                </div>
-                <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>
-                  {trend.count} posts
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div
-            style={{
-              padding: "1rem",
-              borderRadius: "1rem",
-              backgroundColor: backgroundColor,
-            }}
-          >
-            <h3
-              style={{
-                fontWeight: "bold",
-                marginBottom: "1rem",
-                color: textColor,
-              }}
-            >
-              Sugerencias
-            </h3>
-            {users.slice(0, 3).map((user) => (
-              <div
-                key={user.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  marginBottom: "1rem",
-                }}
-              >
-                <div
-                  style={{
-                    width: "40px",
-                    height: "40px",
-                    borderRadius: "50%",
-                    background: primaryColor,
-                    marginRight: "0.5rem",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "white",
-                  }}
-                >
-                  {user.name.charAt(0).toUpperCase() || 'Usuario'}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      fontWeight: "bold",
-                      color: textColor,
-                    }}
-                  >
-                    {user.name}
-                  </div>
-                  <div
-                    style={{
-                      color: lightTextColor,
-                      fontSize: "0.8rem",
-                    }}
-                  >
-                    @{user.email.split("@")[1]}
-                  </div>
-                </div>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  style={{
-                    background: primaryColor,
-                    color: "white",
-                    borderRadius: "30px",
-                    border: "none",
-                    padding: "5px 15px",
-                    fontWeight: "bold",
-                    cursor: "pointer",
-                  }}
-                  onClick={() =>
-                    navigate(`/perfil/${user.id}`, {
-                      state: { user: userData },
-                    })
-                  }
-                >
-                  Visitar
-                </motion.button>
-              </div>
-            ))}
-          </div>
-
-          <div
-            style={{
-              marginTop: "auto",
-              padding: "1rem",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                marginBottom: "0.5rem",
-              }}
-            >
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: lightTextColor,
-                  cursor: "pointer",
-                  padding: "0.25rem 0.5rem",
-                  fontSize: "0.8rem",
-                  marginRight: "0.5rem",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                Términos de servicio
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: lightTextColor,
-                  cursor: "pointer",
-                  padding: "0.25rem 0.5rem",
-                  fontSize: "0.8rem",
-                  marginRight: "0.5rem",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                Política de privacidad
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: lightTextColor,
-                  cursor: "pointer",
-                  padding: "0.25rem 0.5rem",
-                  fontSize: "0.8rem",
-                  marginRight: "0.5rem",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                Cookies
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.98 }}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: lightTextColor,
-                  cursor: "pointer",
-                  padding: "0.25rem 0.5rem",
-                  fontSize: "0.8rem",
-                  marginRight: "0.5rem",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                Accesibilidad
-              </motion.button>
-            </div>
-            <div
-              style={{
-                color: lightTextColor,
-                fontSize: "0.8rem",
-              }}
-            >
-              © 2025 Sportter, Inc.
-            </div>
-          </div>
-        </motion.div>
-      )}
-
-      {showImageModal && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.9)',
-            zIndex: 1000,
-            overflow: 'auto',
-            cursor: 'zoom-out',
-            // Esto ayuda a prevenir el zoom en móviles
-            touchAction: 'none',
-            // Bloquea el doble tap zoom en móviles
-            fontSize: '16px'
-          }}
-          onClick={() => {
-            setShowImageModal(false);
-            setZoomLevel(1);
-          }}
-          // Prevenir eventos táctiles
-          onTouchMove={(e) => {
-            if (e.touches.length > 1) e.preventDefault();
-          }}
-        >
-          <button
-            style={{
-              position: 'fixed',
-              top: '20px',
-              right: '20px',
-              background: 'transparent',
-              border: 'none',
-              color: 'white',
-              fontSize: '2rem',
-              cursor: 'pointer',
-              zIndex: 1001
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowImageModal(false);
-              setZoomLevel(1);
-            }}
-          >
-            ×
-          </button>
-
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              minHeight: '100vh',
-              padding: '20px',
-              boxSizing: 'border-box'
-            }}
-          >
-            <img
-              src={selectedImage}
-              alt="Ampliada"
-              style={{
-                maxWidth: '90vw',
-                maxHeight: '90vh',
-                objectFit: 'contain',
-                transform: `scale(${zoomLevel})`,
-                transformOrigin: 'center top',
-                transition: 'transform 0.2s ease',
-                cursor: 'zoom-in',
-                // Prevenir selección
-                userSelect: 'none',
-                // Prevenir arrastre en móviles
-                pointerEvents: zoomLevel === 1 ? 'auto' : 'none'
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                setZoomLevel(prev => prev === 1 ? 2 : 1);
-              }}
-              // Prevenir gestos de zoom nativo
-              onDragStart={(e) => e.preventDefault()}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
