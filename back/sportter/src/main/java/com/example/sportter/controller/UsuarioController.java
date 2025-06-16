@@ -198,47 +198,46 @@ public class UsuarioController {
 	}
 
 	@PostMapping("/usuarios/{id}/imagen-perfil")
-	public ResponseEntity<?> subirImagenPerfil(
-	    @PathVariable Long id,
-	    @RequestParam("image") MultipartFile file) {
+    public ResponseEntity<?> subirImagenPerfil(
+        @PathVariable Long id,
+        @RequestParam("image") MultipartFile file) {
 
-	    try {
-	        Optional<Usuario> usuarioOpt = usuarioRepository.findById(id);
+        try {
+            Optional<Usuario> usuarioOpt = usuarioRepository.findById(id);
 
-	        if (usuarioOpt.isEmpty()) {
-	            return ResponseEntity.notFound().build();
-	        }
+            if (usuarioOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
 
-	        Usuario usuario = usuarioOpt.get();
+            Usuario usuario = usuarioOpt.get();
 
-	        // Obtener tipo de contenido (ej. image/jpeg)
-	        String contentType = file.getContentType();
-	        if (contentType == null || !contentType.startsWith("image/")) {
-	            return ResponseEntity.badRequest().body("Tipo de archivo no soportado");
-	        }
+            // Obtener tipo de contenido (ej. image/jpeg)
+            String contentType = file.getContentType();
+            if (contentType == null || !contentType.startsWith("image/")) {
+                return ResponseEntity.badRequest().body("Tipo de archivo no soportado");
+            }
 
-	        // Convertir a Base64
-	        String imagenBase64 = Base64.getEncoder().encodeToString(file.getBytes());
-	        String tipoImagen = contentType.split("/")[1]; // "jpeg", "png", etc.
+            // Convertir a Base64
+            String imagenBase64 = Base64.getEncoder().encodeToString(file.getBytes());
+            String tipoImagen = contentType.split("/")[1]; // "jpeg", "png", etc.
 
-	        String imagenConPrefijo = "data:image/" + tipoImagen + ";base64," + imagenBase64;
+            String imagenConPrefijo = "data:image/" + tipoImagen + ";base64," + imagenBase64;
 
-	        // Guardar en el modelo
-	        usuario.setImagen_perfil(imagenConPrefijo);
-	        usuarioRepository.save(usuario);
+            // Guardar en el modelo
+            usuario.setImagen_perfil(imagenConPrefijo);
+            usuarioRepository.save(usuario);
 
-	        return ResponseEntity.ok(Map.of(
-	            "avatar", imagenConPrefijo,
-	            "message", "Imagen de perfil actualizada correctamente"
-	        ));
+            return ResponseEntity.ok(Map.of(
+                "avatar", imagenConPrefijo,
+                "message", "Imagen de perfil actualizada correctamente"
+            ));
 
-	    } catch (IOException e) {
-	        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-	            .body("Error al procesar la imagen");
-	    }
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("Error al procesar la imagen");
+        }
+    }
 
-		return ResponseEntity.ok(usuarios);
-	}
 
  
     @PostMapping("/verificar-email")

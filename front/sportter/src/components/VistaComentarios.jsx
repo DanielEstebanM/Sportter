@@ -32,7 +32,6 @@ function VistaComentarios() {
 
   const userData =
     location.state?.user || JSON.parse(localStorage.getItem("userData"));
-    console.log("Datos del usuario conectado:", userData);
   const userEmail = userData?.correoElectronico;
   const userName = userData?.nombreUsuario;
   const userId = userData?.id;
@@ -52,128 +51,34 @@ function VistaComentarios() {
   const lightTextColor = "#a0a0a0";
   const borderColor = "#2d2d2d";
 
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [showImageModal, setShowImageModal] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const [imageScroll, setImageScroll] = useState({ top: 0, left: 0 });
-  const [zoomAnchor, setZoomAnchor] = useState({ x: 0, y: 0 });
 
-  const handleImageClick = (e, imageSrc) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    setZoomAnchor({ x, y });
-    setSelectedImage(imageSrc);
-    setShowImageModal(true);
-    setZoomLevel(1);
-  };
 
   // Cargar publicación y comentarios
   // En el useEffect que carga los datos:
 useEffect(() => {
-
-  let isMounted = true;
-
   const cargarDatos = async () => {
     try {
       setLoading(true);
-      const post = await getPublicacion(postId);
-
-      console.log('Datos de la publicación:', {
-        ...post,
-        usuario: {
-          ...post.usuario,
-          // Muestra solo los primeros caracteres de la imagen para no saturar la consola
-          imagenPerfil: post.usuario?.imagenPerfil?.substring(0, 30) + '...'
-        }
-      });
+      setError(null);
       
-      // Validación adicional de imagen
-      if (post?.imagen) {
-        console.log('Tipo de imagen recibida:', {
-          tipo: typeof post.imagen,
-          inicio: post.imagen.substring(0, 30),
-          esDataURL: post.imagen.startsWith('data:image/'),
-          esURL: post.imagen.startsWith('http')
-        });
-      }
+      // Cargar publicación usando la misma estructura que loadPosts
+      const publicacionData = await getPublicacion(postId);
+      setPublicacion(publicacionData);
       
-      setPublicacion(post);
-      setComentarios(await getComentarios(postId));
+      // Cargar comentarios
+      const comentariosData = await getComentarios(postId);
+      setComentarios(comentariosData);
+      
     } catch (error) {
-      console.error("Error:", error);
-      setError(error.message);
+      console.error("Error cargando datos:", error);
+      setError("Error al cargar la publicación y comentarios");
     } finally {
       setLoading(false);
     }
   };
+
   cargarDatos();
 }, [postId]);
-
-useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (showImageModal) {
-        if (e.key === 'Escape') {
-          setShowImageModal(false);
-        } else if (e.key === '+' || e.key === '=') {
-          setZoomLevel(prev => Math.min(3, prev + 0.1));
-        } else if (e.key === '-' || e.key === '_') {
-          setZoomLevel(prev => Math.max(0.5, prev - 0.1));
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showImageModal]);
-
-useEffect(() => {
-  const handleWheel = (e) => {
-    if (showImageModal && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
-    }
-  };
-
-  const handleTouchMove = (e) => {
-    if (showImageModal && e.touches.length > 1) {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
-    }
-  };
-
-  if (showImageModal) {
-    // Bloquear zoom con Ctrl+Scroll
-    window.addEventListener('wheel', handleWheel, { passive: false });
-    // Bloquear gesto de pellizco
-    window.addEventListener('touchmove', handleTouchMove, { passive: false });
-    
-    // Bloquear el scroll de la página
-    document.body.style.overflow = 'hidden';
-    // Bloquear zoom en móviles
-    document.body.style.touchAction = 'pan-x pan-y';
-    
-    // Bloquear doble tap zoom en móviles
-    const viewportMeta = document.querySelector('meta[name="viewport"]');
-    const originalContent = viewportMeta?.content;
-    if (viewportMeta) {
-      viewportMeta.content = originalContent + ', maximum-scale=1.0, user-scalable=no';
-    }
-
-    return () => {
-      window.removeEventListener('wheel', handleWheel);
-      window.removeEventListener('touchmove', handleTouchMove);
-      document.body.style.overflow = '';
-      document.body.style.touchAction = '';
-      if (viewportMeta) {
-        viewportMeta.content = originalContent;
-      }
-    };
-  }
-}, [showImageModal]);
 
 
 useEffect(() => {
@@ -265,51 +170,51 @@ const handleLikeComentario = async (comentario) => {
 
   // Enviar nuevo comentario
   const handleEnviarComentario = async (e) => {
-    e.preventDefault();
-    if (!nuevoComentario.trim()) return;
+  e.preventDefault();
+  if (!nuevoComentario.trim()) return;
 
-    const userData = JSON.parse(localStorage.getItem('userData'));
+  const userData = JSON.parse(localStorage.getItem('userData'));
 
-    try {
-      setLoadingComentarios(true);
-      
-      const comentarioCreado = await crearComentario({
-        contenido: nuevoComentario,
-        publicacionId: parseInt(postId),
-        usuarioId: userId,
-      });
+  try {
+    setLoadingComentarios(true);
+    
+    const comentarioCreado = await crearComentario({
+      contenido: nuevoComentario,
+      publicacionId: parseInt(postId),
+      usuarioId: userId,
+    });
 
-      // Crear objeto de comentario completo para el estado local
-      const nuevoComentarioCompleto = {
-        id: comentarioCreado.id,
-        content: comentarioCreado.contenido,
-        time: new Date(comentarioCreado.fechaHora),
-        likes: comentarioCreado.likes || 0,
-        isLiked: false,
-        user: userData.correoElectronico,
-        name: userData.nombreUsuario|| "Anónimo"
-      };
+    // Crear objeto de comentario completo para el estado local
+    const nuevoComentarioCompleto = {
+      id: comentarioCreado.id,
+      content: comentarioCreado.contenido,
+      time: new Date(comentarioCreado.fechaHora),
+      likes: comentarioCreado.likes || 0,
+      isLiked: false,
+      user: userData.correoElectronico,
+      name: userData.nombreUsuario|| "Anónimo"
+    };
 
-      // Actualizar estados
+    // Actualizar estados
 
-      setPublicacion(prev => ({
-        ...prev,
-        comentarios: prev.comentarios + 1
-      }));
-      setComentarios([nuevoComentarioCompleto, ...comentarios]);
-      setPublicacion(prev => ({
-        ...prev,
-        comments: (prev.comments || 0) + 1
-      }));
-      setNuevoComentario("");
-      
-    } catch (error) {
-      console.error("Error al crear comentario:", error);
-      setError("Error al crear el comentario");
-    } finally {
-      setLoadingComentarios(false);
-    }
-  };
+    setPublicacion(prev => ({
+      ...prev,
+      comentarios: prev.comentarios + 1
+    }));
+    setComentarios([nuevoComentarioCompleto, ...comentarios]);
+    setPublicacion(prev => ({
+      ...prev,
+      comments: (prev.comments || 0) + 1
+    }));
+    setNuevoComentario("");
+    
+  } catch (error) {
+    console.error("Error al crear comentario:", error);
+    setError("Error al crear el comentario");
+  } finally {
+    setLoadingComentarios(false);
+  }
+};
 
   // Redirigir al perfil
   const handleIrAPerfil = (userId) => {
@@ -759,15 +664,7 @@ const handleLikeComentario = async (comentario) => {
             onClick={() => {
               setActiveTab("perfil");
               isMobile && setShowLeftSidebar(false);
-
-              document.body.style.overflow = "hidden"; // Bloquea el scroll durante la transición
-              setTimeout(() => {
-                navigate(`/perfil/${userId}`, {
-                  state: { user: userData },
-                  replace: false,
-                });
-                document.body.style.overflow = ""; // Restaura el scroll
-              }, 300);
+              navigate("/perfil");
             }}
           >
             <motion.div
@@ -838,42 +735,38 @@ const handleLikeComentario = async (comentario) => {
             ":hover": { backgroundColor: "rgba(255,255,255,0.1)" },
           }}
         >
-          <div style={{
-            width: "48px",
-            height: "48px",
-            borderRadius: "50%",
-            backgroundColor: !userData?.imagen_perfil ? primaryColor : 'transparent',
-            overflow: 'hidden',
-            marginRight: "0.75rem",
-            flexShrink: 0,
-            border: userData?.imagen_perfil ? `1px solid rgb(122, 122, 122)` : 'none'
-          }}>
-            {userData?.imagen_perfil ? (
-              <img 
-                src={
-                  userData.imagen_perfil.startsWith('data:image') ? 
-                  userData.imagen_perfil : 
-                  `http://localhost:8080/${userData.imagen_perfil}`
-                }
-                alt={`Avatar de ${userData.nombreUsuario}`}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover'
-                }}
-                onError={(e) => {
-                  console.error('Error cargando imagen de perfil:', e);
-                  e.target.style.display = 'none';
-                  e.target.parentNode.style.backgroundColor = primaryColor;
-                }}
+          <div
+            style={{
+              width: "40px",
+              height: "40px",
+              borderRadius: "50%",
+              background: primaryColor,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginRight: "0.5rem",
+            }}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
+                fill="white"
               />
-            ) : (
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ margin: '12px' }}>
-                <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z" fill="white"/>
-                <path d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z" fill="white"/>
-                <path d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z" fill="white"/>
-              </svg>
-            )}
+              <path
+                d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
+                fill="white"
+              />
+              <path
+                d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
+                fill="white"
+              />
+            </svg>
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>
@@ -1081,42 +974,39 @@ const handleLikeComentario = async (comentario) => {
                 backgroundColor: cardColor,
               }}
             >
-              <div style={{
-                width: "48px",
-                height: "48px",
-                borderRadius: "50%",
-                backgroundColor: !publicacion.usuario?.imagenPerfil ? primaryColor : 'transparent',
-                overflow: 'hidden',
-                marginRight: "0.75rem",
-                flexShrink: 0,
-                border: publicacion.usuario?.imagenPerfil ? `1px solid rgb(122, 122, 122)` : 'none'
-              }}>
-                {publicacion.usuario?.imagenPerfil ? (
-                  <img 
-                    src={
-                      publicacion.usuario.imagenPerfil.startsWith('data:image') ? 
-                      publicacion.usuario.imagenPerfil : 
-                      `http://localhost:8080/${publicacion.usuario.imagenPerfil}`
-                    }
-                    alt={`Avatar de ${publicacion.name}`}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover'
-                    }}
-                    onError={(e) => {
-                      console.error('Error cargando imagen de perfil:', e);
-                      e.target.style.display = 'none';
-                      e.target.parentNode.style.backgroundColor = primaryColor;
-                    }}
+              <div
+                style={{
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "50%",
+                  background: primaryColor,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: "0.75rem",
+                  flexShrink: 0,
+                }}
+              > 
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
+                    fill="white"
                   />
-                ) : (
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ margin: '12px' }}>
-                    <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z" fill="white"/>
-                    <path d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z" fill="white"/>
-                    <path d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z" fill="white"/>
-                  </svg>
-                )}
+                  <path
+                    d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
+                    fill="white"
+                  />
+                  <path
+                    d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
+                    fill="white"
+                  />
+                </svg>
               </div>
 
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -1183,32 +1073,6 @@ const handleLikeComentario = async (comentario) => {
                 >
                   {publicacion.content}
                 </p>
-
-                {publicacion?.imagen && (
-                  <div 
-                    style={{ margin: '1rem 0', borderRadius: '8px', overflow: 'hidden', cursor: 'zoom-in' }}
-                    onClick={(e) => handleImageClick(e, publicacion.imagen)}
-                  >
-                    <img
-                      src={publicacion.imagen}
-                      alt="Contenido de la publicación"
-                      onError={(e) => {
-                        console.error("Error cargando imagen:", {
-                          src: publicacion.imagen?.substring(0, 50),
-                          error: e
-                        });
-                        e.target.style.display = 'none';
-                      }}
-                      style={{
-                        width: '100%',
-                        maxHeight: '400px',
-                        objectFit: 'contain',
-                        display: 'block'
-                      }}
-                    />
-                  </div>
-                )}
-
                 <div
                   style={{
                     display: "flex",
@@ -1319,7 +1183,7 @@ const handleLikeComentario = async (comentario) => {
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigate(`/perfil/${publicacion.userId}`);
+                      navigate(`/perfil/${publicacion.user}`);
                     }}
                   >
                     <svg
@@ -1350,42 +1214,39 @@ const handleLikeComentario = async (comentario) => {
             >
               <form onSubmit={handleEnviarComentario}>
                 <div style={{ display: "flex" }}>
-                  <div style={{
-                    width: "48px",
-                    height: "48px",
-                    borderRadius: "50%",
-                    backgroundColor: !userData?.imagen_perfil ? primaryColor : 'transparent',
-                    overflow: 'hidden',
-                    marginRight: "0.75rem",
-                    flexShrink: 0,
-                    border: userData?.imagen_perfil ? `1px solid rgb(122, 122, 122)` : 'none'
-                  }}>
-                    {userData?.imagen_perfil ? (
-                      <img 
-                        src={
-                          userData.imagen_perfil.startsWith('data:image') ? 
-                          userData.imagen_perfil : 
-                          `http://localhost:8080/${userData.imagen_perfil}`
-                        }
-                        alt={`Avatar de ${userData.nombreUsuario}`}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover'
-                        }}
-                        onError={(e) => {
-                          console.error('Error cargando imagen de perfil:', e);
-                          e.target.style.display = 'none';
-                          e.target.parentNode.style.backgroundColor = primaryColor;
-                        }}
+                  <div
+                    style={{
+                      width: "48px",
+                      height: "48px",
+                      borderRadius: "50%",
+                      background: primaryColor,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginRight: "0.75rem",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
+                        fill="white"
                       />
-                    ) : (
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ margin: '12px' }}>
-                        <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z" fill="white"/>
-                        <path d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z" fill="white"/>
-                        <path d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z" fill="white"/>
-                      </svg>
-                    )}
+                      <path
+                        d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
+                        fill="white"
+                      />
+                      <path
+                        d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
+                        fill="white"
+                      />
+                    </svg>
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <textarea
@@ -1441,153 +1302,103 @@ const handleLikeComentario = async (comentario) => {
 
             {/* Lista de comentarios */}
             {comentarios.length > 0 ? (
-              comentarios.map((comentario) => {
-                // Console para revisar el comentario recibido
-                console.log("Comentario recibido en render:", comentario);
-
-                return (
-                  <motion.div
-                    key={comentario.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
+              comentarios.map((comentario) => (
+                <motion.div
+                  key={comentario.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  style={{
+                    padding: "1rem",
+                    borderBottom: `1px solid ${borderColor}`,
+                    display: "flex",
+                    backgroundColor: cardColor,
+                  }}
+                >
+                  <div
                     style={{
-                      padding: "1rem",
-                      borderBottom: `1px solid ${borderColor}`,
+                      width: "40px",
+                      height: "40px",
+                      borderRadius: "50%",
+                      background: primaryColor,
                       display: "flex",
-                      backgroundColor: cardColor,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginRight: "0.75rem",
+                      flexShrink: 0,
                     }}
                   >
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
+                        fill="white"
+                      />
+                      <path
+                        d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
+                        fill="white"
+                      />
+                      <path
+                        d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
+                        fill="white"
+                      />
+                    </svg>
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div
                       style={{
-                        width: "40px",
-                        height: "40px",
-                        borderRadius: "50%",
-                        backgroundColor: !comentario.imagenPerfil ? primaryColor : "transparent",
-                        overflow: "hidden",
-                        marginRight: "0.75rem",
-                        flexShrink: 0,
-                        border: comentario.imagenPerfil ? `1px solid rgb(122, 122, 122)` : "none",
+                        display: "flex",
+                        alignItems: "center",
+                        marginBottom: "0.25rem",
                       }}
                     >
-                      {comentario.imagenPerfil ? (
-                        <img
-                          src={comentario.imagenPerfil}
-                          alt={`Avatar de ${comentario.name}`}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                          }}
-                          onError={(e) => {
-                            console.error("Error cargando imagen de perfil:", e);
-                            e.target.style.display = "none";
-                            e.target.parentNode.style.backgroundColor = primaryColor;
-                          }}
-                        />
-                      ) : (
-                        <svg
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          style={{ margin: "10px" }}
-                        >
-                          <path
-                            d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                            fill="white"
-                          />
-                          <path
-                            d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                            fill="white"
-                          />
-                          <path
-                            d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                            fill="white"
-                          />
-                        </svg>
-                      )}
-                    </div>
-
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div
+                      <span
                         style={{
-                          display: "flex",
-                          alignItems: "center",
-                          marginBottom: "0.25rem",
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontWeight: "bold",
-                            marginRight: "0.25rem",
-                            color: textColor,
-                          }}
-                        >
-                          {comentario.name}
-                        </span>
-                        <span
-                          style={{
-                            marginRight: "0.25rem",
-                            color: lightTextColor,
-                          }}
-                        >
-                          @{comentario.user}
-                        </span>
-                        <span style={{ color: lightTextColor }}>
-                          · {formatRelativeTime(new Date(comentario.time))}
-                        </span>
-                      </div>
-                      <p
-                        style={{
-                          marginBottom: "0.5rem",
+                          fontWeight: "bold",
+                          marginRight: "0.25rem",
                           color: textColor,
-                          wordBreak: "break-word",
                         }}
                       >
-                        {comentario.content}
-                      </p>
-                      <div
+                        {comentario.name }
+                      </span>
+                      <span
                         style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          maxWidth: "100%",
+                          marginRight: "0.25rem",
+                          color: lightTextColor,
                         }}
                       >
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            color: comentario.isLiked ? accentColor : lightTextColor,
-                            cursor: "pointer",
-                            padding: "0.5rem",
-                            display: "flex",
-                            alignItems: "center",
-                          }}
-                          // onClick={() => handleLikeComentario(comentario)} // función comentada
-                        >
-                          <svg
-                            width="17"
-                            height="17"
-                            viewBox="0 0 256 256"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                            style={{ marginRight: "0.25rem" }}
-                          >
-                            <path
-                              fill="currentColor"
-                              d="M240 102c0 70-103.79 126.66-108.21 129a8 8 0 0 1-7.58 0C119.79 228.66 16 172 16 102a62.07 62.07 0 0 1 62-62c20.65 0 38.73 8.88 50 23.89C139.27 48.88 157.35 40 178 40a62.07 62.07 0 0 1 62 62"
-                            ></path>
-                          </svg>
-                          <span>{comentario.likes}</span>
-                        </motion.button>
-                      </div>
+                        @{comentario.user}
+                      </span>
+                      <span style={{ color: lightTextColor }}>
+                        · {formatRelativeTime(new Date(comentario.time))}
+                      </span>
                     </div>
-                  </motion.div>
-                );
-              })
+                    <p
+                      style={{
+                        marginBottom: "0.5rem",
+                        color: textColor,
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {comentario.content}
+                    </p>
+                   <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        maxWidth: "100%",
+                      }}
+                    >
+                    </div>
+                  </div>
+                </motion.div>
+              ))
             ) : (
               <div
                 style={{
@@ -2203,90 +2014,6 @@ const handleLikeComentario = async (comentario) => {
             </div>
           </div>
         </motion.div>
-      )}
-
-      {showImageModal && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.9)',
-            zIndex: 1000,
-            overflow: 'auto',
-            cursor: 'zoom-out',
-            // Esto ayuda a prevenir el zoom en móviles
-            touchAction: 'none',
-            // Bloquea el doble tap zoom en móviles
-            fontSize: '16px'
-          }}
-          onClick={() => {
-            setShowImageModal(false);
-            setZoomLevel(1);
-          }}
-          // Prevenir eventos táctiles
-          onTouchMove={(e) => {
-            if (e.touches.length > 1) e.preventDefault();
-          }}
-        >
-          <button
-            style={{
-              position: 'fixed',
-              top: '20px',
-              right: '20px',
-              background: 'transparent',
-              border: 'none',
-              color: 'white',
-              fontSize: '2rem',
-              cursor: 'pointer',
-              zIndex: 1001
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowImageModal(false);
-              setZoomLevel(1);
-            }}
-          >
-            ×
-          </button>
-
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              minHeight: '100vh',
-              padding: '20px',
-              boxSizing: 'border-box'
-            }}
-          >
-            <img
-              src={selectedImage}
-              alt="Ampliada"
-              style={{
-                maxWidth: '90vw',
-                maxHeight: '90vh',
-                objectFit: 'contain',
-                transform: `scale(${zoomLevel})`,
-                transformOrigin: 'center top',
-                transition: 'transform 0.2s ease',
-                cursor: 'zoom-in',
-                // Prevenir selección
-                userSelect: 'none',
-                // Prevenir arrastre en móviles
-                pointerEvents: zoomLevel === 1 ? 'auto' : 'none'
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                setZoomLevel(prev => prev === 1 ? 2 : 1);
-              }}
-              // Prevenir gestos de zoom nativo
-              onDragStart={(e) => e.preventDefault()}
-            />
-          </div>
-        </div>
       )}
     </div>
   );

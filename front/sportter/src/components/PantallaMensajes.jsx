@@ -87,7 +87,7 @@ function PantallaMensajes() {
       } finally {
         setLoadingUsers(false);
       }
-    }
+    };
     fetchUsers();
   }, [userId]);
 
@@ -209,7 +209,7 @@ function PantallaMensajes() {
                   m.remitenteId === userId
                     ? userName
                     : usuariosUnicos.get(m.remitenteId)?.nombre ||
-                    `Usuario ${m.remitenteId}`,
+                      `Usuario ${m.remitenteId}`,
                 isUser: m.remitenteId === userId,
               })),
             });
@@ -285,11 +285,11 @@ function PantallaMensajes() {
       prev.map((conv) =>
         conv.id === selectedUser.id
           ? {
-            ...conv,
-            lastMessage: newMessage,
-            time: "Justo ahora",
-            messages: [...conv.messages, mensajeOptimista],
-          }
+              ...conv,
+              lastMessage: newMessage,
+              time: "Justo ahora",
+              messages: [...conv.messages, mensajeOptimista],
+            }
           : conv
       )
     );
@@ -326,10 +326,10 @@ function PantallaMensajes() {
         messages: prev.messages.map((msg) =>
           msg.id === tempId
             ? {
-              ...msg,
-              id: mensajeReal.id,
-              time: formatearFecha(mensajeReal.fechaHora),
-            }
+                ...msg,
+                id: mensajeReal.id,
+                time: formatearFecha(mensajeReal.fechaHora),
+              }
             : msg
         ),
       }));
@@ -338,17 +338,17 @@ function PantallaMensajes() {
         prev.map((conv) =>
           conv.id === selectedUser.id
             ? {
-              ...conv,
-              messages: conv.messages.map((msg) =>
-                msg.id === tempId
-                  ? {
-                    ...msg,
-                    id: mensajeReal.id,
-                    time: formatearFecha(mensajeReal.fechaHora),
-                  }
-                  : msg
-              ),
-            }
+                ...conv,
+                messages: conv.messages.map((msg) =>
+                  msg.id === tempId
+                    ? {
+                        ...msg,
+                        id: mensajeReal.id,
+                        time: formatearFecha(mensajeReal.fechaHora),
+                      }
+                    : msg
+                ),
+              }
             : conv
         )
       );
@@ -363,9 +363,9 @@ function PantallaMensajes() {
         prev.map((conv) =>
           conv.id === selectedUser.id
             ? {
-              ...conv,
-              messages: conv.messages.filter((msg) => msg.id !== tempId),
-            }
+                ...conv,
+                messages: conv.messages.filter((msg) => msg.id !== tempId),
+              }
             : conv
         )
       );
@@ -496,14 +496,24 @@ function PantallaMensajes() {
     navigate("/", { replace: true });
   };
 
-  // Filtrar usuarios disponibles (excluyendo los que ya están en conversaciones)
-      const filteredAvailableUsers = availableUsers.filter(
-        (user) => !conversations.some((conv) => conv.id === user.id)
-      );
-
+  // Añadir nueva conversación
   const addNewConversation = async (user) => {
     try {
-      // Primero crea la conversación en el backend
+      // Verificar si ya existe una conversación con este usuario
+      const existingConv = conversations.find(
+        (conv) =>
+          conv.destinatarioId === user.id ||
+          conv.usuario1Id === user.id ||
+          conv.usuario2Id === user.id
+      );
+
+      if (existingConv) {
+        setSelectedUser(existingConv);
+        setShowAddUserPopup(false);
+        return;
+      }
+
+      // Crear nueva conversación
       const response = await mensajeService.crearConversacion(userId, user.id);
       const newConversation = {
         id: response.data.id,
@@ -525,7 +535,7 @@ function PantallaMensajes() {
     } catch (error) {
       console.error("Error al crear nueva conversación:", error);
     }
-  }
+  };
 
   const SharedPostCard = ({ metadata, onClick }) => {
     const data = JSON.parse(metadata);
@@ -952,64 +962,38 @@ function PantallaMensajes() {
             ":hover": { backgroundColor: "rgba(255,255,255,0.1)" },
           }}
         >
-          {/* IMAGEN DE USUARIO ABAJO IZQUIERDA */}
           <div
             style={{
-              width: "48px",
-              height: "48px",
+              width: "40px",
+              height: "40px",
               borderRadius: "50%",
-              backgroundColor: !userData?.imagen_perfil ? primaryColor : "transparent",
-              overflow: "hidden",
-              marginRight: "0.75rem",
-              flexShrink: 0,
-              border: userData?.imagen_perfil ? `1px solid rgb(122, 122, 122)` : "none",
+              background: primaryColor,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              marginRight: "0.5rem",
             }}
           >
-            {userData?.imagen_perfil ? (
-              <img
-                src={
-                  userData.imagen_perfil.startsWith("data:image")
-                    ? userData.imagen_perfil
-                    : `http://localhost:8080/${userData.imagen_perfil}`
-                }
-                alt={`Avatar de ${userData.nombreUsuario}`}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                }}
-                onError={(e) => {
-                  console.error("Error cargando imagen de perfil:", e);
-                  e.target.style.display = "none";
-                  e.target.parentNode.style.backgroundColor = primaryColor;
-                }}
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
+                fill="white"
               />
-            ) : (
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                style={{ margin: "12px" }}
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                  fill="white"
-                />
-                <path
-                  d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                  fill="white"
-                />
-                <path
-                  d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                  fill="white"
-                />
-              </svg>
-            )}
+              <path
+                d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
+                fill="white"
+              />
+              <path
+                d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
+                fill="white"
+              />
+            </svg>
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>
@@ -1288,44 +1272,29 @@ function PantallaMensajes() {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    overflow: "hidden",
-                    border: conversation.remitenteImagenPerfil ? "1px solid rgb(122, 122, 122)" : "none"
                   }}
                 >
-                  {conversation.remitenteImagenPerfil ? (
-                    <img
-                      src={conversation.remitenteImagenPerfil}
-                      alt="Avatar"
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover"
-                      }}
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
+                      fill="white"
                     />
-                  ) : (
-                    <svg
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                        fill="white"
-                      />
-                      <path
-                        d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                        fill="white"
-                      />
-                      <path
-                        d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                        fill="white"
-                      />
-                    </svg>
-                  )}
+                    <path
+                      d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
+                      fill="white"
+                    />
+                    <path
+                      d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
+                      fill="white"
+                    />
+                  </svg>
                 </div>
-
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div
                     style={{ display: "flex", justifyContent: "space-between" }}
