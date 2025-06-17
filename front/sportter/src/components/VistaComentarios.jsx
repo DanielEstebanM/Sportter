@@ -47,6 +47,23 @@ function VistaComentarios() {
   const [nuevoComentario, setNuevoComentario] = useState("");
   const [loadingComentarios, setLoadingComentarios] = useState(false);
 
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [imageScroll, setImageScroll] = useState({ top: 0, left: 0 });
+  const [zoomAnchor, setZoomAnchor] = useState({ x: 0, y: 0 });
+
+  const handleImageClick = (e, imageSrc) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    setZoomAnchor({ x, y });
+    setSelectedImage(imageSrc);
+    setShowImageModal(true);
+    setZoomLevel(1);
+  };
+
   // Colores con tema anaranjado-rojizo
   const primaryColor = "#FF4500";
   const accentColor = "#FF7043";
@@ -56,64 +73,53 @@ function VistaComentarios() {
   const lightTextColor = "#a0a0a0";
   const borderColor = "#2d2d2d";
 
-  // Cargar publicación y comentarios
+  useEffect(() => {
+    const handleWheel = (e) => {
+      if (showImageModal && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    };
 
-  const SharedPostMessage = ({ metadata }) => {
-    const postData = JSON.parse(metadata);
+    const handleTouchMove = (e) => {
+      if (showImageModal && e.touches.length > 1) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    };
 
-    return (
-      <div
-        style={{
-          border: "1px solid #FF4500",
-          borderRadius: "8px",
-          padding: "12px",
-          margin: "8px 0",
-          backgroundColor: "#1e1e1e",
-        }}
-      >
-        <div
-          style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}
-        >
-          <span style={{ marginRight: "8px" }}>📢</span>
-          <strong>Publicación compartida</strong>
-        </div>
+    if (showImageModal) {
+      // Bloquear zoom con Ctrl+Scroll
+      window.addEventListener("wheel", handleWheel, { passive: false });
+      // Bloquear gesto de pellizco
+      window.addEventListener("touchmove", handleTouchMove, { passive: false });
 
-        <div style={{ marginBottom: "8px" }}>
-          <p style={{ margin: "4px 0" }}>
-            <strong>De:</strong> {postData.author}
-          </p>
-          <p style={{ margin: "4px 0" }}>
-            <strong>Deporte:</strong> {postData.sport}
-          </p>
-        </div>
+      // Bloquear el scroll de la página
+      document.body.style.overflow = "hidden";
+      // Bloquear zoom en móviles
+      document.body.style.touchAction = "pan-x pan-y";
 
-        <div
-          style={{
-            padding: "8px",
-            backgroundColor: "#121212",
-            borderRadius: "4px",
-            marginBottom: "8px",
-          }}
-        >
-          {postData.preview}
-        </div>
+      // Bloquear doble tap zoom en móviles
+      const viewportMeta = document.querySelector('meta[name="viewport"]');
+      const originalContent = viewportMeta?.content;
+      if (viewportMeta) {
+        viewportMeta.content =
+          originalContent + ", maximum-scale=1.0, user-scalable=no";
+      }
 
-        <button
-          onClick={() => navigate(`/publicaciones/${postData.postId}`)}
-          style={{
-            background: "#FF4500",
-            color: "white",
-            border: "none",
-            padding: "6px 12px",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
-          Ver publicación completa
-        </button>
-      </div>
-    );
-  };
+      return () => {
+        window.removeEventListener("wheel", handleWheel);
+        window.removeEventListener("touchmove", handleTouchMove);
+        document.body.style.overflow = "";
+        document.body.style.touchAction = "";
+        if (viewportMeta) {
+          viewportMeta.content = originalContent;
+        }
+      };
+    }
+  }, [showImageModal]);
 
   // En el useEffect que carga los datos:
   useEffect(() => {
@@ -721,7 +727,7 @@ function VistaComentarios() {
             onClick={() => {
               setActiveTab("perfil");
               isMobile && setShowLeftSidebar(false);
-              navigate("/perfil");
+              navigate("/perfil/" + userData.id);
             }}
           >
             <motion.div
@@ -797,34 +803,32 @@ function VistaComentarios() {
               width: "40px",
               height: "40px",
               borderRadius: "50%",
-              background: primaryColor,
+              backgroundColor: !userData?.imagen_perfil
+                ? primaryColor
+                : "transparent",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               marginRight: "0.5rem",
             }}
           >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                fill="white"
+            {userData.imagen_perfil ? (
+              <img
+                src={userData.imagen_perfil}
+                style={{
+                  borderRadius: "50%",
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
               />
-              <path
-                d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                fill="white"
-              />
-              <path
-                d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                fill="white"
-              />
-            </svg>
+            ) : (
+              <span style={{ color: "white", fontWeight: "bold" }}>
+                {userData.nombreUsuario?.charAt(0).toUpperCase() || "U"}
+              </span>
+            )}
           </div>
+
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>
               {userName.charAt(0).toUpperCase() + userName.slice(1) ||
@@ -1035,38 +1039,33 @@ function VistaComentarios() {
             >
               <div
                 style={{
-                  width: "48px",
-                  height: "48px",
+                  width: "40px",
+                  height: "40px",
                   borderRadius: "50%",
-                  background: primaryColor,
+                  backgroundColor: !publicacion?.imagen
+                    ? primaryColor
+                    : "transparent",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  marginRight: "0.75rem",
-                  flexShrink: 0,
-                  marginTop: "0.25rem",
+                  marginRight: "0.5rem",
                 }}
               >
-                <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                    fill="white"
+                {publicacion.imagen ? (
+                  <img
+                    src={publicacion.imagen}
+                    style={{
+                      borderRadius: "50%",
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
                   />
-                  <path
-                    d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                    fill="white"
-                  />
-                  <path
-                    d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                    fill="white"
-                  />
-                </svg>
+                ) : (
+                  <span style={{ color: "white", fontWeight: "bold" }}>
+                    {publicacion.name?.charAt(0).toUpperCase() || "U"}
+                  </span>
+                )}
               </div>
 
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -1133,6 +1132,36 @@ function VistaComentarios() {
                 >
                   {publicacion.content}
                 </p>
+
+                {publicacion?.imagenPost && (
+                  <div
+                    style={{
+                      margin: "1rem 0",
+                      borderRadius: "8px",
+                      overflow: "hidden",
+                      cursor: "zoom-in",
+                    }}
+                    onClick={(e) => handleImageClick(e, publicacion.imagenPost)}
+                  >
+                    <img
+                      src={publicacion.imagenPost}
+                      alt="Contenido de la publicación"
+                      onError={(e) => {
+                        console.error("Error cargando imagen:", {
+                          src: publicacion.imagenPost?.substring(0, 50),
+                          error: e,
+                        });
+                        e.target.style.display = "none";
+                      }}
+                      style={{
+                        width: "100%",
+                        maxHeight: "400px",
+                        objectFit: "contain",
+                        display: "block",
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             </motion.div>
 
@@ -1148,37 +1177,33 @@ function VistaComentarios() {
                 <div style={{ display: "flex" }}>
                   <div
                     style={{
-                      width: "48px",
-                      height: "48px",
+                      width: "40px",
+                      height: "40px",
                       borderRadius: "50%",
-                      background: primaryColor,
+                      backgroundColor: !userData?.imagen_perfil
+                        ? primaryColor
+                        : "transparent",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      marginRight: "0.75rem",
-                      flexShrink: 0,
+                      marginRight: "0.5rem",
                     }}
                   >
-                    <svg
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                        fill="white"
+                    {userData.imagen_perfil ? (
+                      <img
+                        src={userData.imagen_perfil}
+                        style={{
+                          borderRadius: "50%",
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
                       />
-                      <path
-                        d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                        fill="white"
-                      />
-                      <path
-                        d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                        fill="white"
-                      />
-                    </svg>
+                    ) : (
+                      <span style={{ color: "white", fontWeight: "bold" }}>
+                        {userData.nombreUsuario?.charAt(0).toUpperCase() || "U"}
+                      </span>
+                    )}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <textarea
@@ -1252,36 +1277,30 @@ function VistaComentarios() {
                       width: "40px",
                       height: "40px",
                       borderRadius: "50%",
-                      background: primaryColor,
+                      backgroundColor: !comentario?.imagen
+                        ? primaryColor
+                        : "transparent",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      marginRight: "2rem",
-                      marginLeft: "1rem",
-                      marginTop: "0.5rem",
-                      flexShrink: 0,
+                      marginRight: "0.5rem",
                     }}
                   >
-                    <svg
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                        fill="white"
+                    {comentario.imagen ? (
+                      <img
+                        src={comentario.imagen}
+                        style={{
+                          borderRadius: "50%",
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
                       />
-                      <path
-                        d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                        fill="white"
-                      />
-                      <path
-                        d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                        fill="white"
-                      />
-                    </svg>
+                    ) : (
+                      <span style={{ color: "white", fontWeight: "bold" }}>
+                        {comentario.name?.charAt(0).toUpperCase() || "U"}
+                      </span>
+                    )}
                   </div>
 
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -1322,6 +1341,7 @@ function VistaComentarios() {
                     >
                       {comentario.content}
                     </p>
+
                     <div
                       style={{
                         display: "flex",
@@ -1346,6 +1366,89 @@ function VistaComentarios() {
           </div>
         </div>
       </div>
+      {showImageModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.9)",
+            zIndex: 1000,
+            overflow: "auto",
+            cursor: "zoom-out",
+            // Esto ayuda a prevenir el zoom en móviles
+            touchAction: "none",
+            // Bloquea el doble tap zoom en móviles
+            fontSize: "16px",
+          }}
+          onClick={() => {
+            setShowImageModal(false);
+            setZoomLevel(1);
+          }}
+          // Prevenir eventos táctiles
+          onTouchMove={(e) => {
+            if (e.touches.length > 1) e.preventDefault();
+          }}
+        >
+          <button
+            style={{
+              position: "fixed",
+              top: "20px",
+              right: "20px",
+              background: "transparent",
+              border: "none",
+              color: "white",
+              fontSize: "2rem",
+              cursor: "pointer",
+              zIndex: 1001,
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowImageModal(false);
+              setZoomLevel(1);
+            }}
+          >
+            ×
+          </button>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              minHeight: "100vh",
+              padding: "20px",
+              boxSizing: "border-box",
+            }}
+          >
+            <img
+              src={selectedImage}
+              alt="Ampliada"
+              style={{
+                maxWidth: "90vw",
+                maxHeight: "90vh",
+                objectFit: "contain",
+                transform: `scale(${zoomLevel})`,
+                transformOrigin: "center top",
+                transition: "transform 0.2s ease",
+                cursor: "zoom-in",
+                // Prevenir selección
+                userSelect: "none",
+                // Prevenir arrastre en móviles
+                pointerEvents: zoomLevel === 1 ? "auto" : "none",
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setZoomLevel((prev) => (prev === 1 ? 2 : 1));
+              }}
+              // Prevenir gestos de zoom nativo
+              onDragStart={(e) => e.preventDefault()}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -11,9 +11,10 @@ import {
   quitarLike,
   crearPublicacion,
   getUsers,
-  actualizarCompartidos
+  actualizarCompartidos,
 } from "../services/api";
 import { useConversaciones } from "../components/hooks/useConversaciones";
+import { text } from "framer-motion/client";
 
 function PantallaPrincipal() {
   const location = useLocation();
@@ -45,6 +46,21 @@ function PantallaPrincipal() {
   const [useEffectd, setUsed] = useState(false);
   const [posts, setPosts] = useState([]);
 
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [imageScroll, setImageScroll] = useState({ top: 0, left: 0 });
+  const [zoomAnchor, setZoomAnchor] = useState({ x: 0, y: 0 });
+  const handleImageClick = (e, imageSrc) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left; // Posición X relativa a la imagen
+    const y = e.clientY - rect.top; // Posición Y relativa a la imagen
+    setZoomAnchor({ x, y });
+    setSelectedImage(imageSrc);
+    setShowImageModal(true);
+    setZoomLevel(1);
+  };
+
   const [showUserSearchModal, setShowUserSearchModal] = useState(false);
 
   const [postImage, setPostImage] = useState(null);
@@ -56,6 +72,67 @@ function PantallaPrincipal() {
   const { conversations, loadingConversations } =
     useConversaciones(currentUserId);
 
+  const UserAvatar = ({ usuario }) => {
+    const [imgError, setImgError] = useState(false);
+
+    // Si no hay usuario o imagen, mostramos el icono por defecto
+    if (!usuario?.imagen_perfil || imgError) {
+      return (
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            backgroundColor: "#FF4500",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
+              fill="white"
+            />
+            <path
+              d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
+              fill="white"
+            />
+            <path
+              d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
+              fill="white"
+            />
+          </svg>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        style={{
+          width: 48,
+          height: 48,
+          borderRadius: "50%",
+          overflow: "hidden",
+        }}
+      >
+        <img
+          src={usuario.imagen_perfil}
+          alt={`Avatar de ${usuario.nombreUsuario}`}
+          onError={() => {
+            console.error("Error cargando imagen de perfil");
+            setImgError(true);
+          }}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+          }}
+        />
+      </div>
+    );
+  };
+
   // Cargar publicaciones al iniciar
   useEffect(() => {
     const fetchAndSetPosts = async () => {
@@ -64,14 +141,35 @@ function PantallaPrincipal() {
         const fetchedPosts = await loadPosts();
         if (fetchedPosts && Array.isArray(fetchedPosts)) {
           const resolvedPosts = await Promise.all(fetchedPosts);
+
           const processedPosts = resolvedPosts
-            .filter((post) => post)
-            .map((post) => ({
-              ...post,
-              time: new Date(post.time),
-            }));
+            .filter((post) => post) // Filtra posts nulos
+            .map((post) => {
+              // Verificación robusta de imagen
+              const hasValidImage =
+                post.imagen &&
+                typeof post.imagen === "string" &&
+                post.imagen.startsWith("data:image/") &&
+                post.imagen.length > 100;
+
+              return {
+                ...post,
+                time: new Date(post.time),
+                imagen: hasValidImage ? post.imagen : null, // Conserva null si no es válida
+              };
+            });
+
+          console.log(
+            "Posts procesados:",
+            processedPosts.map((p) => ({
+              id: p.id,
+              hasImage: !!p.imagen,
+              contentLength: p.content?.length,
+              imageLength: p.imagen?.length,
+            }))
+          );
+
           setPosts(processedPosts);
-          console.log("Total posts establecidos:", processedPosts.length);
         } else {
           console.warn("No se recibieron posts o el array está vacío");
           setPosts([]);
@@ -83,6 +181,7 @@ function PantallaPrincipal() {
         setLoading(false);
       }
     };
+
     fetchAndSetPosts();
   }, []);
 
@@ -197,53 +296,52 @@ function PantallaPrincipal() {
   };
 
   const handleSendShare = async () => {
-  if (selectedUsers.length === 0 || !currentSharedPost) return;
+    if (selectedUsers.length === 0 || !currentSharedPost) return;
 
-  await actualizarCompartidos(currentSharedPost.id, selectedUsers.length);
+    await actualizarCompartidos(currentSharedPost.id, selectedUsers.length);
 
-  try {
-    const messageContent = `💬 ${
-      currentSharedPost.content.length > 100
-        ? `${currentSharedPost.content.substring(0, 100)}...`
-        : currentSharedPost.content
-    }"`;
+    try {
+      const messageContent = `💬 ${
+        currentSharedPost.content.length > 100
+          ? `${currentSharedPost.content.substring(0, 100)}...`
+          : currentSharedPost.content
+      }"`;
 
-    for (const conversationId of selectedUsers) {
-      const mensajeDTO = {
-        contenido: messageContent,
-        remitenteId: currentUserId,
-        destinatarioId: conversations.find((c) => c.id === conversationId)
-          ?.destinatarioId,
-        conversacionId: conversationId,
-        metadata: JSON.stringify({
-          type: "shared_post",
-          postId: currentSharedPost.id,
-        }),
-      };
+      for (const conversationId of selectedUsers) {
+        const mensajeDTO = {
+          contenido: messageContent,
+          remitenteId: currentUserId,
+          destinatarioId: conversations.find((c) => c.id === conversationId)
+            ?.destinatarioId,
+          conversacionId: conversationId,
+          metadata: JSON.stringify({
+            type: "shared_post",
+            postId: currentSharedPost.id,
+          }),
+        };
 
-      await mensajeService.enviarMensaje(mensajeDTO);
+        await mensajeService.enviarMensaje(mensajeDTO);
+      }
+
+      setPosts(
+        posts.map((post) => {
+          if (post.id === currentSharedPost.id) {
+            return {
+              ...post,
+              shares: post.shares + selectedUsers.length,
+            };
+          }
+          return post;
+        })
+      );
+
+      setShowShareModal(false);
+      setCurrentSharedPost(null);
+      setSelectedUsers([]);
+    } catch (error) {
+      console.error("Error al compartir publicación:", error);
     }
-
-    setPosts(
-      posts.map((post) => {
-        if (post.id === currentSharedPost.id) {
-          return {
-            ...post,
-            shares: post.shares + selectedUsers.length,
-          };
-        }
-        return post;
-      })
-    );
-
-    setShowShareModal(false);
-    setCurrentSharedPost(null);
-    setSelectedUsers([]);
-  } catch (error) {
-    console.error("Error al compartir publicación:", error);
-  }
-};
-
+  };
 
   // Función para alternar la selección de usuarios
   const toggleUserSelection = (user) => {
@@ -520,18 +618,18 @@ function PantallaPrincipal() {
   const filteredPosts =
     selectedSport === "General"
       ? posts.filter(
-        (post) =>
-          post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          post.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          post.user.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-      : posts.filter(
-        (post) =>
-          post.sport === selectedSport &&
-          (post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (post) =>
+            post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
             post.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            post.user.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
+            post.user.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      : posts.filter(
+          (post) =>
+            post.sport === selectedSport &&
+            (post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              post.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              post.user.toLowerCase().includes(searchQuery.toLowerCase()))
+        );
 
   return (
     <div
@@ -573,7 +671,9 @@ function PantallaPrincipal() {
               padding: "20px",
             }}
           >
-            <h3 style={{ marginTop: 0, margin: "1rem", marginBottom: "1.75rem" }}>
+            <h3
+              style={{ marginTop: 0, margin: "1rem", marginBottom: "1.75rem" }}
+            >
               Compartir publicación
             </h3>
 
@@ -584,7 +684,26 @@ function PantallaPrincipal() {
                 No tienes conversaciones activas
               </p>
             ) : (
-              <div style={{ maxHeight: "60vh", overflowY: "auto" }}>
+              <div
+                style={{
+                  maxHeight: "50vh",
+                  overflowY: "auto",
+                  scrollbarWidth: "thin",
+                  scrollbarColor: `${lightTextColor} ${cardColor}`,
+                  "&::-webkit-scrollbar": {
+                    width: "6px",
+                  },
+                  "&::-webkit-scrollbar-track": {
+                    background: cardColor,
+                    borderRadius: "10px",
+                  },
+                  "&::-webkit-scrollbar-thumb": {
+                    backgroundColor: lightTextColor,
+                    borderRadius: "10px",
+                    border: `2px solid ${cardColor}`,
+                  },
+                }}
+              >
                 {conversations.map((conv) => (
                   <div
                     key={conv.id}
@@ -611,16 +730,31 @@ function PantallaPrincipal() {
                         width: "40px",
                         height: "40px",
                         borderRadius: "50%",
-                        background: primaryColor,
-                        marginRight: "12px",
+                        backgroundColor: !conv?.avatar
+                          ? primaryColor
+                          : "transparent",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        color: "white",
-                        fontWeight: "bold",
+                        marginRight: "0.5rem",
                       }}
                     >
-                      {conv.user.charAt(0).toUpperCase()}
+                      {conv.avatar && conv.avatar.startsWith("data:image") ? (
+                        <img
+                          src={conv.avatar}
+                          alt={`avatar de ${conv.user}`}
+                          style={{
+                            borderRadius: "50%",
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                          }}
+                        />
+                      ) : (
+                        <span style={{ color: "white", fontWeight: "bold" }}>
+                          {conv.user?.charAt(0).toUpperCase() || "U"}
+                        </span>
+                      )}
                     </div>
                     <div>
                       <div style={{ fontWeight: "bold" }}>{conv.user}</div>
@@ -1371,33 +1505,30 @@ function PantallaPrincipal() {
               width: "40px",
               height: "40px",
               borderRadius: "50%",
-              background: primaryColor,
+              backgroundColor: !userData?.imagen_perfil
+                ? primaryColor
+                : "transparent",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               marginRight: "0.5rem",
             }}
           >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                fill="white"
+            {userData.imagen_perfil ? (
+              <img
+                src={userData.imagen_perfil}
+                style={{
+                  borderRadius: "50%",
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
               />
-              <path
-                d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                fill="white"
-              />
-              <path
-                d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                fill="white"
-              />
-            </svg>
+            ) : (
+              <span style={{ color: "white", fontWeight: "bold" }}>
+                {userData.nombreUsuario?.charAt(0).toUpperCase() || "U"}
+              </span>
+            )}
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>
@@ -1709,37 +1840,33 @@ function PantallaPrincipal() {
                 <div style={{ display: "flex" }}>
                   <div
                     style={{
-                      width: "48px",
-                      height: "48px",
+                      width: "40px",
+                      height: "40px",
                       borderRadius: "50%",
-                      background: primaryColor,
+                      backgroundColor: !userData?.imagen_perfil
+                        ? primaryColor
+                        : "transparent",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      marginRight: "0.75rem",
-                      flexShrink: 0,
+                      marginRight: "0.5rem",
                     }}
                   >
-                    <svg
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                        fill="white"
+                    {userData.imagen_perfil ? (
+                      <img
+                        src={userData.imagen_perfil}
+                        style={{
+                          borderRadius: "50%",
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
                       />
-                      <path
-                        d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                        fill="white"
-                      />
-                      <path
-                        d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                        fill="white"
-                      />
-                    </svg>
+                    ) : (
+                      <span style={{ color: "white", fontWeight: "bold" }}>
+                        {userData.nombreUsuario?.charAt(0).toUpperCase() || "U"}
+                      </span>
+                    )}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <input
@@ -1787,37 +1914,33 @@ function PantallaPrincipal() {
                 >
                   <div
                     style={{
-                      width: "48px",
-                      height: "48px",
+                      width: "40px",
+                      height: "40px",
                       borderRadius: "50%",
-                      background: primaryColor,
+                      backgroundColor: !post.usuario?.imagenPerfil
+                        ? primaryColor
+                        : "transparent",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      marginRight: "0.75rem",
-                      flexShrink: 0,
+                      marginRight: "0.5rem",
                     }}
                   >
-                    <svg
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                        fill="white"
+                    {post.usuario.imagenPerfil ? (
+                      <img
+                        src={post.usuario.imagenPerfil}
+                        style={{
+                          borderRadius: "50%",
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
                       />
-                      <path
-                        d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                        fill="white"
-                      />
-                      <path
-                        d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                        fill="white"
-                      />
-                    </svg>
+                    ) : (
+                      <span style={{ color: "white", fontWeight: "bold" }}>
+                        {post.user?.charAt(0).toUpperCase() || "U"}
+                      </span>
+                    )}
                   </div>
 
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -1890,6 +2013,49 @@ function PantallaPrincipal() {
                     >
                       {post.content}
                     </p>
+                    {post.imagen && (
+                      <div
+                        style={{
+                          marginTop: "1rem",
+                          marginBottom: "0.5rem",
+                          backgroundColor: "#181818",
+                          border: `1px solid ${borderColor}`,
+                          overflow: "hidden",
+                          borderRadius: "15px",
+                          maxHeight: "400px",
+                          maxWidth: "400px",
+                          cursor: "pointer",
+                          marginLeft: "auto", // ✅ centra horizontalmente
+                          marginRight: "auto",
+
+                          // backgroundColor: borderColor
+                        }}
+                        onClick={(e) => handleImageClick(e, post.imagen)}
+                      >
+                        <img
+                          src={post.imagen}
+                          alt="Contenido de la publicación"
+                          onError={(e) => {
+                            console.error("Error cargando imagen:", e);
+                            console.log("Datos imagen:", {
+                              id: post.id,
+                              startsWithData:
+                                post.imagen.startsWith("data:image"),
+                              length: post.imagen.length,
+                              preview: post.imagen.substring(0, 50) + "...",
+                            });
+                            e.target.style.display = "none";
+                          }}
+                          style={{
+                            width: "100%",
+                            height: "auto",
+                            maxHeight: "300px",
+                            display: "block",
+                            objectFit: "contain",
+                          }}
+                        />
+                      </div>
+                    )}
                     <div
                       style={{
                         display: "flex",
@@ -2402,8 +2568,9 @@ function PantallaPrincipal() {
               {Object.entries(trends).map(([sport, trend]) => (
                 <div key={sport} style={{ marginBottom: "1rem" }}>
                   <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>
-                    {`Tendencia en ${sport.charAt(0).toUpperCase() + sport.slice(1)
-                      }`}
+                    {`Tendencia en ${
+                      sport.charAt(0).toUpperCase() + sport.slice(1)
+                    }`}
                   </div>
                   <div style={{ fontWeight: "bold", color: textColor }}>
                     {trend.tag}
@@ -2486,7 +2653,46 @@ function PantallaPrincipal() {
                   fontSize: "0.8rem",
                 }}
               >
-                © 2025 Sportter, Inc.
+              <div style={{ justifyContent: "center", textAlign: "justify", fontSize: "0.72rem", marginLeft: "0.5rem" }}>
+                <a href="https://github.com/DanielEstebanM/Sportter" style={{ textDecoration: "none", color: "inherit", borderRadius: "3px", fontWeight: "bold" }}>
+                  Sportter
+                </a>{" "}
+                © 2025 by{" "}
+                <a href="https://github.com/DanielEstebanM" style={{ textDecoration: "none", color: "inherit", borderRadius: "3px", fontWeight: "bold" }}>
+                  Daniel Esteban, Geanina Foanta, Sara Chbali
+                </a>{" "}
+                is licensed under {" "}    
+                <a href="https://creativecommons.org/licenses/by-nc-nd/4.0/" style={{ textDecoration: "none", color: "inherit", borderBottom: "1px solid", borderRadius: "3px"  }}>
+                   Creative Commons Attribution-NonCommercial-NoDerivatives 
+                   {"\n "} 4.0 International
+                </a>{" "}
+                <br/>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    marginTop: "1rem",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <img
+                    src="https://mirrors.creativecommons.org/presskit/icons/cc.svg"
+                    style={{ maxWidth: "1.4rem", maxHeight: "1.4rem" }}
+                  />
+                  <img
+                    src="https://mirrors.creativecommons.org/presskit/icons/by.svg"
+                    style={{ maxWidth: "1.4rem", maxHeight: "1.4rem" }}
+                  />
+                  <img
+                    src="https://mirrors.creativecommons.org/presskit/icons/nc.svg"
+                    style={{ maxWidth: "1.4rem", maxHeight: "1.4rem" }}
+                  />
+                  <img
+                    src="https://mirrors.creativecommons.org/presskit/icons/nd.svg"
+                    style={{ maxWidth: "1.4rem", maxHeight: "1.4rem" }}
+                  />
+                </div>
+              </div>
               </div>
             </div>
           </motion.div>
@@ -2897,8 +3103,9 @@ function PantallaPrincipal() {
             {Object.entries(trends).map(([sport, trend]) => (
               <div key={sport} style={{ marginBottom: "1rem" }}>
                 <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>
-                  {`Tendencia en ${sport.charAt(0).toUpperCase() + sport.slice(1)
-                    }`}
+                  {`Tendencia en ${
+                    sport.charAt(0).toUpperCase() + sport.slice(1)
+                  }`}
                 </div>
                 <div style={{ fontWeight: "bold", color: textColor }}>
                   {trend.tag}
@@ -2924,6 +3131,7 @@ function PantallaPrincipal() {
               }}
             >
               <motion.button
+              onClick={() => navigate("/terminosDeServicio")}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 style={{
@@ -2940,6 +3148,7 @@ function PantallaPrincipal() {
                 Términos de servicio
               </motion.button>
               <motion.button
+              onClick={() => navigate("/politicaDePrivacidad")}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 style={{
@@ -2956,22 +3165,7 @@ function PantallaPrincipal() {
                 Política de privacidad
               </motion.button>
               <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: lightTextColor,
-                  cursor: "pointer",
-                  padding: "0.25rem 0.5rem",
-                  fontSize: "0.8rem",
-                  marginRight: "0.5rem",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                Cookies
-              </motion.button>
-              <motion.button
+              onClick={() => navigate("/accesibilidad")}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.98 }}
                 style={{
@@ -2994,10 +3188,135 @@ function PantallaPrincipal() {
                 fontSize: "0.8rem",
               }}
             >
-              © 2025 Sportter, Inc.
+              <div style={{ justifyContent: "center", textAlign: "justify" }}>
+                <a href="https://github.com/DanielEstebanM/Sportter" style={{ textDecoration: "none", color: "inherit", borderRadius: "3px", fontWeight: "bold" }}>
+                  Sportter
+                </a>{" "}
+                © 2025 by{" "}
+                <a href="https://github.com/DanielEstebanM" style={{ textDecoration: "none", color: "inherit", borderRadius: "3px", fontWeight: "bold" }}>
+                  Daniel Esteban, Geanina Foanta, Sara Chbali
+                </a>{" "}
+                is licensed under
+                <a href="https://creativecommons.org/licenses/by-nc-nd/4.0/" style={{ textDecoration: "none", color: "inherit", borderBottom: "1px solid", borderRadius: "3px"  }}>
+                  {" "}
+                  Creative Commons Attribution-NonCommercial-NoDerivatives 4.0
+                  International
+                </a>{" "}
+                <br />
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    marginTop: "1rem",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <img
+                    src="https://mirrors.creativecommons.org/presskit/icons/cc.svg"
+                    style={{ maxWidth: "1.4rem", maxHeight: "1.4rem" }}
+                  />
+                  <img
+                    src="https://mirrors.creativecommons.org/presskit/icons/by.svg"
+                    style={{ maxWidth: "1.4rem", maxHeight: "1.4rem" }}
+                  />
+                  <img
+                    src="https://mirrors.creativecommons.org/presskit/icons/nc.svg"
+                    style={{ maxWidth: "1.4rem", maxHeight: "1.4rem" }}
+                  />
+                  <img
+                    src="https://mirrors.creativecommons.org/presskit/icons/nd.svg"
+                    style={{ maxWidth: "1.4rem", maxHeight: "1.4rem" }}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </motion.div>
+      )}
+      {showImageModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.9)",
+            zIndex: 1000,
+            overflow: "auto",
+            cursor: "zoom-out",
+          }}
+          onClick={() => setShowImageModal(false)}
+          ref={(container) => {
+            if (container && zoomLevel > 1) {
+              // Calcular posición para mantener el punto de zoom visible
+              const centerX = container.clientWidth / 2;
+              const centerY = container.clientHeight / 2;
+              const offsetX = zoomAnchor.x * zoomLevel - centerX;
+              const offsetY = zoomAnchor.y * zoomLevel - centerY;
+
+              container.scrollTo({
+                left: offsetX,
+                top: offsetY,
+                behavior: "auto",
+              });
+            }
+          }}
+        >
+          <button
+            style={{
+              position: "fixed",
+              top: "20px",
+              right: "20px",
+              background: "transparent",
+              border: "none",
+              color: "white",
+              fontSize: "2rem",
+              cursor: "pointer",
+              zIndex: 1001,
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowImageModal(false);
+            }}
+          >
+            ×
+          </button>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "flex-start", // Alinear arriba en lugar de centrar
+              minHeight: "100vh",
+              padding: "20px",
+              boxSizing: "border-box",
+            }}
+          >
+            <img
+              src={selectedImage}
+              alt="Ampliada"
+              style={{
+                maxWidth: "90vw",
+                maxHeight: "none",
+                objectFit: "contain",
+                transform: `scale(${zoomLevel})`,
+                transformOrigin: `${zoomAnchor.x}px ${zoomAnchor.y}px`, // Origen del zoom en el punto de clic
+                transition: "transform 0.2s ease",
+                cursor: "zoom-in",
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                setZoomAnchor({ x, y });
+                setZoomLevel((prev) => (prev === 1 ? 2 : 1));
+              }}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

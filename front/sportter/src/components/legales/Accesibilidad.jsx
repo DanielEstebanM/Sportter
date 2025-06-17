@@ -210,14 +210,12 @@ function Accesibilidad() {
             </p>
             <ul style={{ paddingLeft: "1.5rem", color: lightTextColor }}>
               <li style={{ marginBottom: "0.5rem" }}>
-                <strong>Email:</strong> <span style={{ color: primaryColor }}>accesibilidad@tudominio.com</span>
+                <strong>Email:</strong> <span style={{ color: primaryColor }}>sportter.network@gmail.com</span>
               </li>
               <li style={{ marginBottom: "0.5rem" }}>
-                <strong>Teléfono:</strong> +XX XXX XXX XXX (horario de atención)
+                <strong>Teléfono:</strong> +34 931 735 348 (24h)
               </li>
-              <li>
-                <strong>Formulario de contacto:</strong> Disponible en nuestra sección de soporte
-              </li>
+             
             </ul>
           </section>
 
