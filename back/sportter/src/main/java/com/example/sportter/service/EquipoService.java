@@ -13,6 +13,7 @@ import com.example.sportter.model.Miembro;
 import com.example.sportter.model.Usuario;
 import com.example.sportter.repository.CategoriaDeporteRepository;
 import com.example.sportter.repository.EquipoRepository;
+import com.example.sportter.repository.EventoRepository;
 import com.example.sportter.repository.MiembroRepository;
 import com.example.sportter.repository.UsuarioRepository;
 
@@ -39,6 +40,9 @@ public class EquipoService {
 
 	@Autowired
 	private UsuarioRepository usuarioRepository;
+	
+	@Autowired
+	private EventoRepository eventoRepository;
 
 	@Transactional(readOnly = true)
 	public List<EquipoConMiembrosDTO> getEquiposConMiembrosParaUsuario(Long userId) {
@@ -174,9 +178,11 @@ public class EquipoService {
 
 	@Transactional
 	public void eliminarEquipo(Long id) {
-	    // Primero eliminar todos los miembros
-		miembroRepository.deleteByEquipoId(id);
-	    // Luego eliminar el equipo
+	    // Eliminar todos los eventos asociados
+	    eventoRepository.deleteByEquipoId(id);
+	    // Eliminar todos los miembros
+	    miembroRepository.deleteByEquipoId(id);
+	    // Eliminar el equipo
 	    equipoRepository.deleteById(id);
 	}
 

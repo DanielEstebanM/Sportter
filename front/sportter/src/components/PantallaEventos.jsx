@@ -1165,7 +1165,7 @@ function PantallaEventos() {
                             style={{
                                 height: "10px",
                                 width: "100%",
-                                background: `linear-gradient(90deg, ${primaryColor}, ${accentColor})`,
+                                background: primaryColor,
                                 position: "absolute",
                                 top: 0,
                                 left: 0,
@@ -1536,17 +1536,20 @@ function PantallaEventos() {
                                             onClick={() => handleOpenMap(selectedEvent.location)}
                                         >
                                             <svg
-                                                width="16"
-                                                height="16"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
                                                 xmlns="http://www.w3.org/2000/svg"
+                                                viewBox="0 0 24 24"
+                                                width="1.2em"
+                                                height="1.2em"
                                                 style={{ marginRight: "0.3rem" }}
                                             >
                                                 <path
-                                                    d="M15 12L8 12V10L15 10V12ZM15 16L8 16V14L15 14V16ZM11 8L11 4L5 4V20H19V8H11ZM9 6H11V8H9V6ZM9 18H7V16H9V18ZM9 14H7V12H9V14ZM9 10H7V8H9V10ZM13 18H11V16H13V18ZM13 14H11V12H13V14ZM13 10H11V8H13V10ZM17 18H15V16H17V18ZM17 14H15V12H17V14ZM17 10H15V8H17V10Z"
-                                                    fill={primaryColor}
-                                                />
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    strokeWidth="2"
+                                                    d="M12 15a6 6 0 1 0 0-12a6 6 0 0 0 0 12m0 0v6M9.5 9A2.5 2.5 0 0 1 12 6.5"
+                                                ></path>
                                             </svg>
                                             Ver en mapa
                                         </motion.button>

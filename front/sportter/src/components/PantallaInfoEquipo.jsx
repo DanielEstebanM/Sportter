@@ -674,9 +674,11 @@ function PantallaInfoEquipo() {
             // Si es el último miembro, eliminar el equipo
             if (teamData.members === 1) {
                 await deleteTeam(id);
+                toast.success("Equipo eliminado");
             } else {
                 // Solo remover al usuario
                 await removeTeamMember(id, userId);
+                toast.success("Has abandonado el equipo");
             }
 
             // Redirigir a la página de equipos
@@ -692,10 +694,11 @@ function PantallaInfoEquipo() {
     const handleDeleteTeam = async () => {
         try {
             await deleteTeam(id);
+            toast.success("Equipo eliminado correctamente");
             navigate('/equipos');
         } catch (error) {
             console.error("Error al eliminar equipo:", error);
-            alert("Error al eliminar el equipo. Por favor, inténtalo de nuevo.");
+            toast.error("Error al eliminar el equipo");
         }
     };
 
@@ -2556,15 +2559,20 @@ function PantallaInfoEquipo() {
                         }}
                     >
                         <h3 style={{ margin: "0 0 1rem 0", color: textColor }}>
-                            {confirmationAction === "leave" ? "¿Salir del grupo?" :
-                                confirmationAction === "delete" ? "¿Borrar el grupo?" :
+                            {confirmationAction === "leave" ?
+                                (teamData.members === 1 ? "¿Eliminar equipo al salir?" : "¿Salir del equipo?") :
+                                confirmationAction === "delete" ? "¿Borrar el equipo permanentemente?" :
                                     "¿Eliminar a este miembro?"}
                         </h3>
 
                         <p style={{ color: lightTextColor, marginBottom: "1.5rem" }}>
-                            {confirmationAction === "leave" ? "¿Estás seguro de que quieres salir de este grupo?" :
-                                confirmationAction === "delete" ? "Esta acción eliminará el grupo permanentemente. ¿Estás seguro?" :
-                                    "¿Estás seguro de que quieres eliminar a este miembro del grupo?"}
+                            {confirmationAction === "leave" && teamData.members === 1 ?
+                                "Al ser el último miembro, el equipo se eliminará completamente." :
+                                confirmationAction === "leave" ?
+                                    "¿Estás seguro de que quieres salir de este equipo?" :
+                                    confirmationAction === "delete" ?
+                                        "Esta acción eliminará el equipo y todos sus eventos permanentemente." :
+                                        "¿Estás seguro de que quieres eliminar a este miembro del equipo?"}
                         </p>
 
                         <div style={{
