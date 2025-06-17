@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.sportter.dto.PublicacionDTO;
+import com.example.sportter.dto.PublicacionService;
 import com.example.sportter.model.CategoriaDeporte;
 import com.example.sportter.model.Publicacion;
 import com.example.sportter.model.Usuario;
@@ -41,6 +42,14 @@ public class PublicacionController {
 	
 	@Autowired
 	private CategoriaDeporteRepository categoriaDeporteRepository;
+	
+	
+	private final PublicacionService publicacionService;
+	    
+	
+	public PublicacionController(PublicacionService publicacionService) {
+		 this.publicacionService = publicacionService;
+	 }
 
 	@GetMapping
 	public ResponseEntity<?> getAllPublications() {
@@ -260,5 +269,47 @@ public class PublicacionController {
 	            .body(null);
 	    }
 	}
+	
+	    
+	    @PutMapping("/{id}/compartir")
+	    public ResponseEntity<Publicacion> compartirPublicacion(
+	            @PathVariable Long id,
+	            @RequestParam(defaultValue = "1") Long cantidad) {
+	        
+	        try {
+	            Publicacion publicacionActualizada = publicacionService.incrementarCompartidos(id, cantidad);
+	            return ResponseEntity.ok(publicacionActualizada);
+	        } catch (RuntimeException e) {
+	            return ResponseEntity.notFound().build();
+	        }
+	    }
+	    
+	    // Endpoint alternativo con cuerpo JSON
+	    @PutMapping("/{id}/compartidos")
+	    public ResponseEntity<Publicacion> actualizarCompartidos(
+	            @PathVariable Long id,
+	            @RequestBody IncrementoRequest incremento) {
+	        
+	        try {
+	            Publicacion publicacionActualizada = publicacionService.incrementarCompartidos(id, incremento.getCantidad());
+	            return ResponseEntity.ok(publicacionActualizada);
+	        } catch (RuntimeException e) {
+	            return ResponseEntity.notFound().build();
+	        }
+	    }
+	    
+	    // Clase interna para el request body
+	    static class IncrementoRequest {
+	        private Long cantidad;
+	        
+	        // Getters y setters
+	        public Long getCantidad() {
+	            return cantidad;
+	        }
+	        
+	        public void setCantidad(Long cantidad) {
+	            this.cantidad = cantidad;
+	        }
+	    }
 
 }

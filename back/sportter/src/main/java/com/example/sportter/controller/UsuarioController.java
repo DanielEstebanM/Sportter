@@ -151,7 +151,7 @@ public class UsuarioController {
 		dto.setNombre(usuario.getNombreUsuario());
 		dto.setNombreUsuario(usuario.getNombreUsuario());
 		dto.setEmail(usuario.getCorreoElectronico());
-		dto.setAvatar(usuario.getImagen_perfil());
+		dto.setAvatar(usuario.getUsuarioImagenPerfil());
 		dto.setBio(usuario.getBio());
 		return dto;
 	}
@@ -169,6 +169,7 @@ public class UsuarioController {
 			Usuario usuario = usuarioOpt.get();
 			// Ocultar contraseña por seguridad
 			usuario.setContrasena(null);
+			
 
 			return ResponseEntity.ok(convertirAUsuarioDTO(usuario));
 

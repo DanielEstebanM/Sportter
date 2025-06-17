@@ -13,6 +13,8 @@ public class MensajeDTO {
     private Long destinatarioId;
     private String destinatarioNombre;
     private String conversacionId;
+    private String metadata;
+
 
     // Getters y Setters
     public Long getId() { return id; }
@@ -37,4 +39,10 @@ public class MensajeDTO {
     public void setDestinatarioNombre(String destinatarioNombre) { this.destinatarioNombre = destinatarioNombre; }
     public String getConversacionId() { return conversacionId; }
     public void setConversacionId(String long1) { this.conversacionId = long1; }
+	public String getMetadata() {
+		return metadata;
+	}
+	public void setMetadata(String metadata) {
+		this.metadata = metadata;
+	}
 }

@@ -20,6 +20,11 @@ function VistaComentarios() {
   const { postId } = useParams();
   const [activeTab, setActiveTab] = useState("inicio");
   const [loading, setLoading] = useState(false);
+  // Reemplaza el estado de loading por uno más descriptivo
+  const [loadingState, setLoadingState] = useState({
+    loading: true,
+    error: null,
+  });
   const [error, setError] = useState(null);
   const [showSportsMenu, setShowSportsMenu] = useState(false);
   const [selectedSport, setSelectedSport] = useState("General");
@@ -51,41 +56,100 @@ function VistaComentarios() {
   const lightTextColor = "#a0a0a0";
   const borderColor = "#2d2d2d";
 
-
-
   // Cargar publicación y comentarios
+
+  const SharedPostMessage = ({ metadata }) => {
+    const postData = JSON.parse(metadata);
+
+    return (
+      <div
+        style={{
+          border: "1px solid #FF4500",
+          borderRadius: "8px",
+          padding: "12px",
+          margin: "8px 0",
+          backgroundColor: "#1e1e1e",
+        }}
+      >
+        <div
+          style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}
+        >
+          <span style={{ marginRight: "8px" }}>📢</span>
+          <strong>Publicación compartida</strong>
+        </div>
+
+        <div style={{ marginBottom: "8px" }}>
+          <p style={{ margin: "4px 0" }}>
+            <strong>De:</strong> {postData.author}
+          </p>
+          <p style={{ margin: "4px 0" }}>
+            <strong>Deporte:</strong> {postData.sport}
+          </p>
+        </div>
+
+        <div
+          style={{
+            padding: "8px",
+            backgroundColor: "#121212",
+            borderRadius: "4px",
+            marginBottom: "8px",
+          }}
+        >
+          {postData.preview}
+        </div>
+
+        <button
+          onClick={() => navigate(`/publicaciones/${postData.postId}`)}
+          style={{
+            background: "#FF4500",
+            color: "white",
+            border: "none",
+            padding: "6px 12px",
+            borderRadius: "4px",
+            cursor: "pointer",
+          }}
+        >
+          Ver publicación completa
+        </button>
+      </div>
+    );
+  };
+
   // En el useEffect que carga los datos:
   useEffect(() => {
     const cargarDatos = async () => {
       try {
-        setLoading(true);
-        setError(null);
+        setLoadingState({ loading: true, error: null });
 
-        // Cargar publicación usando la misma estructura que loadPosts
-        const publicacionData = await getPublicacion(postId);
+        // Cargar publicación y comentarios en paralelo
+        const [publicacionData, comentariosData] = await Promise.all([
+          getPublicacion(postId),
+          getComentarios(postId),
+        ]);
+
         setPublicacion(publicacionData);
-
-        // Cargar comentarios
-        const comentariosData = await getComentarios(postId);
         setComentarios(comentariosData);
-
+        setLoadingState({ loading: false, error: null });
       } catch (error) {
         console.error("Error cargando datos:", error);
-        setError("Error al cargar la publicación y comentarios");
-      } finally {
-        setLoading(false);
+        setLoadingState({
+          loading: false,
+          error: "Error al cargar la publicación y comentarios",
+        });
       }
     };
 
     cargarDatos();
   }, [postId]);
 
-
   useEffect(() => {
     const cargarEstadoLikes = async () => {
       const actualizados = await Promise.all(
         comentarios.map(async (comentario) => {
-          const yaDioLike = await checkLikeStatusComent(comentario.id, userEmail);
+          const yaDioLike = await checkLikeStatusComent(
+            comentario.id,
+            userEmail
+          );
           return { ...comentario, yaDioLike };
         })
       );
@@ -96,7 +160,6 @@ function VistaComentarios() {
       cargarEstadoLikes();
     }
   }, [comentarios, userEmail]);
-
 
   // Manejar like en la publicación
   const handleLike = async () => {
@@ -124,9 +187,7 @@ function VistaComentarios() {
     }
   };
 
-
   const handleLikeComentario = async (comentario) => {
-
     try {
       try {
         let response;
@@ -136,14 +197,14 @@ function VistaComentarios() {
           response = await darLikeComent(comentario.id, userEmail);
         }
 
-        setComentarios(prev =>
-          prev.map(c =>
+        setComentarios((prev) =>
+          prev.map((c) =>
             c.id === comentario.id
               ? {
-                ...c,
-                likes: response.likes,
-                yaDioLike: response.likeRealizado
-              }
+                  ...c,
+                  likes: response.likes,
+                  yaDioLike: response.likeRealizado,
+                }
               : c
           )
         );
@@ -151,29 +212,28 @@ function VistaComentarios() {
         console.error("Error al manejar like en comentario:", error);
       }
     } catch (error) {
-      console.error('Full error object:', error);
+      console.error("Full error object:", error);
       if (error.response) {
         // The request was made and the server responded with a status code
-        console.error('Response data:', error.response.data);
-        console.error('Response status:', error.response.status);
-        console.error('Response headers:', error.response.headers);
+        console.error("Response data:", error.response.data);
+        console.error("Response status:", error.response.status);
+        console.error("Response headers:", error.response.headers);
       } else if (error.request) {
         // The request was made but no response was received
-        console.error('Request:', error.request);
+        console.error("Request:", error.request);
       } else {
         // Something happened in setting up the request
-        console.error('Error message:', error.message);
+        console.error("Error message:", error.message);
       }
     }
   };
-
 
   // Enviar nuevo comentario
   const handleEnviarComentario = async (e) => {
     e.preventDefault();
     if (!nuevoComentario.trim()) return;
 
-    const userData = JSON.parse(localStorage.getItem('userData'));
+    const userData = JSON.parse(localStorage.getItem("userData"));
 
     try {
       setLoadingComentarios(true);
@@ -192,22 +252,21 @@ function VistaComentarios() {
         likes: comentarioCreado.likes || 0,
         isLiked: false,
         user: userData.correoElectronico,
-        name: userData.nombreUsuario || "Anónimo"
+        name: userData.nombreUsuario || "Anónimo",
       };
 
       // Actualizar estados
 
-      setPublicacion(prev => ({
+      setPublicacion((prev) => ({
         ...prev,
-        comentarios: prev.comentarios + 1
+        comentarios: prev.comentarios + 1,
       }));
       setComentarios([nuevoComentarioCompleto, ...comentarios]);
-      setPublicacion(prev => ({
+      setPublicacion((prev) => ({
         ...prev,
-        comments: (prev.comments || 0) + 1
+        comments: (prev.comments || 0) + 1,
       }));
       setNuevoComentario("");
-
     } catch (error) {
       console.error("Error al crear comentario:", error);
       setError("Error al crear el comentario");
@@ -260,7 +319,6 @@ function VistaComentarios() {
     }
     setShowRightSidebar(!showRightSidebar);
   };
-
 
   const formatRelativeTime = (date) => {
     if (!date || !(date instanceof Date) || isNaN(date.getTime()))
@@ -372,8 +430,7 @@ function VistaComentarios() {
           alignItems: "center",
           height: "100vh",
         }}
-      >
-      </div>
+      ></div>
     );
   }
 
@@ -770,7 +827,8 @@ function VistaComentarios() {
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>
-              {userName.charAt(0).toUpperCase() + userName.slice(1) || 'Usuario'}
+              {userName.charAt(0).toUpperCase() + userName.slice(1) ||
+                "Usuario"}
             </div>
             <div
               data-tooltip-id="tooltip-email"
@@ -836,15 +894,14 @@ function VistaComentarios() {
           minWidth: 0,
           marginLeft: isMobile ? "0" : "250px",
           backgroundColor: backgroundColor,
-          display: "flex",
         }}
       >
         {/* Contenido central */}
         <div
           style={{
-            flex: 1,
-            minWidth: 0,
-            maxWidth: isMobile ? "100%" : "calc(100% - 350px)",
+            width: "100%",
+            maxWidth: "100%",
+            margin: "0 auto",
             display: "flex",
             flexDirection: "column",
             height: "100vh",
@@ -989,7 +1046,7 @@ function VistaComentarios() {
                   flexShrink: 0,
                   marginTop: "0.25rem",
                 }}
-              > 
+              >
                 <svg
                   width="24"
                   height="24"
@@ -1037,7 +1094,7 @@ function VistaComentarios() {
                           color: lightTextColor,
                         }}
                       >
-                        @{publicacion.user.split('@')[0]}
+                        @{publicacion.user.split("@")[0]}
                       </span>
                     </>
                   )}
@@ -1084,7 +1141,7 @@ function VistaComentarios() {
               style={{
                 padding: "1rem",
                 borderBottom: `1px solid ${borderColor}`,
-                backgroundColor: cardColor
+                backgroundColor: cardColor,
               }}
             >
               <form onSubmit={handleEnviarComentario}>
@@ -1265,14 +1322,13 @@ function VistaComentarios() {
                     >
                       {comentario.content}
                     </p>
-                   <div
+                    <div
                       style={{
                         display: "flex",
                         justifyContent: "space-between",
                         maxWidth: "100%",
                       }}
-                    >
-                    </div>
+                    ></div>
                   </div>
                 </motion.div>
               ))

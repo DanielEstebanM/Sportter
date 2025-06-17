@@ -38,6 +38,17 @@ public class Mensaje {
     
     @Column(name = "conversacion_id")
     private String conversacionId;
+    
+    @Column(columnDefinition = "TEXT") // para permitir JSON largos
+    private String metadata;
+
+	public String getMetadata() {
+		return metadata;
+	}
+
+	public void setMetadata(String metadata) {
+		this.metadata = metadata;
+	}
 
 	public Long getId() {
 		return id;

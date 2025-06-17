@@ -145,7 +145,7 @@ export const actualizarContrasena = async (email, nuevaContrasena) => {
 
 export const loadPosts = async () => {
   try {
-    const response = await axios.get("http://localhost:8080/api/publicaciones");
+    const response = await axios.get(`${BASE_URL}/api/publicaciones`);
     if (!response.data || !Array.isArray(response.data)) return [];
 
     const userData = JSON.parse(localStorage.getItem("userData"));
@@ -182,7 +182,7 @@ export const loadPosts = async () => {
       if (userEmail) {
         try {
           const likeResponse = await axios.get(
-            `http://localhost:8080/api/publicaciones/${post.id}/check-like`,
+            `${BASE_URL}/api/publicaciones/${post.id}/check-like`,
             { params: { userEmail } }
           );
           isLiked = likeResponse.data;
@@ -446,6 +446,26 @@ export const getPublicacion = async (postId) => {
   }
 };
 
+// Función para actualizar la cantidad de compartidos de una publicación
+export const actualizarCompartidos = async (postId, cantidad) => {
+  try {
+    const response = await axios.put(
+      `${BASE_URL}/api/publicaciones/${postId}/compartidos`,
+      { cantidad },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error al actualizar compartidos:', error);
+    throw error;
+  }
+};
+
 // Funciones para manejar likes en comentarios
 // NO SE ESTA USANDO, NO FUNCIONA, SE PUEDE MODIFICAR PARA QUE FUNCIONE
 export const darLikeComent = async (comentarioId, userEmail) => {
@@ -471,6 +491,8 @@ export const checkLikeStatusComent = async (comentarioId, userEmail) => {
   );
   return response.data;
 };
+
+
 
 //Obtener todos los usuarios
 export const getUsers = async () => {
@@ -520,7 +542,7 @@ export const getUserPosts = async (userId) => {
       if (userEmail) {
         try {
           const likeResponse = await axios.get(
-            `http://localhost:8080/api/publicaciones/${post.id}/check-like`,
+            `${BASE_URL}/api/publicaciones/${post.id}/check-like`,
             { params: { userEmail } }
           );
           isLiked = likeResponse.data;
@@ -577,7 +599,7 @@ export const getAllPosts = async () => {
 export const getUserTeams = async (userId) => {
   try {
     const response = await axios.get(
-      `http://localhost:8080/api/equipos/usuario/${userId}`
+      `${BASE_URL}/api/equipos/usuario/${userId}`
     );
     return response.data.map(team => ({
       id: team.id,
@@ -596,7 +618,7 @@ export const getUserTeams = async (userId) => {
 export const getAllTeams = async (userId) => {
   try {
     const response = await axios.get(
-      `http://localhost:8080/api/equipos/comunidad/${userId}`
+      `${BASE_URL}/api/equipos/comunidad/${userId}`
     );
     return response.data.map(team => ({
       id: team.id,
@@ -615,7 +637,7 @@ export const getAllTeams = async (userId) => {
 export const createTeam = async (teamData, creadorId) => {
   try {
     const response = await axios.post(
-      `http://localhost:8080/api/equipos?creadorId=${creadorId}`,
+      `${BASE_URL}/api/equipos?creadorId=${creadorId}`,
       teamData,
       {
         headers: {
@@ -634,7 +656,7 @@ export const createTeam = async (teamData, creadorId) => {
 export const addTeamMember = async (teamId, userId) => {
   try {
     const response = await axios.post(
-      `http://localhost:8080/api/equipos/${teamId}/miembros?usuarioId=${userId}`,
+      `${BASE_URL}/api/equipos/${teamId}/miembros?usuarioId=${userId}`,
       {},
       {
         headers: {
@@ -652,7 +674,7 @@ export const addTeamMember = async (teamId, userId) => {
 // Obtener información detallada de un equipo
 export const getTeamDetails = async (teamId) => {
   try {
-    const response = await axios.get(`http://localhost:8080/api/equipos/${teamId}`);
+    const response = await axios.get(`${BASE_URL}/api/equipos/${teamId}`);
     return {
       ...response.data,
       sport: response.data.categoriaDeporte.nombre.toLowerCase(),
@@ -668,7 +690,7 @@ export const getTeamDetails = async (teamId) => {
 export const updateTeam = async (teamId, teamData) => {
   try {
     const response = await axios.put(
-      `http://localhost:8080/api/equipos/${teamId}`,
+      `${BASE_URL}/api/equipos/${teamId}`,
       teamData,
       {
         headers: {
@@ -687,7 +709,7 @@ export const updateTeam = async (teamId, teamData) => {
 export const deleteTeam = async (teamId) => {
   try {
     const response = await axios.delete(
-      `http://localhost:8080/api/equipos/${teamId}`
+      `${BASE_URL}/api/equipos/${teamId}`
     );
     return response.data;
   } catch (error) {
@@ -698,7 +720,7 @@ export const deleteTeam = async (teamId) => {
 
 export const getTeamMembers = async (teamId) => {
   try {
-    const response = await axios.get(`http://localhost:8080/api/equipos/${teamId}/miembros`);
+    const response = await axios.get(`${BASE_URL}/api/equipos/${teamId}/miembros`);
     return response.data;
   } catch (error) {
     console.error("Error fetching team members:", error);
@@ -708,7 +730,7 @@ export const getTeamMembers = async (teamId) => {
 
 export const getSportsCategories = async () => {
   try {
-    const response = await axios.get('http://localhost:8080/api/equipos/categorias');
+    const response = await axios.get(`${BASE_URL}/api/equipos/categorias`);
     return response.data;
   } catch (error) {
     console.error("Error fetching sports categories:", error);
@@ -732,7 +754,7 @@ export const removeTeamMember = async (teamId, userId) => {
 export const assignNewAdmin = async (teamId, newAdminId) => {
   try {
     const response = await axios.put(
-      `http://localhost:8080/api/equipos/${teamId}/admin?nuevoAdminId=${newAdminId}`
+      `${BASE_URL}/api/equipos/${teamId}/admin?nuevoAdminId=${newAdminId}`
     );
     return response.data;
   } catch (error) {

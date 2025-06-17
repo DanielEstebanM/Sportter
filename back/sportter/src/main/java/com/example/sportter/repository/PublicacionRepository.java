@@ -35,4 +35,15 @@ public interface PublicacionRepository extends JpaRepository<Publicacion, Long> 
 	@EntityGraph(type = EntityGraph.EntityGraphType.FETCH, attributePaths = { "usuario", "categoriaDeporte" })
 	@Query("SELECT p FROM Publicacion p WHERE p.usuario.id = :userId ORDER BY p.fechaHora DESC")
 	List<Publicacion> findByUsuarioId(@Param("userId") Long userId);
+	
+	@Modifying
+    @Transactional
+    @Query("UPDATE Publicacion p SET p.compartidos = COALESCE(p.compartidos, 0) + :incremento WHERE p.id = :id")
+    void incrementarCompartidos(Long id, Long incremento);
+    
+    // Método alternativo para obtener y actualizar
+    default Publicacion incrementarCompartidosYRetornar(Long id, Long incremento) {
+        incrementarCompartidos(id, incremento);
+        return findById(id).orElse(null);
+    }
 }
