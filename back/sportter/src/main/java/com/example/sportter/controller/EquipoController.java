@@ -2,20 +2,22 @@ package com.example.sportter.controller;
 
 import com.example.sportter.dto.CrearEquipoDTO;
 import com.example.sportter.dto.EquipoConMiembrosDTO;
+import com.example.sportter.dto.EquipoDTO;
 import com.example.sportter.dto.EquipoDetallesDTO;
 import com.example.sportter.dto.UsuarioDTO;
 import com.example.sportter.model.CategoriaDeporte;
 import com.example.sportter.model.Equipo;
+import com.example.sportter.repository.EquipoRepository;
 import com.example.sportter.service.EquipoService;
 
 import jakarta.validation.Valid;
 
-import org.hibernate.Hibernate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -37,6 +39,32 @@ public class EquipoController {
 		List<EquipoConMiembrosDTO> equipos = equipoService.getEquiposComunidadConMiembros(userId);
 		return ResponseEntity.ok(equipos);
 	}
+	
+	@GetMapping("/getAll")
+	public ResponseEntity<?> getAllEquipos() {
+        try {
+            List<EquipoDTO> equipos = equipoService.findAll();
+            
+            if (equipos.isEmpty()) {
+                return ResponseEntity.ok().body(Map.of(
+                    "success", true,
+                    "message", "No hay equipos registrados",
+                    "data", Collections.emptyList()
+                ));
+            }
+
+            return ResponseEntity.ok().body(Map.of(
+                "success", true,
+                "data", equipos
+            ));
+            
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of(
+                "success", false,
+                "message", "Error al obtener los equipos: " + e.getMessage()
+            ));
+        }
+    }
 
 	@PostMapping
 	public ResponseEntity<?> crearEquipo(@RequestBody @Valid CrearEquipoDTO equipoDTO, @RequestParam Long creadorId) {

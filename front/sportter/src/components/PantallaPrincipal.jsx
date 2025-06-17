@@ -539,18 +539,18 @@ function PantallaPrincipal() {
   const filteredPosts =
     selectedSport === "General"
       ? posts.filter(
-          (post) =>
-            post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            post.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            post.user.toLowerCase().includes(searchQuery.toLowerCase())
-        )
+        (post) =>
+          post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          post.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          post.user.toLowerCase().includes(searchQuery.toLowerCase())
+      )
       : posts.filter(
-          (post) =>
-            post.sport === selectedSport &&
-            (post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              post.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              post.user.toLowerCase().includes(searchQuery.toLowerCase()))
-        );
+        (post) =>
+          post.sport === selectedSport &&
+          (post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            post.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            post.user.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
 
   return (
     <div
@@ -580,7 +580,9 @@ function PantallaPrincipal() {
             alignItems: "center",
           }}
         >
-          <div
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
             style={{
               backgroundColor: "#1e1e1e",
               borderRadius: "12px",
@@ -588,10 +590,9 @@ function PantallaPrincipal() {
               maxWidth: "500px",
               maxHeight: "80vh",
               padding: "20px",
-              border: "1px solid #FF4500",
             }}
           >
-            <h3 style={{ color: "#FF4500", marginTop: 0 }}>
+            <h3 style={{ marginTop: 0, margin: "1rem", marginBottom: "1.75rem" }}>
               Compartir publicación
             </h3>
 
@@ -608,15 +609,14 @@ function PantallaPrincipal() {
                     key={conv.id}
                     style={{
                       padding: "12px",
-                      margin: "8px 0",
                       backgroundColor: selectedUsers.includes(conv.id)
                         ? "rgba(255, 69, 0, 0.2)"
                         : "transparent",
-                      borderRadius: "8px",
+                      borderRadius: "2px",
                       cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
-                      border: "1px solid #2d2d2d",
+                      borderBottom: "1px solid #2d2d2d",
                     }}
                     onClick={() => {
                       const updatedSelection = selectedUsers.includes(conv.id)
@@ -643,9 +643,6 @@ function PantallaPrincipal() {
                     </div>
                     <div>
                       <div style={{ fontWeight: "bold" }}>{conv.user}</div>
-                      <div style={{ color: "#a0a0a0", fontSize: "0.8rem" }}>
-                        @{conv.username}
-                      </div>
                     </div>
                   </div>
                 ))}
@@ -664,10 +661,10 @@ function PantallaPrincipal() {
                 onClick={() => setShowShareModal(false)}
                 style={{
                   background: "transparent",
-                  border: "1px solid #FF4500",
-                  color: "#FF4500",
+                  border: `1px solid ${lightTextColor}`,
+                  color: lightTextColor,
                   padding: "8px 16px",
-                  borderRadius: "4px",
+                  borderRadius: "8px",
                   cursor: "pointer",
                 }}
               >
@@ -682,7 +679,7 @@ function PantallaPrincipal() {
                   border: "none",
                   color: "white",
                   padding: "8px 16px",
-                  borderRadius: "4px",
+                  borderRadius: "8px",
                   cursor: "pointer",
                   opacity: selectedUsers.length === 0 ? 0.7 : 1,
                 }}
@@ -690,7 +687,7 @@ function PantallaPrincipal() {
                 Compartir ({selectedUsers.length})
               </button>
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
 
@@ -2455,9 +2452,8 @@ function PantallaPrincipal() {
               {Object.entries(trends).map(([sport, trend]) => (
                 <div key={sport} style={{ marginBottom: "1rem" }}>
                   <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>
-                    {`Tendencia en ${
-                      sport.charAt(0).toUpperCase() + sport.slice(1)
-                    }`}
+                    {`Tendencia en ${sport.charAt(0).toUpperCase() + sport.slice(1)
+                      }`}
                   </div>
                   <div style={{ fontWeight: "bold", color: textColor }}>
                     {trend.tag}
@@ -2951,9 +2947,8 @@ function PantallaPrincipal() {
             {Object.entries(trends).map(([sport, trend]) => (
               <div key={sport} style={{ marginBottom: "1rem" }}>
                 <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>
-                  {`Tendencia en ${
-                    sport.charAt(0).toUpperCase() + sport.slice(1)
-                  }`}
+                  {`Tendencia en ${sport.charAt(0).toUpperCase() + sport.slice(1)
+                    }`}
                 </div>
                 <div style={{ fontWeight: "bold", color: textColor }}>
                   {trend.tag}

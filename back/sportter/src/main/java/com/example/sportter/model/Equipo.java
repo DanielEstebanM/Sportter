@@ -29,7 +29,7 @@ public class Equipo {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private CategoriaDeporte categoriaDeporte;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "creador_id", nullable = false)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "miembros"})
     private Usuario creador;

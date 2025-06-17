@@ -7,6 +7,7 @@ import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { ToastContainer } from 'react-toastify';
 import { Slide } from 'react-toastify';
+import axios from "axios";
 
 import {
     getTeamDetails,
@@ -18,7 +19,8 @@ import {
     addTeamMember,
     assignNewAdmin,
     getSportsCategories,
-    mensajeService
+    mensajeService,
+    createEvent
 } from '../services/api';
 
 function PantallaInfoEquipo() {
@@ -34,7 +36,7 @@ function PantallaInfoEquipo() {
     const [searchMemberQuery, setSearchMemberQuery] = useState("");
     const [availableMembers, setAvailableMembers] = useState([]);
     const [showTeamSearchModal, setShowTeamSearchModal] = useState(false);
-    const [teams, setTeams] = useState([]);
+    const [teams, setTeams] = useState(null);
     const [searchTeamQuery, setSearchTeamQuery] = useState("");
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -53,6 +55,7 @@ function PantallaInfoEquipo() {
     const [eventTime, setEventTime] = useState("");
     const [eventLocation, setEventLocation] = useState("");
     const [opponentTeam, setOpponentTeam] = useState("");
+    const [opponentTeamId, setOpponentTeamId] = useState(null);
     const [opponentImage, setOpponentImage] = useState("");
 
     const { id } = useParams();
@@ -259,25 +262,82 @@ function PantallaInfoEquipo() {
         }
     };
 
-    // Manejar creación de evento
-    const handleCreateEvent = () => {
-        const newEvent = {
-            id: Date.now(),
-            localTeam: teamData.name,
-            visitorTeam: opponentTeam,
-            sport: teamData.sport,
-            localImage: teamData.image,
-            visitorImage: opponentImage || "https://i.imgur.com/bUwYQP3.png",
-            date: `${eventDate}T${eventTime}:00`,
-            location: eventLocation,
-            isMember: true
-        };
+    // Creación de evento
+    const handleCreateEvent = async () => {
+        if (!opponentTeamId || !eventDate || !eventTime || !eventLocation) {
+            toast.error("Por favor completa todos los campos");
+            return;
+        }
 
-        // Aquí iría la lógica para añadir el evento al estado global o backend
-        // Por ahora simulamos que se añade a la pantalla de eventos
-        navigate('/eventos', { state: { newEvent } });
-        setShowCreateEventModal(false);
+        try {
+            const eventData = {
+                nombre: `${teamData.name} vs ${opponentTeam}`,
+                fecha: `${eventDate}T${eventTime}:00`,
+                ubicacion: eventLocation,
+                equipoLocal: { id: teamData.id },       // ← Solo envía el ID del equipo local
+                equipoVisitante: { id: opponentTeamId }, // ← Solo envía el ID del equipo visitante
+                deporte: teamData.sport
+            };
+
+            console.log(eventData);
+
+            await createEvent(eventData);
+
+            toast.success("Evento creado exitosamente");
+            setShowCreateEventModal(false);
+            resetEventFields();
+        } catch (error) {
+            console.error("Error creating event:", error);
+            toast.error("Error al crear el evento");
+        }
     };
+
+    const fetchTeams = async () => {
+        try {
+            const response = await axios.get('http://localhost:8080/api/equipos/getAll');
+
+            console.log("Respuesta completa de la API:", response); // Depuración
+
+            // Extraer datos de la respuesta
+            let teamsData = [];
+
+            // Caso 1: Respuesta con formato { success, data }
+            if (response.data?.success && Array.isArray(response.data.data)) {
+                teamsData = response.data.data;
+            }
+            // Caso 2: Respuesta directa como array
+            else if (Array.isArray(response.data)) {
+                teamsData = response.data;
+            }
+            // Caso 3: Respuesta inesperada
+            else {
+                console.error("Formato no manejado:", response.data);
+                toast.error("Error en el formato de los datos");
+                return;
+            }
+
+            // Filtra equipos válidos (opcional)
+            teamsData = teamsData.filter(team => team.id && team.nombre);
+            setTeams(teamsData);
+
+            console.log("Equipos extraídos:", teamsData);
+            setTeams(teamsData);
+
+            if (teamsData.length === 0) {
+                toast.info("No hay equipos disponibles");
+            }
+        } catch (error) {
+            console.error("Error al cargar equipos:", error);
+            toast.error("Error al obtener los equipos");
+            setTeams([]);
+        }
+    };
+
+    useEffect(() => {
+        if (showTeamSearchModal) {
+            fetchTeams();
+        }
+    }, [showTeamSearchModal]);
 
     useEffect(() => {
         const fetchTeamData = async () => {
@@ -2132,7 +2192,10 @@ function PantallaInfoEquipo() {
                                     cursor: "pointer"
                                 }} onClick={() => setShowTeamSearchModal(true)}>
                                     {opponentImage ? (
-                                        <img src={opponentImage} alt={opponentTeam} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                        <>
+                                            <img src={opponentImage} alt={opponentTeam} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+
+                                        </>
                                     ) : (
                                         <div style={{ textAlign: "center" }}>
                                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -2221,55 +2284,125 @@ function PantallaInfoEquipo() {
                                                 </svg>
                                             </div>
 
-                                            <div style={{ maxHeight: "300px", overflowY: "auto" }}>
-                                                {teams
-                                                    .filter(team => team.name.toLowerCase().includes(searchTeamQuery.toLowerCase()))
-                                                    .map(team => (
-                                                        <div
-                                                            key={team.id}
-                                                            style={{
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                padding: "0.75rem",
-                                                                borderBottom: `1px solid ${borderColor}`,
-                                                                cursor: "pointer",
-                                                                ":hover": {
-                                                                    backgroundColor: "rgba(255,255,255,0.05)"
-                                                                }
-                                                            }}
-                                                            onClick={() => {
-                                                                setOpponentTeam(team.name);
-                                                                setOpponentImage(team.image);
-                                                                setShowTeamSearchModal(false);
-                                                            }}
-                                                        >
-                                                            <div style={{
-                                                                width: "50px",
-                                                                height: "50px",
-                                                                borderRadius: "50%",
-                                                                overflow: "hidden",
-                                                                marginRight: "1rem",
-                                                                backgroundColor: "rgba(255,255,255,0.1)"
-                                                            }}>
-                                                                {
-                                                                    team.image ? (
-                                                                        <img src={team.image} alt={team.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                            <div style={{
+                                                maxHeight: "400px",
+                                                overflowY: "auto",
+                                                scrollbarWidth: "thin",
+                                                scrollbarColor: `${lightTextColor} ${cardColor}`,
+                                                '&::-webkit-scrollbar': {
+                                                    width: "8px"
+                                                },
+                                                '&::-webkit-scrollbar-track': {
+                                                    background: cardColor,
+                                                    borderRadius: "10px"
+                                                },
+                                                '&::-webkit-scrollbar-thumb': {
+                                                    backgroundColor: lightTextColor,
+                                                    borderRadius: "10px",
+                                                    border: `2px solid ${cardColor}`
+                                                }
+                                            }}>
+                                                {Array.isArray(teams) ? (
+                                                    teams
+                                                        .filter(team => team.id !== teamData.id) // Excluir el equipo local
+                                                        .map(team => (
+                                                            <div
+                                                                key={team.id}
+                                                                style={{
+                                                                    display: "flex",
+                                                                    alignItems: "center",
+                                                                    padding: "0.75rem",
+                                                                    borderBottom: `1px solid ${borderColor}`,
+                                                                    cursor: "pointer",
+                                                                    ":hover": {
+                                                                        backgroundColor: "rgba(255,255,255,0.05)"
+                                                                    }
+                                                                }}
+                                                                onClick={() => {
+                                                                    setOpponentTeam(team.nombre);
+                                                                    setOpponentTeamId(team.id);
+                                                                    setOpponentImage(team.imagenUrl || "https://i.imgur.com/bUwYQP3.png");
+                                                                    setShowTeamSearchModal(false);
+                                                                }}
+                                                            >
+                                                                <div style={{
+                                                                    width: "50px",
+                                                                    height: "50px",
+                                                                    borderRadius: "50%",
+                                                                    overflow: "hidden",
+                                                                    marginRight: "1rem",
+                                                                    backgroundColor: "rgba(255,255,255,0.1)",
+                                                                    display: "flex",
+                                                                    alignItems: "center",
+                                                                    justifyContent: "center"
+                                                                }}>
+                                                                    {team.imagenUrl ? (
+                                                                        <img
+                                                                            src={team.imagenUrl}
+                                                                            alt={team.nombre}
+                                                                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                                                        />
                                                                     ) : (
-                                                                        <div style={{
-                                                                            width: "100%",
-                                                                            height: "100%",
-                                                                            display: "flex",
-                                                                            alignItems: "center",
-                                                                            justifyContent: "center",
-                                                                            color: lightTextColor
+                                                                        <span style={{
+                                                                            color: textColor,
+                                                                            fontSize: "1.5rem",
+                                                                            fontWeight: "bold"
                                                                         }}>
-                                                                            {team.name.charAt(0).toUpperCase()}
-                                                                        </div>
+                                                                            {team.nombre?.charAt(0).toUpperCase() || '?'}
+                                                                        </span>
                                                                     )}
+                                                                </div>
+                                                                <div>
+                                                                    <div style={{ fontWeight: "500", color: textColor }}>
+                                                                        {team.nombre || 'Equipo sin nombre'}
+                                                                    </div>
+                                                                    <div style={{ fontSize: "0.8rem", color: lightTextColor }}>
+                                                                        {team.cat?.nombre || team.deporte || team.sport || "Sin categoría"}
+                                                                    </div>
+                                                                </div>
                                                             </div>
-                                                            <div style={{ fontWeight: "500", color: textColor }}>{team.name}</div>
+                                                        ))
+                                                ) : (
+                                                    <div style={{
+                                                        textAlign: "center",
+                                                        padding: "2rem",
+                                                        color: lightTextColor,
+                                                        display: "flex",
+                                                        flexDirection: "column",
+                                                        alignItems: "center",
+                                                        gap: "1rem"
+                                                    }}>
+                                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" fill={lightTextColor} />
+                                                        </svg>
+                                                        <div>
+                                                            <p style={{ margin: 0, fontWeight: "500" }}>No hay equipos registrados</p>
+                                                            <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.9rem" }}>Crea nuevos equipos para poder organizar eventos</p>
                                                         </div>
-                                                    ))}
+                                                    </div>
+                                                )}
+
+                                                {Array.isArray(teams) &&
+                                                    teams.filter(team => team.id !== teamData.id).length === 0 &&
+                                                    teams.length > 0 && (
+                                                        <div style={{
+                                                            textAlign: "center",
+                                                            padding: "2rem",
+                                                            color: lightTextColor,
+                                                            display: "flex",
+                                                            flexDirection: "column",
+                                                            alignItems: "center",
+                                                            gap: "1rem"
+                                                        }}>
+                                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" fill={lightTextColor} />
+                                                            </svg>
+                                                            <div>
+                                                                <p style={{ margin: 0, fontWeight: "500" }}>No se encontraron coincidencias</p>
+                                                                <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.9rem" }}>Intenta con otro nombre</p>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                             </div>
                                         </motion.div>
                                     </div>

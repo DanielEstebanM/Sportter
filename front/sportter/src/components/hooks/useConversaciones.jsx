@@ -4,51 +4,59 @@ import { mensajeService } from '../../services/api';
 export const useConversaciones = (userId) => {
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
+  const fetchConversations = async () => {
     if (!userId) return;
 
-    const cargarConversaciones = async () => {
-      setLoading(true);
-      try {
-        const response = await mensajeService.obtenerConversacionesUsuario(userId);
-        const conversaciones = response.data;
+    setLoading(true);
+    setError(null);
 
-        // Obtener información de los otros usuarios
-        const conversacionesConInfo = await Promise.all(
-          conversaciones.map(async (conv) => {
-            const otroUsuarioId = conv.usuario1Id === userId ? conv.usuario2Id : conv.usuario1Id;
-            try {
-              const usuarioRes = await mensajeService.obtenerUsuario(otroUsuarioId);
-              return {
-                ...conv,
-                user: usuarioRes.data.nombre || `Usuario ${otroUsuarioId}`,
-                username: usuarioRes.data.correoElectronico || `user${otroUsuarioId}`,
-                destinatarioId: otroUsuarioId
-              };
-            } catch (error) {
-              console.error(`Error al cargar usuario ${otroUsuarioId}:`, error);
-              return {
-                ...conv,
-                user: `Usuario ${otroUsuarioId}`,
-                username: `user${otroUsuarioId}`,
-                destinatarioId: otroUsuarioId
-              };
-            }
-          })
-        );
+    try {
+      const response = await mensajeService.obtenerConversacionesUsuario(userId);
+      const conversaciones = response.data;
 
-        setConversations(conversacionesConInfo);
-      } catch (error) {
-        console.error("Error al cargar conversaciones:", error);
-        setConversations([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+      const conversacionesConInfo = await Promise.all(
+        conversaciones.map(async (conv) => {
+          const otroUsuarioId = conv.usuario1Id === userId ? conv.usuario2Id : conv.usuario1Id;
+          try {
+            const usuarioRes = await mensajeService.obtenerUsuario(otroUsuarioId);
+            return {
+              ...conv,
+              user: usuarioRes.data.nombreUsuario || `Usuario ${otroUsuarioId}`,
+              username: usuarioRes.data.correoElectronico || `user${otroUsuarioId}`,
+              destinatarioId: otroUsuarioId
+            };
+          } catch (error) {
+            console.error(`Error al cargar usuario ${otroUsuarioId}:`, error);
+            return {
+              ...conv,
+              user: `Usuario ${otroUsuarioId}`,
+              username: `user${otroUsuarioId}`,
+              destinatarioId: otroUsuarioId
+            };
+          }
+        })
+      );
 
-    cargarConversaciones();
+      setConversations(conversacionesConInfo);
+    } catch (err) {
+      console.error("Error al cargar conversaciones:", err);
+      setError(err);
+      setConversations([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchConversations();
   }, [userId]);
 
-  return { conversations, loadingConversations: loading };
+  return { 
+    conversations, 
+    loadingConversations: loading,
+    error,
+    refetch: fetchConversations
+  };
 };

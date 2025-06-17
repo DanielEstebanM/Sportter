@@ -32,7 +32,7 @@ function PantallaPerfil() {
     const [tempBio, setTempBio] = useState(bio);
     const [name, setName] = useState("");
     const [tempName, setTempName] = useState(name);
-    const [profileImage, setProfileImage] = useState("https://i.imgur.com/bUwYQP3.png");
+    const [profileImage, setProfileImage] = useState();
     const [teams, setTeams] = useState([]);
     const [profilePosts, setProfilePosts] = useState([]);
     const [loadingPosts, setLoadingPosts] = useState(false);
@@ -43,7 +43,7 @@ function PantallaPerfil() {
         nombre_usuario: "",
         email: "",
         bio: "",
-        imagen: "https://i.imgur.com/bUwYQP3.png",
+        imagen: "",
         equipos: []
     });
     const [currentSharedPost, setCurrentSharedPost] = useState(null);
@@ -54,6 +54,7 @@ function PantallaPerfil() {
     const currentUserId = userData?.id;
     const userEmail = userData?.correoElectronico;
     const userName = userData?.nombreUsuario || userData?.nombre_usuario;
+    const imageProfile = userData?.avatar || "https://i.imgur.com/bUwYQP3.png";
 
     // Colores con tema anaranjado-rojizo
     const primaryColor = "#FF4500";
@@ -161,28 +162,30 @@ function PantallaPerfil() {
                     return;
                 }
 
+                const defaultImage = "https://i.imgur.com/bUwYQP3.png";
+                const userAvatar = data.avatar
+                    ? (data.avatar.startsWith('data:image') ? data.avatar : `data:image/jpeg;base64,${data.avatar}`)
+                    : defaultImage;
+
                 setProfileExists(true);
                 setUserProfile({
-                    nombre_usuario: data.nombreUsuario || "",
-                    email: data.correoElectronico || "",
+                    nombre_usuario: data.nombreUsuario || data.nombre || "",
+                    email: data.email || data.correoElectronico || "",
                     bio: data.bio || "Este usuario no tiene biografía.",
-                    imagen: data.imagenPerfil || "https://i.imgur.com/bUwYQP3.png",
-                    equipos: data.equipos || []
+                    imagen: userAvatar,
+                    equipos: equipos
                 });
 
-                // Asegurarse de cargar los valores iniciales para edición
-                setName(data.nombreUsuario || "");
+                setName(data.nombreUsuario || data.nombre || "");
                 setBio(data.bio || "");
-                setTempName(data.nombreUsuario || "");
+                setTempName(data.nombreUsuario || data.nombre || "");
                 setTempBio(data.bio || "");
-                setProfileImage(data.imagenPerfil || "https://i.imgur.com/bUwYQP3.png");
-
+                setProfileImage(userAvatar);
             } catch (err) {
                 console.error("Error al cargar el perfil:", err);
                 setProfileExists(false);
             }
         };
-
         fetchData();
     }, [id]);
 
@@ -402,12 +405,12 @@ function PantallaPerfil() {
         if (file && isCurrentUser) {
             try {
                 const response = await uploadProfileImage(currentUserId, file);
-                setProfileImage(response.imagenUrl);
+                setProfileImage(response.avatar);
 
                 // Actualizar imagen en localStorage si es el usuario actual
                 const updatedUserData = {
                     ...userData,
-                    imagenPerfil: response.imagenUrl
+                    avatar: response.avatar
                 };
                 localStorage.setItem('userData', JSON.stringify(updatedUserData));
             } catch (error) {
@@ -922,7 +925,7 @@ function PantallaPerfil() {
                         height: "100px",
                         borderRadius: "50%",
                         border: `4px solid ${cardColor}`,
-                        backgroundColor: accentColor,
+                        backgroundColor: backgroundColor,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -931,12 +934,15 @@ function PantallaPerfil() {
                         {editMode ? (
                             <label htmlFor="profile-image-upload" style={{ cursor: "pointer" }}>
                                 <img
-                                    src={profileImage}
+                                    src={userProfile.imagen}
                                     alt="Perfil"
                                     style={{
                                         width: "100%",
                                         height: "100%",
                                         objectFit: "cover"
+                                    }}
+                                    onError={(e) => {
+                                        e.target.src = "https://i.imgur.com/bUwYQP3.png";
                                     }}
                                 />
                                 <input
@@ -949,12 +955,15 @@ function PantallaPerfil() {
                             </label>
                         ) : (
                             <img
-                                src={profileImage}
+                                src={userProfile.imagen}
                                 alt="Perfil"
                                 style={{
                                     width: "100%",
                                     height: "100%",
                                     objectFit: "cover"
+                                }}
+                                onError={(e) => {
+                                    e.target.src = "https://i.imgur.com/bUwYQP3.png";
                                 }}
                             />
                         )}
@@ -1440,7 +1449,7 @@ function PantallaPerfil() {
                                                 }}
                                             >
                                                 <img
-                                                    src={profileImage}
+                                                    src={post.userImage || "https://i.imgur.com/bUwYQP3.png"}
                                                     alt="Perfil"
                                                     style={{
                                                         width: "100%",
@@ -1590,38 +1599,6 @@ function PantallaPerfil() {
                                                         </svg>
                                                         <span>{post.likes || 0}</span>
                                                     </motion.button>
-                                                    <motion.button
-                                                        whileHover={{ scale: 1.1 }}
-                                                        whileTap={{ scale: 0.9 }}
-                                                        style={{
-                                                            background: "transparent",
-                                                            border: "none",
-                                                            color: lightTextColor,
-                                                            cursor: "pointer",
-                                                            padding: "0.5rem",
-                                                            display: "flex",
-                                                            alignItems: "center",
-                                                        }}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleShare(post.id);
-                                                        }}
-                                                    >
-                                                        <svg
-                                                            width="18"
-                                                            height="18"
-                                                            viewBox="0 0 512 512"
-                                                            fill="none"
-                                                            xmlns="http://www.w3.org/2000/svg"
-                                                            style={{ marginRight: "0.25rem" }}
-                                                        >
-                                                            <path
-                                                                fill="currentColor"
-                                                                d="M378 324a69.78 69.78 0 0 0-48.83 19.91L202 272.41a69.7 69.7 0 0 0 0-32.82l127.13-71.5A69.76 69.76 0 1 0 308.87 129l-130.13 73.2a70 70 0 1 0 0 107.56L308.87 383A70 70 0 1 0 378 324"
-                                                            ></path>
-                                                        </svg>
-                                                        <span>{post.compartidos || 0}</span>
-                                                    </motion.button>
                                                 </div>
                                             </div>
                                         </motion.div>
@@ -1672,7 +1649,7 @@ function PantallaPerfil() {
                                             justifyContent: "center"
                                         }}>
                                             <img
-                                                src={equipo.imagenUrl || "https://i.imgur.com/vVkxceM.png"}
+                                                src={equipo.imagen || "https://i.imgur.com/vVkxceM.png"}
                                                 alt={equipo.nombre}
                                                 style={{
                                                     width: "100%",
@@ -1684,38 +1661,33 @@ function PantallaPerfil() {
 
                                         {/* Información del equipo */}
                                         <div style={{ padding: "1rem" }}>
-                                            <h3 style={{
-                                                margin: "0 0 0.5rem 0",
-                                                fontSize: "1.2rem",
-                                                fontWeight: "bold",
-                                                color: textColor
-                                            }}>
-                                                {equipo.nombre}
-                                            </h3>
-                                            <p style={{
-                                                color: lightTextColor,
-                                                marginBottom: "0.5rem",
-                                                fontSize: "0.9rem"
-                                            }}>
-                                                {equipo.descripcion}
-                                            </p>
-                                            <div style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                marginBottom: "0.5rem"
-                                            }}>
-                                                <SportIcon
-                                                    sport={equipo.deporte.toLowerCase()}
-                                                    style={{
-                                                        width: "20px",
-                                                        height: "20px",
-                                                        marginRight: "0.5rem",
-                                                        color: accentColor
-                                                    }}
-                                                />
-                                                <span style={{ color: lightTextColor, fontSize: "0.9rem" }}>
-                                                    {equipo.deporte}
-                                                </span>
+                                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                                <h3 style={{
+                                                    margin: "0 0 0.5rem 0",
+                                                    fontSize: "1.2rem",
+                                                    fontWeight: "bold",
+                                                    color: textColor
+                                                }}>
+                                                    {equipo.nombre}
+                                                </h3>
+                                                <div style={{
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    marginBottom: "0.5rem"
+                                                }}>
+                                                    <SportIcon
+                                                        sport={equipo.deporte.toLowerCase()}
+                                                        style={{
+                                                            width: "20px",
+                                                            height: "20px",
+                                                            marginRight: "0.5rem",
+                                                            color: accentColor
+                                                        }}
+                                                    />
+                                                    <span style={{ color: lightTextColor, fontSize: "0.9rem" }}>
+                                                        {equipo.deporte}
+                                                    </span>
+                                                </div>
                                             </div>
                                             <div style={{
                                                 display: "flex",
@@ -1723,12 +1695,17 @@ function PantallaPerfil() {
                                                 color: lightTextColor,
                                                 fontSize: "0.9rem"
                                             }}>
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                                                    style={{ marginRight: "0.5rem" }}>
-                                                    <path d="M12 4a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4"
-                                                        fill="currentColor" />
-                                                    <path d="M12 14c-5.33 0-16 2.67-16 8v2h32v-2c0-5.33-10.67-8-16-8"
-                                                        fill="currentColor" />
+                                                <svg
+                                                    style={{ marginRight: '0.5rem' }}
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    viewBox="0 0 24 24"
+                                                    width="1.2em"
+                                                    height="1.2em"
+                                                >
+                                                    <path
+                                                        fill="currentColor"
+                                                        d="M3.5 7a5 5 0 1 1 10 0a5 5 0 0 1-10 0M5 14a5 5 0 0 0-5 5v2h17v-2a5 5 0 0 0-5-5zm19 7h-5v-2c0-1.959-.804-3.73-2.1-5H19a5 5 0 0 1 5 5zm-8.5-9a5 5 0 0 1-1.786-.329A6.97 6.97 0 0 0 15.5 7a6.97 6.97 0 0 0-1.787-4.671A5 5 0 1 1 15.5 12"
+                                                    ></path>
                                                 </svg>
                                                 {equipo.cantidadMiembros} {equipo.cantidadMiembros === 1 ? "miembro" : "miembros"}
                                             </div>

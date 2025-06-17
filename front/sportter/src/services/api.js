@@ -934,6 +934,18 @@ export const setupWebSocketMultiple = (
   return stompClient;
 };
 
+export const createEvent = async (eventData) => {
+  try {
+    const response = await axios.post(`${BASE_URL}/api/eventos`, eventData, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error creating event:", error);
+    throw error;
+  }
+};
+
 export const getEventos = async () => {
   try {
     const response = await fetch(`${BASE_URL}/api/eventos`);

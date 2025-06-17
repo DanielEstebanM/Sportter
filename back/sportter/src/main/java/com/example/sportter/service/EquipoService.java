@@ -3,6 +3,7 @@ package com.example.sportter.service;
 import com.example.sportter.dto.CategoriaDeporteDTO;
 import com.example.sportter.dto.CrearEquipoDTO;
 import com.example.sportter.dto.EquipoConMiembrosDTO;
+import com.example.sportter.dto.EquipoDTO;
 import com.example.sportter.dto.EquipoDetallesDTO;
 import com.example.sportter.dto.MiembroDTO;
 import com.example.sportter.dto.UsuarioDTO;
@@ -205,5 +206,22 @@ public class EquipoService {
 		equipo.setCreador(nuevoAdmin);
 		equipoRepository.save(equipo);
 	}
+
+	public List<EquipoDTO> findAll() {
+        List<Equipo> equipos = equipoRepository.findAll();
+        return equipos.stream()
+                     .map(this::convertirAEquipoDTO)
+                     .collect(Collectors.toList());
+    }
+
+    private EquipoDTO convertirAEquipoDTO(Equipo equipo) {
+        EquipoDTO equipoDTO = new EquipoDTO();
+        equipoDTO.setId(equipo.getId());
+        equipoDTO.setNombre(equipo.getNombre());
+        equipoDTO.setDescripcion(equipo.getDescripcion());
+        equipoDTO.setImagenUrl(equipo.getImagenUrl());
+        equipoDTO.setCat(equipo.getCategoriaDeporte());
+        return equipoDTO;
+    }
 
 }
