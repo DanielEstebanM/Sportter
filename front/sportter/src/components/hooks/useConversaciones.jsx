@@ -24,7 +24,8 @@ export const useConversaciones = (userId) => {
             return {
               ...conv,
               user: usuarioRes.data.nombreUsuario || `Usuario ${otroUsuarioId}`,
-              username: usuarioRes.data.correoElectronico || `user${otroUsuarioId}`,
+              username: usuarioRes.data.email || `user${otroUsuarioId}`,
+              avatar: usuarioRes.avatar,
               destinatarioId: otroUsuarioId
             };
           } catch (error) {
@@ -33,6 +34,7 @@ export const useConversaciones = (userId) => {
               ...conv,
               user: `Usuario ${otroUsuarioId}`,
               username: `user${otroUsuarioId}`,
+              avatar: `avatar ${otroUsuarioId}`,
               destinatarioId: otroUsuarioId
             };
           }

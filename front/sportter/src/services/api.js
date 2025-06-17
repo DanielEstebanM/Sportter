@@ -310,6 +310,7 @@ export const processComment = (comment) => {
     id: comment.usuarioId || 0,
     nombreUsuario: comment.usuarioNombre || "Anónimo",
     correoElectronico: comment.usuarioCorreo || "anonimo@example.com",
+    imagenPerfil: comment.usuarioImagenPerfil, 
   };
 
   // Manejo de fecha igual que en las publicaciones
@@ -334,6 +335,7 @@ export const processComment = (comment) => {
     user: usuario.correoElectronico,
     name: usuario.nombreUsuario,
     content: comment.contenido,
+    imagen: usuario.imagenPerfil,
     time: commentDate,
     likes: comment.likes || 0,
     isLiked: comment.isLiked || false,
@@ -427,6 +429,7 @@ export const getPublicacion = async (postId) => {
       postDate = new Date();
     }
 
+
     return {
       id: post.id,
       userId: usuario.id,
@@ -434,6 +437,8 @@ export const getPublicacion = async (postId) => {
       name: usuario.nombreUsuario || "Anónimo",
       content: post.contenido || "",
       time: postDate,
+      imagen: usuario.imagen_perfil,
+      imagenPost: post.imagen, 
       comments: post.comentarios || 0,
       likes: post.likes || 0,
       shares: post.compartidos || 0,

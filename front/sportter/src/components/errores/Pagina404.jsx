@@ -113,9 +113,9 @@ function Pagina404() {
 
         <div style={{ marginTop: "3rem", color: lightTextColor, fontSize: "0.9rem" }}>
           <p>Si crees que esto es un error, por favor contacta a soporte.</p>
-          <p style={{ color: accentColor, marginTop: "0.5rem" }}>
-            support@tudominio.com
-          </p>
+          <a href="mailto:sportter.network@gmail.com" style={{ color: accentColor, marginTop: "0.5rem" }}>
+            sportter.network@gmail.com
+          </a>
         </div>
       </div>
     </motion.div>
