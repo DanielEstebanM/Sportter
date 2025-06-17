@@ -12,9 +12,6 @@ import com.example.sportter.websocket.MensajeWebSocketController;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.messaging.handler.annotation.DestinationVariable;
-import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
@@ -52,6 +49,7 @@ public class MensajeController {
             );
         }
         try {
+        	
             Usuario remitente = usuarioRepository.findById(mensajeDTO.getRemitenteId())
                 .orElseThrow(() -> new IllegalArgumentException("Remitente no encontrado con ID: " + mensajeDTO.getRemitenteId()));
             
@@ -61,6 +59,7 @@ public class MensajeController {
             Mensaje mensaje = new Mensaje();
             mensaje.setContenido(mensajeDTO.getContenido());
             mensaje.setFechaHora(LocalDateTime.now());
+            mensaje.setMetadata(mensajeDTO.getMetadata());
             mensaje.setLeido(false);
             mensaje.setRemitente(remitente);
             mensaje.setDestinatario(destinatario);
@@ -68,6 +67,7 @@ public class MensajeController {
             
             Mensaje mensajeGuardado = mensajeRepository.save(mensaje);
             
+           
             return ResponseEntity.ok(convertirAMensajeDTO(mensajeGuardado));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -121,19 +121,24 @@ public class MensajeController {
         dto.setLeido(mensaje.isLeido());
         dto.setRemitenteId(mensaje.getRemitente().getId());
         dto.setRemitenteNombre(mensaje.getRemitente().getNombreUsuario());
+        dto.setMetadata(mensaje.getMetadata()); // ✔️ Asignación directa
+
         
         Usuario usuario = mensaje.getRemitente();
         String imagenPerfil = usuario.getImagen_perfil();
-        System.out.println("DEBUG: Imagen de perfil remitente (sin prefijo): " + imagenPerfil);
+        //System.out.println(imagenPerfil);
         if (imagenPerfil != null && !imagenPerfil.startsWith("data:image")) {
             if (imagenPerfil.matches("^[A-Za-z0-9+/=]+$")) {
                 imagenPerfil = "data:image/jpeg;base64," + imagenPerfil;
-                System.out.println("DEBUG: Imagen de perfil remitente (con prefijo): " + imagenPerfil);
-            }
+                //System.out.println(imagenPerfil);
+           }
         }
+             
+      
         dto.setRemitenteImagenPerfil(imagenPerfil);
         dto.setDestinatarioId(mensaje.getDestinatario().getId());
         dto.setDestinatarioNombre(mensaje.getDestinatario().getNombreUsuario());
+        
         dto.setConversacionId(mensaje.getConversacionId());
         return dto;
     }

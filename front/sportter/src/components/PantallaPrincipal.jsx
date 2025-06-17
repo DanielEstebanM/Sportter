@@ -11,6 +11,7 @@ import {
   quitarLike,
   crearPublicacion,
   getUsers,
+  actualizarCompartidos
 } from "../services/api";
 import { useConversaciones } from "../components/hooks/useConversaciones";
 
@@ -195,74 +196,54 @@ function PantallaPrincipal() {
     setSelectedUsers([]);
   };
 
-  // Función para enviar la publicación compartida
   const handleSendShare = async () => {
-    if (selectedUsers.length === 0 || !currentSharedPost) return;
+  if (selectedUsers.length === 0 || !currentSharedPost) return;
 
-    try {
-      // Crear el contenido del mensaje con formato mejorado
-      const postPreview =
-        currentSharedPost.content.length > 50
-          ? `${currentSharedPost.content.substring(0, 50)}...`
-          : currentSharedPost.content;
+  await actualizarCompartidos(currentSharedPost.id, selectedUsers.length);
 
-      const messageContent = `
-      📢 ${userName} ha compartido una publicación contigo:
-      
-      💬 "${postPreview}"
-      
-      🔍 Ver publicación: ${window.location.origin}/publicaciones/${currentSharedPost.id}
-    `;
+  try {
+    const messageContent = `💬 ${
+      currentSharedPost.content.length > 100
+        ? `${currentSharedPost.content.substring(0, 100)}...`
+        : currentSharedPost.content
+    }"`;
 
-      // Enviar a cada conversación seleccionada
-      for (const conversationId of selectedUsers) {
-        const mensajeDTO = {
-          contenido: messageContent,
-          remitenteId: currentUserId,
-          destinatarioId: conversations.find((c) => c.id === conversationId)
-            ?.destinatarioId,
-          conversacionId: conversationId,
-          metadata: JSON.stringify({
-            type: "shared_post", // Para identificar el tipo
-            postId: currentSharedPost.id, // Obligatorio
-            preview: postPreview, // Obligatorio
-            author: userName, // Obligatorio
-            // Añade estos campos si SharedPostCard los usa:
-            imageUrl: currentSharedPost.imageUrl || null,
-            timestamp: new Date().toISOString(),
-          }),
-        };
+    for (const conversationId of selectedUsers) {
+      const mensajeDTO = {
+        contenido: messageContent,
+        remitenteId: currentUserId,
+        destinatarioId: conversations.find((c) => c.id === conversationId)
+          ?.destinatarioId,
+        conversacionId: conversationId,
+        metadata: JSON.stringify({
+          type: "shared_post",
+          postId: currentSharedPost.id,
+        }),
+      };
 
-        console.log("📤 Metadata enviado:", {
-          metadataString: mensajeDTO.metadata,
-          metadataParsed: JSON.parse(mensajeDTO.metadata), // Verifica que el parseo sea correcto
-        });
-
-        // Enviar por HTTP (WebSocket opcional)
-        await mensajeService.enviarMensaje(mensajeDTO);
-      }
-
-      // Actualizar el contador de shares
-      setPosts(
-        posts.map((post) => {
-          if (post.id === currentSharedPost.id) {
-            return {
-              ...post,
-              shares: post.shares + selectedUsers.length,
-            };
-          }
-          return post;
-        })
-      );
-
-      // Cerrar modal
-      setShowShareModal(false);
-      setCurrentSharedPost(null);
-      setSelectedUsers([]);
-    } catch (error) {
-      console.error("Error al compartir publicación:", error);
+      await mensajeService.enviarMensaje(mensajeDTO);
     }
-  };
+
+    setPosts(
+      posts.map((post) => {
+        if (post.id === currentSharedPost.id) {
+          return {
+            ...post,
+            shares: post.shares + selectedUsers.length,
+          };
+        }
+        return post;
+      })
+    );
+
+    setShowShareModal(false);
+    setCurrentSharedPost(null);
+    setSelectedUsers([]);
+  } catch (error) {
+    console.error("Error al compartir publicación:", error);
+  }
+};
+
 
   // Función para alternar la selección de usuarios
   const toggleUserSelection = (user) => {
@@ -889,7 +870,7 @@ function PantallaPrincipal() {
               <form onSubmit={handlePostSubmit}>
                 <div style={{ display: "flex" }}>
                   <UserAvatar usuario={userData} />
-                  
+
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <textarea
                       placeholder="¿Qué está pasando? ¡Pon un # para clasificar tu contenido!"
@@ -905,7 +886,7 @@ function PantallaPrincipal() {
                         outline: "none",
                         padding: 0,
                         paddingRight: "0.5rem",
-                        marginLeft:'0.5rem'
+                        marginLeft: "0.5rem",
                       }}
                       value={newPostContent}
                       onChange={(e) => setNewPostContent(e.target.value)}
@@ -2024,7 +2005,7 @@ function PantallaPrincipal() {
                           display: "flex",
                           alignItems: "center",
                         }}
-                        onClick={() => navigate(`/perfil/${post.id}`)}
+                        onClick={() => navigate(`/perfil/${post.userId}`)}
                       >
                         <svg
                           width="19"

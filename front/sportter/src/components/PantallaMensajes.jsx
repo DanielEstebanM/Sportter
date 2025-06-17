@@ -181,7 +181,7 @@ function PantallaMensajes() {
           username: otroUsuario.username,
           email: otroUsuario.email,
           destinatarioId: otroUsuarioId,
-          avatar: "",
+          avatar: otroUsuario.avatar,
           lastMessage: "Cargando mensajes...",
           time: "Justo ahora",
           unread: false,
@@ -211,6 +211,7 @@ function PantallaMensajes() {
                     : usuariosUnicos.get(m.remitenteId)?.nombre ||
                       `Usuario ${m.remitenteId}`,
                 isUser: m.remitenteId === userId,
+                metadata: m.metadata || null, // Añade esta línea
               })),
             });
           }
@@ -256,6 +257,9 @@ function PantallaMensajes() {
     e.preventDefault();
     if (!newMessage.trim() || !selectedUser || !userId) return;
 
+    // Verificar si ya hay un envío en progreso para este mensaje
+    if (stompClientRef.current?.isSending) return;
+
     const tempId = Date.now();
     const mensajeDTO = {
       contenido: newMessage,
@@ -271,6 +275,7 @@ function PantallaMensajes() {
       time: "Justo ahora",
       sender: userName,
       isUser: true,
+      metadata: mensajeDTO.metadata || null,
     };
 
     // Actualización optimista
@@ -297,61 +302,55 @@ function PantallaMensajes() {
     setNewMessage("");
 
     try {
-      // Enviar por WebSocket
+      // Marcar que estamos enviando
+      stompClientRef.current.isSending = true;
+
+      // Enviar solo por WebSocket si está conectado, sino por HTTP
       if (stompClientRef.current?.connected) {
-        if (newMessage.metadata) {
-          const parsedMetadata = JSON.parse(newMessage.metadata);
-          if (parsedMetadata.type === "shared_post") {
-            setSelectedUser((prev) => ({
-              ...prev,
-              messages: [...prev.messages, newMessage],
-            }));
-            return;
-          }
-        }
-        sendMessageWebSocket(
+        await sendMessageWebSocket(
           stompClientRef.current,
           selectedUser.id,
           mensajeDTO
         );
+      } else {
+        const response = await mensajeService.enviarMensaje(mensajeDTO);
+        const mensajeReal = response.data;
+
+        // Actualizar con ID real
+        setSelectedUser((prev) => ({
+          ...prev,
+          messages: prev.messages.map((msg) =>
+            msg.id === tempId
+              ? {
+                  ...msg,
+                  id: mensajeReal.id,
+                  time: formatearFecha(mensajeReal.fechaHora),
+                  metadata: mensajeReal.metadata || null,
+                }
+              : msg
+          ),
+        }));
+
+        setConversations((prev) =>
+          prev.map((conv) =>
+            conv.id === selectedUser.id
+              ? {
+                  ...conv,
+                  messages: conv.messages.map((msg) =>
+                    msg.id === tempId
+                      ? {
+                          ...msg,
+                          id: mensajeReal.id,
+                          time: formatearFecha(mensajeReal.fechaHora),
+                          metadata: mensajeReal.metadata || null,
+                        }
+                      : msg
+                  ),
+                }
+              : conv
+          )
+        );
       }
-
-      // Enviar por HTTP
-      const response = await mensajeService.enviarMensaje(mensajeDTO);
-      const mensajeReal = response.data;
-
-      // Actualizar con ID real
-      setSelectedUser((prev) => ({
-        ...prev,
-        messages: prev.messages.map((msg) =>
-          msg.id === tempId
-            ? {
-                ...msg,
-                id: mensajeReal.id,
-                time: formatearFecha(mensajeReal.fechaHora),
-              }
-            : msg
-        ),
-      }));
-
-      setConversations((prev) =>
-        prev.map((conv) =>
-          conv.id === selectedUser.id
-            ? {
-                ...conv,
-                messages: conv.messages.map((msg) =>
-                  msg.id === tempId
-                    ? {
-                        ...msg,
-                        id: mensajeReal.id,
-                        time: formatearFecha(mensajeReal.fechaHora),
-                      }
-                    : msg
-                ),
-              }
-            : conv
-        )
-      );
     } catch (error) {
       console.error("❌ Error al enviar mensaje:", error);
       // Revertir en caso de error
@@ -369,6 +368,11 @@ function PantallaMensajes() {
             : conv
         )
       );
+    } finally {
+      // Limpiar flag de envío
+      if (stompClientRef.current) {
+        stompClientRef.current.isSending = false;
+      }
     }
   };
 
@@ -420,6 +424,7 @@ function PantallaMensajes() {
                 time: formatearFecha(message.fechaHora),
                 sender: isFromMe ? userName : prev.user,
                 isUser: isFromMe,
+                metadata: message.metadata || null, // Añade esta línea
               },
             ],
             lastMessage: message.contenido,
@@ -967,34 +972,32 @@ function PantallaMensajes() {
               width: "40px",
               height: "40px",
               borderRadius: "50%",
-              background: primaryColor,
+              backgroundColor: !userData?.imagen_perfil
+                ? primaryColor
+                : "transparent",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               marginRight: "0.5rem",
             }}
           >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                fill="white"
+            {userData.imagen_perfil ? (
+              <img
+                src={userData.imagen_perfil}
+                style={{
+                  borderRadius: "50%",
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
               />
-              <path
-                d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                fill="white"
-              />
-              <path
-                d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                fill="white"
-              />
-            </svg>
+            ) : (
+              <span style={{ color: "white", fontWeight: "bold" }}>
+                {userData.nombreUsuario?.charAt(0).toUpperCase() || "U"}
+              </span>
+            )}
           </div>
+
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>
               {userName?.charAt(0).toUpperCase() + userName?.slice(1)}
@@ -1261,40 +1264,47 @@ function PantallaMensajes() {
                 }}
                 onClick={() => handleSelectConversation(conversation)}
               >
+                {/* GEANIIIINA FOTOS */}
                 <div
                   style={{
                     width: "48px",
                     height: "48px",
                     borderRadius: "50%",
-                    background: primaryColor,
+                    background: conversation.avatar
+                      ? "transparent"
+                      : primaryColor,
                     marginRight: "0.75rem",
                     flexShrink: 0,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    overflow: "hidden",
                   }}
                 >
-                  <svg
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                      fill="white"
+                  {conversation.avatar ? (
+                    <img
+                      src={conversation.avatar}
+                      alt="Avatar"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
                     />
-                    <path
-                      d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                      fill="white"
-                    />
-                    <path
-                      d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                      fill="white"
-                    />
-                  </svg>
+                  ) : (
+                    <span
+                      style={{
+                        color: "white",
+                        fontWeight: "bold",
+                        fontSize: "1.2rem",
+                      }}
+                    >
+                      {conversation.user?.charAt(0).toUpperCase() || "U"}
+                    </span>
+                  )}
                 </div>
+                {/* GEANIIIINA */}
+
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div
                     style={{ display: "flex", justifyContent: "space-between" }}
@@ -1317,7 +1327,7 @@ function PantallaMensajes() {
                         flex: 1,
                       }}
                     >
-                      @{conversation.username} - {conversation.lastMessage}
+                      📩 ~ {conversation.lastMessage}
                     </span>
                     {conversation.unread && (
                       <div
@@ -1395,40 +1405,42 @@ function PantallaMensajes() {
                     </svg>
                   </motion.button>
                 )}
+
+                {/* ICONO USUARIO SELECCIONADO*/}
                 <div
                   style={{
                     width: "40px",
                     height: "40px",
                     borderRadius: "50%",
-                    background: primaryColor,
+                    background: selectedUser.avatar
+                      ? "transparent"
+                      : primaryColor,
                     marginRight: "0.75rem",
                     flexShrink: 0,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    overflow: "hidden",
                   }}
                 >
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4Z"
-                      fill="white"
+                  {selectedUser.avatar ? (
+                    <img
+                      src={selectedUser.avatar}
+                      alt="Avatar"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
                     />
-                    <path
-                      d="M12 6C9.79 6 8 7.79 8 10C8 12.21 9.79 14 12 14C14.21 14 16 12.21 16 10C16 7.79 14.21 6 12 6ZM12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12Z"
-                      fill="white"
-                    />
-                    <path
-                      d="M6.5 17.5C7.33 15.5 9.5 14 12 14C14.5 14 16.67 15.5 17.5 17.5H6.5Z"
-                      fill="white"
-                    />
-                  </svg>
+                  ) : (
+                    <span style={{ color: "white", fontWeight: "bold" }}>
+                      {selectedUser.user?.charAt(0).toUpperCase() || "U"}
+                    </span>
+                  )}
                 </div>
+                {/* ICONO USUARIO SELECCIONADO* GEANINAAA */}
+
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: "bold" }}>{selectedUser.user}</div>
                   <div style={{ color: lightTextColor, fontSize: "0.8rem" }}>
@@ -1465,89 +1477,189 @@ function PantallaMensajes() {
               >
                 {selectedUser.messages.length > 0 ? (
                   selectedUser.messages.map((message) => {
-                    try {
-                      if (message.metadata) {
-                        const metadata = JSON.parse(message.metadata);
-                        if (metadata.type === "shared_post") {
-                          // Si tiene metadata válido, muestra el SharedPostCard
-                          return (
-                            <div key={message.id} style={{ margin: "10px 0" }}>
-                              <SharedPostCard
-                                metadata={message.metadata}
-                                onClick={() =>
-                                  navigate(`/publicaciones/${metadata.postId}`)
-                                }
-                              />
-                            </div>
-                          );
-                        }
-                      } else {
-                        // Mensaje normal de texto
-                        return (
+                    let metadata = null;
+
+                    console.log("Mensaje completo:", message);
+                    console.log("Tipo metada", message.metadata);
+
+                    // Intentamos parsear metadata si existe
+                    if (message.metadata) {
+                      console.log("🧪 Metadata PARSEADA:", message.metadata);
+                      try {
+                        metadata =
+                          typeof message.metadata === "string"
+                            ? JSON.parse(message.metadata)
+                            : message.metadata;
+                      } catch (e) {
+                        console.warn(
+                          "❌ Metadata malformada:",
+                          message.metadata
+                        );
+                      }
+                    }
+                    // Si es una publicación compartida
+                    if (metadata?.type === "shared_post") {
+                      console.log("🧪 Mensaje:", message);
+                      return (
+                        <motion.div
+                          key={message.id}
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          style={{
+                            display: "flex",
+                            justifyContent: "flex-end", // Alinea a la derecha (tus mensajes)
+                            marginBottom: "1.5rem",
+                          }}
+                        >
                           <div
-                            key={message.id}
                             style={{
-                              marginBottom: "1.5rem",
-                              display: "flex",
-                              flexDirection: "column",
-                              alignItems: message.isUser
-                                ? "flex-end"
-                                : "flex-start",
+                              maxWidth: "70%",
+                              background: "rgba(243, 235, 235, 0.2)",
+                              borderRadius: "18px 18px 18px 18px",
+                              padding: "12px",
+                              color: "white",
+                              position: "relative",
+                              overflow: "hidden",
                             }}
                           >
-                            {message.sender !==
-                              selectedUser.messages[0]?.sender && (
-                              <div
+                            {/* Contenido */}
+                            <div style={{ marginBottom: "8px" }}>
+                              <p
                                 style={{
-                                  color: lightTextColor,
-                                  fontSize: "0.8rem",
-                                  marginBottom: "0.25rem",
+                                  margin: 0,
+                                  fontWeight: "bold",
+                                  fontSize: "0.9rem",
                                 }}
                               >
-                                {/* {message.isUser ? userName : message.sender} ·{" "} */}
-                                {/* {message.time} */}
-                              </div>
-                            )}
-                            <div
+                                📢 Publicación compartida
+                              </p>
+                              <p
+                                style={{ margin: "4px 0", fontStyle: "italic" }}
+                              >
+                                "{message.content}"
+                              </p>
+                            </div>
+
+                            {/* Botón con efecto hover */}
+                            <motion.button
+                              whileHover={{ scale: 1.03 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() =>
+                                navigate(`/publicaciones/${metadata.postId}`)
+                              }
                               style={{
-                                backgroundColor: message.isUser
-                                  ? primaryColor
-                                  : cardColor,
-                                color: message.isUser ? "white" : textColor,
-                                padding: "0.75rem 1rem",
-                                borderRadius: message.isUser
-                                  ? "18px 18px 4px 18px"
-                                  : "18px 18px 18px 4px",
-                                maxWidth: "70%",
-                                wordBreak: "break-word",
-                                border: message.isUser
-                                  ? "none"
-                                  : `1px solid ${borderColor}`,
+                                background:
+                                  "linear-gradient(135deg, #FF7043 0%, #FF4500 100%)",
+                                border: "1px solid rgba(255, 255, 255, 0.3)",
+                                color: "white",
+                                padding: "8px 12px",
+                                borderRadius: "50px",
+                                fontSize: "0.85rem",
+                                display: "flex",
+                                alignItems: "center",
+                                cursor: "pointer",
+                                backdropFilter: "blur(5px)",
+                                marginTop: "8px",
                               }}
                             >
-                              {message.content}
-                            </div>
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                                style={{ marginRight: "6px" }}
+                              >
+                                <path
+                                  d="M12 6C12.5523 6 13 6.44772 13 7V17C13 17.5523 12.5523 18 12 18C11.4477 18 11 17.5523 11 17V7C11 6.44772 11.4477 6 12 6Z"
+                                  fill="currentColor"
+                                />
+                                <path
+                                  d="M17 12L7 12C6.44772 12 6 12.4477 6 13C6 13.5523 6.44772 14 7 14H17C17.5523 14 18 13.5523 18 13C18 12.4477 17.5523 12 17 12Z"
+                                  fill="currentColor"
+                                />
+                              </svg>
+                              Ver publicación completa
+                            </motion.button>
+
+                            {/* Hora del mensaje */}
                             <div
                               style={{
-                                color: lightTextColor,
                                 fontSize: "0.7rem",
-                                marginTop: "0.25rem",
-                                alignSelf: message.isUser
-                                  ? "flex-end"
-                                  : "flex-start",
+                                textAlign: "right",
+                                marginTop: "8px",
+                                opacity: 0.8,
                               }}
                             >
                               {message.time}
                             </div>
-                            <div ref={messagesEndRef} />{" "}
-                            {/* Este div marca el final */}
                           </div>
-                        );
-                      }
-                    } catch (error) {
-                      console.error("Error al procesar mensaje:", error);
-                      return null;
+                        </motion.div>
+                      );
+                    } else {
+                      console.log("🧪 Mensaje sin render:", message);
                     }
+                    // Mensaje normal de texto
+                    return (
+                      <div
+                        key={message.id}
+                        style={{
+                          marginBottom: "1.5rem",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: message.isUser
+                            ? "flex-end"
+                            : "flex-start",
+                        }}
+                      >
+                        {message.sender !==
+                          selectedUser.messages[0]?.sender && (
+                          <div
+                            style={{
+                              color: lightTextColor,
+                              fontSize: "0.8rem",
+                              marginBottom: "0.25rem",
+                            }}
+                          >
+                            {/* {message.isUser ? userName : message.sender} ·{" "} */}
+                            {/* {message.time} */}
+                          </div>
+                        )}
+                        <div
+                          style={{
+                            backgroundColor: message.isUser
+                              ? primaryColor
+                              : cardColor,
+                            color: message.isUser ? "white" : textColor,
+                            padding: "0.75rem 1rem",
+                            borderRadius: message.isUser
+                              ? "18px 18px 4px 18px"
+                              : "18px 18px 18px 4px",
+                            maxWidth: "70%",
+                            wordBreak: "break-word",
+                            border: message.isUser
+                              ? "none"
+                              : `1px solid ${borderColor}`,
+                          }}
+                        >
+                          {message.content}
+                        </div>
+                        <div
+                          style={{
+                            color: lightTextColor,
+                            fontSize: "0.7rem",
+                            marginTop: "0.25rem",
+                            alignSelf: message.isUser
+                              ? "flex-end"
+                              : "flex-start",
+                          }}
+                        >
+                          {message.time}
+                        </div>
+                        <div ref={messagesEndRef} />{" "}
+                        {/* Este div marca el final */}
+                      </div>
+                    );
                   })
                 ) : (
                   <div
@@ -1959,10 +2071,23 @@ function PantallaMensajes() {
                           flexShrink: 0,
                         }}
                       >
-                        <span style={{ color: "white", fontWeight: "bold" }}>
-                          {user.nombreUsuario?.charAt(0).toUpperCase() || "U"}
-                        </span>
+                        {user.avatar ? (
+                          <img
+                            src={user.avatar}
+                            style={{
+                              borderRadius: "50%",
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                            }}
+                          />
+                        ) : (
+                          <span style={{ color: "white", fontWeight: "bold" }}>
+                            {user.nombreUsuario?.charAt(0).toUpperCase() || "U"}
+                          </span>
+                        )}
                       </div>
+
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: "bold", fontSize: "1rem" }}>
                           {user.nombreUsuario || "Usuario"}
